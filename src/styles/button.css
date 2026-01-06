@@ -1,0 +1,36 @@
+.custom-btn-group .btn{
+    background-color: #DBDBDB;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    width: 250px;
+    height: 180px;
+}
+
+.custom-border-color{
+    border-color: black;
+    color: black;
+}
+
+.custom-bg-color{
+    background-color: #c1c5ba;
+}
+
+.custom-input{
+    width: 200px;
+    height: 100px;
+}
+
+.cfont-size{
+    font-size: 18px;
+}
+/*background color sa whole page*/
+body {
+ /* background-image: url('../assets/bg_image.jpg');  adjust path if needed */
+    background-color: #FDFAF6;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; /* optional: keeps background static */
+    margin: 0;
+    padding: 0;
+  }

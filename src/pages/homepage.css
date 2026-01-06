@@ -1,0 +1,62 @@
+/* Import a clean, modern font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+/* Base styling */
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f9f9f9;
+  margin: 0;
+  padding: 0;
+}
+
+/* General font style */
+.general-font {
+  font-family: 'Poppins', sans-serif;
+  color: #2e2e2e;
+  font-size: 2.5rem;
+  letter-spacing: 0.5px;
+  font-weight: 900;
+}
+
+/* Centering and spacing of paragraphs */
+p.general-font {
+  text-align: center !important;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+/* Stylish horizontal line */
+hr {
+  border: none;
+  height: 3px;
+  background: linear-gradient(to right, #1e3a8a, #3b82f6); /* Blue gradient */
+  width: 70%;
+  margin: 40px auto;
+  border-radius: 2px;
+}
+
+/* Flex utilities */
+.d-flex {
+  display: flex;
+}
+
+.justify-content-center {
+  justify-content: center;
+}
+
+.align-items-center {
+  align-items: center;
+}
+
+/* Image styling */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+img:hover {
+  transform: scale(1.03);
+}
