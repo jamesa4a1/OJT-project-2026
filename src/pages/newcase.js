@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import '../styles/button.css';
+import { motion } from 'framer-motion';
 import axios from "axios";
 
 const Newcase = () => {
     const navigate = useNavigate();
+    const [isLoading, setIsLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         DOCKET_NO: "",
@@ -28,15 +29,13 @@ const Newcase = () => {
         setFormData({ ...formData, [name.toUpperCase()]: value });
     };
 
-    // Form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
 
-       const cleanedData = Object.fromEntries(
-  Object.entries(formData).map(([key, value]) => [key, value.trim() === "" ? "N/A" : value])
-);
-
-        console.log("Submitting cleaned data:", cleanedData);
+        const cleanedData = Object.fromEntries(
+            Object.entries(formData).map(([key, value]) => [key, value.trim() === "" ? "N/A" : value])
+        );
 
         try {
             await axios.post("http://localhost:5000/add-case", cleanedData);
@@ -45,114 +44,258 @@ const Newcase = () => {
         } catch (error) {
             console.error("Error adding case:", error);
             alert("Failed to add case. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
+    const inputClass = `w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                        focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
+                        transition-all duration-300 outline-none text-slate-700
+                        placeholder:text-slate-400`;
+
+    const labelClass = `block text-sm font-semibold text-slate-700 mb-2`;
+
     return (
         <div>
-            <h3 style={{textAlign: 'center', marginTop: '20px'}}>ADD NEW CASE</h3>
-
-            {/* BACK BUTTON  */} 
-            <button type="button" class="btn btn-outline-dark" 
-            style={{ marginBottom: '20px', marginLeft: '120px', marginTop: '20px' }}
-            onClick={() => navigate("/cases")}>
-                BACK
-            </button>
-
-            {/* Form */}
-            <div className="container-sm border-dark 
-            rounded custom-bg-color shadow 
-            mb-5 pt-4 pb-4">
-                <form onSubmit={handleSubmit}>
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Docket/IS Case number</span>
-                        <input type="text" name="DOCKET_NO" value={formData.DOCKET_NO} 
-                        onChange={handleChange} className="form-control" placeholder="Docket/IS case number" required />
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="max-w-4xl mx-auto"
+            >
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full 
+                                    bg-emerald-100 border border-emerald-200 mb-4">
+                        <i className="fas fa-plus-circle text-emerald-600"></i>
+                        <span className="text-emerald-700 font-medium text-sm">New Case Entry</span>
                     </div>
+                    <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">
+                        Add New Case
+                    </h1>
+                    <p className="text-slate-500">Fill in the details below to register a new case</p>
+                </div>
 
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Date Filed</span>
-                        <input type="date" name="DATE_FILED" value={formData.DATE_FILED} onChange={handleChange} className="form-control" />
+                {/* Back Button */}
+                <motion.button
+                    whileHover={{ x: -5 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => navigate("/dashboard")}
+                    className="flex items-center gap-2 px-4 py-2 mb-6 rounded-xl
+                               bg-white border border-slate-200 text-slate-600
+                               hover:bg-slate-50 hover:border-slate-300
+                               transition-all duration-300 shadow-sm cursor-pointer"
+                >
+                    <i className="fas fa-arrow-left"></i>
+                    <span className="font-medium">Back to Menu</span>
+                </motion.button>
+
+                {/* Form Card */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
+                >
+                    <div className="p-8">
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            
+                            {/* Section: Basic Information */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
+                                    <i className="fas fa-file-alt text-blue-500"></i>
+                                    Basic Information
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-hashtag text-blue-500 mr-2"></i>
+                                            Docket/IS Case Number *
+                                        </label>
+                                        <input type="text" name="DOCKET_NO" value={formData.DOCKET_NO} 
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Enter docket number" required />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-calendar text-blue-500 mr-2"></i>
+                                            Date Filed
+                                        </label>
+                                        <input type="date" name="DATE_FILED" value={formData.DATE_FILED}
+                                               onChange={handleChange} className={inputClass} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Parties */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
+                                    <i className="fas fa-users text-violet-500"></i>
+                                    Parties Involved
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-user text-emerald-500 mr-2"></i>
+                                            Complainant
+                                        </label>
+                                        <input type="text" name="COMPLAINANT" value={formData.COMPLAINANT}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Enter complainant name" />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-user-tag text-red-500 mr-2"></i>
+                                            Respondent *
+                                        </label>
+                                        <input type="text" name="RESPONDENT" value={formData.RESPONDENT}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Enter respondent name" required />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Case Details */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
+                                    <i className="fas fa-gavel text-amber-500"></i>
+                                    Case Details
+                                </h3>
+                                
+                                <div>
+                                    <label className={labelClass}>
+                                        <i className="fas fa-exclamation-triangle text-amber-500 mr-2"></i>
+                                        Offense
+                                    </label>
+                                    <input type="text" name="OFFENSE" value={formData.OFFENSE}
+                                           onChange={handleChange} className={inputClass}
+                                           placeholder="Describe the offense" />
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-calendar-check text-emerald-500 mr-2"></i>
+                                            Date Resolved
+                                        </label>
+                                        <input type="date" name="DATE_RESOLVED" value={formData.DATE_RESOLVED}
+                                               onChange={handleChange} className={inputClass} />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-user-tie text-blue-500 mr-2"></i>
+                                            Resolving Prosecutor *
+                                        </label>
+                                        <input type="text" name="RESOLVING_PROSECUTOR" value={formData.RESOLVING_PROSECUTOR}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Prosecutor name" required />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Court Information */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
+                                    <i className="fas fa-landmark text-slate-500"></i>
+                                    Court Information
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className={labelClass}>Criminal Case No.</label>
+                                        <input type="text" name="CRIM_CASE_NO" value={formData.CRIM_CASE_NO}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Case number" />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Branch</label>
+                                        <input type="text" name="BRANCH" value={formData.BRANCH}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Court branch" />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Date Filed in Court</label>
+                                        <input type="date" name="DATEFILED_IN_COURT" value={formData.DATEFILED_IN_COURT}
+                                               onChange={handleChange} className={inputClass} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Resolution */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
+                                    <i className="fas fa-clipboard-check text-emerald-500"></i>
+                                    Resolution & Remarks
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelClass}>Decision</label>
+                                        <input type="text" name="REMARKS" value={formData.REMARKS}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Enter decision" />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Remarks</label>
+                                        <input type="text" name="REMARKS_DECISION" value={formData.REMARKS_DECISION}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Additional remarks" />
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelClass}>Penalty</label>
+                                        <input type="text" name="PENALTY" value={formData.PENALTY}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="Penalty imposed" />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>
+                                            <i className="fas fa-link text-blue-500 mr-2"></i>
+                                            Index Card (Google Drive URL)
+                                        </label>
+                                        <input type="text" name="INDEX_CARDS" value={formData.INDEX_CARDS}
+                                               onChange={handleChange} className={inputClass}
+                                               placeholder="https://drive.google.com/..." />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Submit Button */}
+                            <div className="pt-6 border-t border-slate-200">
+                                <motion.button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    className={`w-full py-4 rounded-xl font-semibold text-lg
+                                               shadow-lg transition-all duration-300 border-none cursor-pointer
+                                               flex items-center justify-center gap-3
+                                               ${isLoading 
+                                                   ? 'bg-slate-400 cursor-not-allowed' 
+                                                   : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50'}`}
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            <span>Submitting...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fas fa-plus-circle"></i>
+                                            <span>Submit New Case</span>
+                                        </>
+                                    )}
+                                </motion.button>
+                            </div>
+                        </form>
                     </div>
-
-                    {/* Complainant -- Respondent */}
-                    <div className="row g-3">
-                        <div className="input-group mb-3 col-sm">
-                            <span className="input-group-text">Complainant</span>
-                            <input type="text" name="COMPLAINANT" value={formData.COMPLAINANT}
-                             onChange={handleChange} className="form-control" placeholder="Complainant" />
-                        </div>
-
-                        <div className="input-group mb-3 col-sm">
-                            <span className="input-group-text">Respondent</span>
-                            <input type="text" name="RESPONDENT" value={formData.RESPONDENT} 
-                            onChange={handleChange} className="form-control" placeholder="Respondent" required />
-                        </div>
-                    </div>
-
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Offense</span>
-                        <input type="text" name="OFFENSE" value={formData.OFFENSE} 
-                        onChange={handleChange} className="form-control" placeholder="Offense required" />
-                    </div>
-
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Date Resolved</span>
-                        <input type="date" name="DATE_RESOLVED" value={formData.DATE_RESOLVED} onChange={handleChange} className="form-control" />
-                    </div>
-
-                    {/* Resolving Prosecutor -- Court Details */}
-                    <div className="row g-3">
-                        <div className="input-group mb-3 col-sm">
-                            <span className="input-group-text">Prosecutor</span>
-                            <input type="text" name="RESOLVING_PROSECUTOR" value={formData.RESOLVING_PROSECUTOR} 
-                            onChange={handleChange} className="form-control" placeholder="J. Doe" required />
-                        </div>
-
-                        <div className="input-group mb-3 col-sm">
-                            <span className="input-group-text">Criminal Case Number</span>
-                            <input type="text" name="CRIM_CASE_NO" value={formData.CRIM_CASE_NO} onChange={handleChange} className="form-control" placeholder="Case Number" />
-                        </div>
-
-                        <div className="input-group mb-3 col-sm">
-                            <span className="input-group-text">Branch</span>
-                            <input type="text" name="BRANCH" value={formData.BRANCH} onChange={handleChange} className="form-control" placeholder="Branch" />
-                        </div>
-
-                        <div className="input-group mb-3 col-sm">
-                            <span className="input-group-text">Date Filed in Court</span>
-                            <input type="date" name="DATEFILED_IN_COURT" value={formData.DATEFILED_IN_COURT} onChange={handleChange} className="form-control" />
-                        </div>
-                    </div>
-
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Decision</span>
-                        <input type="text" name="REMARKS" value={formData.REMARKS} onChange={handleChange} className="form-control" placeholder="Decision" />
-                    </div>
-
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Remarks</span>
-                        <input type="text" name="REMARKS_DECISION" value={formData.REMARKS_DECISION} onChange={handleChange} className="form-control" placeholder="Remarks" />
-                    </div>
-
-                    <div className="input-group mb-3">
-                        <span className="input-group-text">Penalty</span>
-                        <input type="text" name="PENALTY" value={formData.PENALTY} onChange={handleChange} className="form-control" placeholder="Penalty" />
-                    </div>
-
-                    <div className="input-group mb-3 col-sm">
-                        <span className="input-group-text">Index Card</span>
-                        <input type="text" name="INDEX_CARDS" value={formData.INDEX_CARDS} onChange={handleChange} className="form-control" placeholder="Index Card" />
-                    </div>
-
-                    <button type="submit" className="btn btn-dark"
-                    style={{display: 'block', margin: '0 auto'}}>
-                    Submit
-                    </button>
-
-                
-                </form>
-            </div>
+                </motion.div>
+            </motion.div>
         </div>
     );
 };

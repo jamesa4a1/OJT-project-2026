@@ -1,22 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-
-.bg {
-  background-size: cover;
-  background-position: center;
-  width: 100%;
-  height: 100vh;
-  position: relative;
+@layer components {
+  .btn-doj {
+    @apply px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg;
+  }
+  
+  .btn-doj-primary {
+    @apply bg-gradient-to-r from-doj-navy to-doj-blue text-white hover:shadow-xl hover:scale-105;
+  }
+  
+  .card-glass {
+    @apply bg-white/80 backdrop-blur-lg border border-white/20 rounded-2xl shadow-xl;
+  }
+  
+  .input-modern {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-doj-blue focus:ring-4 focus:ring-doj-blue/20 transition-all duration-300 outline-none;
+  }
 }

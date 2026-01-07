@@ -1,17 +1,56 @@
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const bcrypt = require("bcryptjs");
 
 const app = express();
 app.use(cors()); 
-app.use(express.json()); 
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads', 'profiles');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files are allowed!'));
+  }
+});
 
 // Connection
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
   password: "", 
-  database: "okok",
+  database: "ocp_docketing",
 });
 
 db.connect((err) => {
@@ -20,6 +59,427 @@ db.connect((err) => {
     return;
   }
   console.log("Connected to MySQL database.");
+  
+  // Create users table if it doesn't exist
+  const createUsersTable = `
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      role ENUM('Admin', 'Clerk') DEFAULT 'Clerk',
+      profile_picture VARCHAR(500) DEFAULT NULL,
+      last_login TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `;
+  
+  db.query(createUsersTable, async (err) => {
+    if (err) {
+      console.error("Error creating users table:", err);
+    } else {
+      console.log("Users table ready.");
+      
+      // Add last_login column if it doesn't exist (for existing tables)
+      db.query("SHOW COLUMNS FROM users LIKE 'last_login'", (err, results) => {
+        if (!err && results.length === 0) {
+          db.query("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL DEFAULT NULL AFTER profile_picture", (alterErr) => {
+            if (alterErr) console.error("Error adding last_login column:", alterErr);
+            else console.log("Added last_login column to users table.");
+          });
+        }
+      });
+      
+      // Create default admin account if not exists
+      const adminEmail = "james@gmail.com";
+      const adminPassword = "james12345";
+      const adminName = "James Admin";
+      
+      db.query("SELECT * FROM users WHERE email = ?", [adminEmail], async (err, results) => {
+        if (err) {
+          console.error("Error checking for admin:", err);
+          return;
+        }
+        
+        if (results.length === 0) {
+          // Create admin account
+          const hashedPassword = await bcrypt.hash(adminPassword, 10);
+          db.query(
+            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'Admin')",
+            [adminName, adminEmail, hashedPassword],
+            (insertErr) => {
+              if (insertErr) {
+                console.error("Error creating admin account:", insertErr);
+              } else {
+                console.log("Default admin account created (james@gmail.com)");
+              }
+            }
+          );
+        } else {
+          console.log("Admin account already exists.");
+        }
+      });
+      
+      // Auto-delete accounts inactive for more than 1 year (except Admin)
+      const deleteInactiveAccounts = () => {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        // First check if last_login column exists
+        db.query("SHOW COLUMNS FROM users LIKE 'last_login'", (checkErr, cols) => {
+          if (checkErr || cols.length === 0) {
+            console.log("Skipping cleanup - last_login column not ready yet.");
+            return;
+          }
+          
+          db.query(
+            `DELETE FROM users 
+             WHERE role != 'Admin' 
+             AND (
+               (last_login IS NOT NULL AND last_login < ?) 
+               OR (last_login IS NULL AND created_at < ?)
+             )`,
+            [oneYearAgo, oneYearAgo],
+            (err, result) => {
+              if (err) {
+                console.error("Error cleaning up inactive accounts:", err);
+              } else if (result.affectedRows > 0) {
+                console.log(`Deleted ${result.affectedRows} inactive account(s).`);
+              }
+            }
+          );
+        });
+      };
+      
+      // Run cleanup after a delay to allow column to be added
+      setTimeout(deleteInactiveAccounts, 3000);
+      
+      // Run cleanup every 24 hours
+      setInterval(deleteInactiveAccounts, 24 * 60 * 60 * 1000);
+    }
+  });
+});
+
+// ==================== USER AUTHENTICATION ROUTES ====================
+
+// Register new user
+app.post("/api/auth/register", async (req, res) => {
+  const { name, email, password, role } = req.body;
+  
+  if (!name || !email || !password) {
+    return res.status(400).json({ success: false, message: "All fields are required" });
+  }
+  
+  try {
+    // Check if user already exists
+    db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      
+      if (results.length > 0) {
+        return res.status(400).json({ success: false, message: "Email already registered" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Insert new user
+      const sql = "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)";
+      db.query(sql, [name, email, hashedPassword, role || 'Clerk'], (err, result) => {
+        if (err) {
+          console.error("Error registering user:", err);
+          return res.status(500).json({ success: false, message: "Failed to register user" });
+        }
+        
+        // Return user data (without password)
+        const userData = {
+          id: result.insertId,
+          name,
+          email,
+          role: role || 'Clerk',
+          profile_picture: null,
+          created_at: new Date().toISOString()
+        };
+        
+        res.status(201).json({ success: true, message: "Registration successful", user: userData });
+      });
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// Get all users (Admin only)
+app.get("/api/users", (req, res) => {
+  db.query("SELECT id, name, email, role, profile_picture, last_login, created_at FROM users ORDER BY created_at DESC", (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    res.json({ success: true, users: results });
+  });
+});
+
+// Delete user (Admin only)
+app.delete("/api/user/:id", (req, res) => {
+  const { id } = req.params;
+  
+  // Prevent deleting admin accounts
+  db.query("SELECT role FROM users WHERE id = ?", [id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    if (results[0].role === 'Admin') {
+      return res.status(403).json({ success: false, message: "Cannot delete admin accounts" });
+    }
+    
+    db.query("DELETE FROM users WHERE id = ?", [id], (deleteErr) => {
+      if (deleteErr) {
+        console.error("Error deleting user:", deleteErr);
+        return res.status(500).json({ success: false, message: "Failed to delete user" });
+      }
+      res.json({ success: true, message: "User deleted successfully" });
+    });
+  });
+});
+
+// Login user
+app.post("/api/auth/login", (req, res) => {
+  const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: "Email and password are required" });
+  }
+  
+  db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    if (results.length === 0) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+    
+    const user = results[0];
+    
+    // Compare passwords
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+    
+    // Update last_login timestamp
+    db.query("UPDATE users SET last_login = NOW() WHERE id = ?", [user.id]);
+    
+    // Return user data (without password)
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      profile_picture: user.profile_picture,
+      last_login: new Date().toISOString(),
+      created_at: user.created_at
+    };
+    
+    res.json({ success: true, message: "Login successful", user: userData });
+  });
+});
+
+// Get user profile
+app.get("/api/user/:id", (req, res) => {
+  const { id } = req.params;
+  
+  db.query("SELECT id, name, email, role, profile_picture, created_at FROM users WHERE id = ?", [id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    res.json({ success: true, user: results[0] });
+  });
+});
+
+// Update user profile
+app.put("/api/user/:id", (req, res) => {
+  const { id } = req.params;
+  const { name, email } = req.body;
+  
+  if (!name || !email) {
+    return res.status(400).json({ success: false, message: "Name and email are required" });
+  }
+  
+  // Check if email is taken by another user
+  db.query("SELECT * FROM users WHERE email = ? AND id != ?", [email, id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    if (results.length > 0) {
+      return res.status(400).json({ success: false, message: "Email already taken by another user" });
+    }
+    
+    // Update user
+    db.query("UPDATE users SET name = ?, email = ? WHERE id = ?", [name, email, id], (err, result) => {
+      if (err) {
+        console.error("Error updating user:", err);
+        return res.status(500).json({ success: false, message: "Failed to update profile" });
+      }
+      
+      // Get updated user data
+      db.query("SELECT id, name, email, role, profile_picture, created_at FROM users WHERE id = ?", [id], (err, results) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        res.json({ success: true, message: "Profile updated successfully", user: results[0] });
+      });
+    });
+  });
+});
+
+// Change password
+app.put("/api/user/:id/password", async (req, res) => {
+  const { id } = req.params;
+  const { currentPassword, newPassword } = req.body;
+  
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: "Current and new password are required" });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+  }
+  
+  // Get current user
+  db.query("SELECT * FROM users WHERE id = ?", [id], async (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    const user = results[0];
+    
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+    
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Update password
+    db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, id], (err) => {
+      if (err) {
+        console.error("Error updating password:", err);
+        return res.status(500).json({ success: false, message: "Failed to update password" });
+      }
+      
+      res.json({ success: true, message: "Password updated successfully" });
+    });
+  });
+});
+
+// Upload profile picture
+app.post("/api/user/:id/upload-picture", upload.single('profilePicture'), (req, res) => {
+  const { id } = req.params;
+  
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No file uploaded" });
+  }
+  
+  const profilePictureUrl = `/uploads/profiles/${req.file.filename}`;
+  
+  // Get old profile picture to delete
+  db.query("SELECT profile_picture FROM users WHERE id = ?", [id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    // Delete old profile picture file if exists
+    if (results.length > 0 && results[0].profile_picture) {
+      const oldPath = path.join(__dirname, results[0].profile_picture);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+    
+    // Update database with new picture path
+    db.query("UPDATE users SET profile_picture = ? WHERE id = ?", [profilePictureUrl, id], (err) => {
+      if (err) {
+        console.error("Error updating profile picture:", err);
+        return res.status(500).json({ success: false, message: "Failed to update profile picture" });
+      }
+      
+      // Get updated user data
+      db.query("SELECT id, name, email, role, profile_picture, created_at FROM users WHERE id = ?", [id], (err, results) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        res.json({ success: true, message: "Profile picture updated successfully", user: results[0] });
+      });
+    });
+  });
+});
+
+// Remove profile picture
+app.delete("/api/user/:id/picture", (req, res) => {
+  const { id } = req.params;
+  
+  // Get current profile picture
+  db.query("SELECT profile_picture FROM users WHERE id = ?", [id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    // Delete file if exists
+    if (results.length > 0 && results[0].profile_picture) {
+      const filePath = path.join(__dirname, results[0].profile_picture);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+    
+    // Update database
+    db.query("UPDATE users SET profile_picture = NULL WHERE id = ?", [id], (err) => {
+      if (err) {
+        console.error("Error removing profile picture:", err);
+        return res.status(500).json({ success: false, message: "Failed to remove profile picture" });
+      }
+      
+      // Get updated user data
+      db.query("SELECT id, name, email, role, profile_picture, created_at FROM users WHERE id = ?", [id], (err, results) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        res.json({ success: true, message: "Profile picture removed successfully", user: results[0] });
+      });
+    });
+  });
 });
 
 // Get all cases para sad makuha nag lin sa gdrive
