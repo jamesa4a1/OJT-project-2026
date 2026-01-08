@@ -120,25 +120,7 @@ const Homepage = () => {
                     </motion.div>
                 </motion.div>
 
-                {/* CTA Section */}
-                <motion.div variants={itemVariants} className="text-center">
-                    <motion.button
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => navigate('/cases')}
-                        className="inline-flex items-center gap-3 px-8 py-4 
-                                   bg-gradient-to-r from-blue-600 to-blue-700 
-                                   hover:from-blue-700 hover:to-blue-800
-                                   text-white font-semibold text-lg rounded-2xl 
-                                   shadow-xl shadow-blue-500/30 hover:shadow-2xl hover:shadow-blue-500/40
-                                   transition-all duration-300 border-none cursor-pointer"
-                        aria-label="Access the case management system"
-                    >
-                        <i className="fas fa-folder-open"></i>
-                        Access Case Management
-                        <i className="fas fa-arrow-right text-blue-300"></i>
-                    </motion.button>
-                </motion.div>
+                
 
                 {/* Stats Section */}
                 <motion.div 

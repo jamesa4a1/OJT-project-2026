@@ -143,6 +143,8 @@ App HOst- http://localhost:3000
 
 cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start 
 
+node server.js
+
 ## To pause/stop the servers:
 
 In each terminal window where a server is running:
@@ -164,3 +166,36 @@ oct_docketing
 git add .
 git commit -m "message of whats been changes"
 git push origin main
+
+## if error ((push declined due to email privacy restrictions))
+
+git config user.email "jamesa4a1@users.noreply.github.com"
+
+git commit --amend --reset-author --no-edit
+git push origin main
+
+
+
+
+
+## Safe way to stop:
+
+Stop the Node.js backend server first (port 5000)
+
+Go to the terminal running node server.js
+Press Ctrl+C to stop it
+Stop the React frontend (port 3000)
+
+Go to the terminal running npm start
+Press Ctrl+C to stop it
+Close XAMPP Control Panel
+
+Click "Stop" on Apache and MySQL
+Or close the control panel directly
+Your data in the MySQL database is safely saved on disk
+When you're ready to resume:
+
+Open XAMPP Control Panel
+Click "Start" for MySQL (at minimum)
+Start the Node server: node server.js
+Start React: npm start

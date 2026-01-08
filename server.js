@@ -16,12 +16,16 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads', 'profiles');
+const indexCardsDir = path.join(__dirname, 'uploads', 'index_cards');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+if (!fs.existsSync(indexCardsDir)) {
+  fs.mkdirSync(indexCardsDir, { recursive: true });
+}
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
+// Configure multer for profile uploads
+const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
@@ -31,8 +35,19 @@ const storage = multer.diskStorage({
   }
 });
 
+// Configure multer for index card uploads
+const indexCardStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, indexCardsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'indexcard-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
 const upload = multer({
-  storage: storage,
+  storage: profileStorage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -42,6 +57,20 @@ const upload = multer({
       return cb(null, true);
     }
     cb(new Error('Only image files are allowed!'));
+  }
+});
+
+const indexCardUpload = multer({
+  storage: indexCardStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files (JPEG, JPG, PNG) are allowed!'));
   }
 });
 
@@ -512,8 +541,9 @@ app.get("/cases", (req, res) => {
 });
 
 // Add a new case 
-app.post("/add-case", (req, res) => {
+app.post("/add-case", indexCardUpload.single('indexCardImage'), (req, res) => {
   console.log("Received Data:", req.body); // debug
+  console.log("Received File:", req.file); // debug
   const {
       DOCKET_NO,
       DATE_FILED,
@@ -527,10 +557,11 @@ app.post("/add-case", (req, res) => {
       DATEFILED_IN_COURT,
       REMARKS,
       REMARKS_DECISION,
-      PENALTY,
-      INDEX_CARDS
-  
+      PENALTY
   } = req.body;
+
+  // Get the image path if uploaded
+  const INDEX_CARDS = req.file ? `/uploads/index_cards/${req.file.filename}` : 'N/A';
 
   const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, OFFENSE, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS, REMARKS_DECISION, PENALTY, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
@@ -539,7 +570,7 @@ app.post("/add-case", (req, res) => {
           console.error("Error inserting data:", err);
           res.status(500).json({ message: "Failed to add case" });
       } else {
-          res.status(200).json({ message: "Case added successfully" });
+          res.status(200).json({ message: "Case added successfully", indexCardPath: INDEX_CARDS });
       }
   });
 });
@@ -635,6 +666,70 @@ app.post("/update-case", (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "No matching case found." });
     }
+    return res.json({ message: "Case updated successfully!" });
+  });
+});
+
+// Update case with image upload
+app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (req, res) => {
+  console.log("Update request received");
+  console.log("Request body:", req.body);
+  console.log("Request file:", req.file);
+  
+  const { id } = req.body;
+
+  if (!id) {
+    console.log("Missing case ID");
+    return res.status(400).json({ message: "Missing case ID." });
+  }
+
+  let updateQuery = "UPDATE cases SET ";
+  const updateValues = [];
+  const fields = [];
+
+  // Add the image path
+  if (req.file) {
+    fields.push('INDEX_CARDS');
+    updateValues.push(`/uploads/index_cards/${req.file.filename}`);
+    console.log("Image uploaded:", req.file.filename);
+  }
+
+  // Add other updated fields
+  Object.keys(req.body).forEach((key) => {
+    if (key !== 'id' && key !== 'indexCardImage') {
+      fields.push(key);
+      updateValues.push(req.body[key]);
+    }
+  });
+
+  console.log("Fields to update:", fields);
+  console.log("Values:", updateValues);
+
+  if (fields.length === 0) {
+    console.log("No fields to update");
+    return res.status(400).json({ message: "No fields to update." });
+  }
+
+  fields.forEach((field, index) => {
+    updateQuery += `${field} = ?`;
+    if (index < fields.length - 1) updateQuery += ", ";
+  });
+
+  updateQuery += " WHERE id = ?";
+  updateValues.push(id);
+
+  console.log("Executing Update with Image:", updateQuery);
+  console.log("With values:", updateValues);
+
+  db.query(updateQuery, updateValues, (err, result) => {
+    if (err) {
+      console.error("Error updating case:", err);
+      return res.status(500).json({ message: "Error updating case: " + err.message });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "No matching case found." });
+    }
+    console.log("Update successful!");
     return res.json({ message: "Case updated successfully!" });
   });
 });

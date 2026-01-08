@@ -196,29 +196,31 @@ const DashboardLayout = ({ children }) => {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={{ duration: 0.2 }}
-                                        className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50"
+                                        className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+                                        style={{ zIndex: 9999 }}
                                     >
-                                        <div className="p-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50">
-                                            <p className="text-sm font-semibold text-slate-800 truncate">{user?.name}</p>
-                                            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                                            <span className={`inline-block mt-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                                        <div className="p-4 border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50">
+                                            <p className="text-base font-bold text-slate-800 truncate mb-1">{user?.name}</p>
+                                            <p className="text-sm text-slate-600 truncate mb-3">{user?.email}</p>
+                                            <span className={`inline-block px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${
                                                 user?.role === 'Admin' 
-                                                    ? 'bg-purple-100 text-purple-700' 
+                                                    ? 'bg-purple-600 text-white' 
                                                     : user?.role === 'Staff'
-                                                    ? 'bg-teal-100 text-teal-700'
-                                                    : 'bg-blue-100 text-blue-700'
+                                                    ? 'bg-teal-600 text-white'
+                                                    : 'bg-blue-600 text-white'
                                             }`}>
                                                 {user?.role}
                                             </span>
                                         </div>
                                         
                                         <motion.button
-                                            whileHover={{ backgroundColor: '#fee2e2' }}
+                                            whileHover={{ backgroundColor: '#fef2f2' }}
+                                            whileTap={{ scale: 0.98 }}
                                             onClick={handleLogout}
-                                            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors text-left border-none bg-transparent cursor-pointer"
+                                            className="w-full flex items-center gap-3 px-4 py-3.5 text-red-600 hover:bg-red-50 transition-all text-left border-none bg-transparent cursor-pointer font-medium"
                                         >
-                                            <i className="fas fa-sign-out-alt w-5"></i>
-                                            <span className="font-medium">Sign Out</span>
+                                            <i className="fas fa-sign-out-alt w-5 text-lg"></i>
+                                            <span className="font-semibold text-base">Sign Out</span>
                                         </motion.button>
                                     </motion.div>
                                 )}

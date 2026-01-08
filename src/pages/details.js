@@ -9,6 +9,7 @@ const Details = () => {
   const [caseDetails, setCaseDetails] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [showFullImage, setShowFullImage] = useState(false);
 
   useEffect(() => {
     const fetchCaseDetails = async () => {
@@ -156,21 +157,35 @@ const Details = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-doj-navy/10 flex items-center justify-center">
-                    <i className="fas fa-link text-doj-navy"></i>
+                    <i className="fas fa-image text-doj-navy"></i>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Index Card</p>
-                    <p className="text-slate-600">{caseDetails.INDEX_CARDS ? "Document attached" : "No document attached"}</p>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Index Card Image</p>
+                    <p className="text-slate-600">{caseDetails.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' ? "Image attached" : "No image attached"}</p>
                   </div>
                 </div>
-                {caseDetails.INDEX_CARDS && (
+                {caseDetails.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && (
                   <motion.a whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                    href={caseDetails.INDEX_CARDS} target="_blank" rel="noopener noreferrer"
+                    href={`http://localhost:5000${caseDetails.INDEX_CARDS}`} target="_blank" rel="noopener noreferrer"
                     className="px-4 py-2 rounded-xl bg-doj-navy text-white font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300 no-underline">
-                    <i className="fas fa-external-link-alt"></i>View File
+                    <i className="fas fa-eye"></i>View Image
                   </motion.a>
                 )}
               </div>
+              {caseDetails.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && (
+                <div className="mt-4 relative">
+                  <img 
+                    src={`http://localhost:5000${caseDetails.INDEX_CARDS}`} 
+                    alt="Index Card" 
+                    onClick={() => setShowFullImage(true)}
+                    className="w-full max-h-96 object-contain rounded-lg border-2 border-slate-200 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
+                    <i className="fas fa-search-plus mr-1"></i> Click to view full size
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
 
@@ -189,6 +204,35 @@ const Details = () => {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Fullscreen Image Modal */}
+      {showFullImage && caseDetails?.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setShowFullImage(false)}
+          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+          style={{ margin: 0 }}
+        >
+          <button
+            onClick={() => setShowFullImage(false)}
+            className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 
+                     text-white rounded-full flex items-center justify-center 
+                     transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
+          >
+            <i className="fas fa-times text-2xl"></i>
+          </button>
+          <motion.img
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            src={`http://localhost:5000${caseDetails.INDEX_CARDS}`}
+            alt="Full Size Index Card"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </motion.div>
+      )}
     </div>
   );
 };

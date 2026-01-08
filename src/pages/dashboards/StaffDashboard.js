@@ -37,18 +37,13 @@ const StaffDashboard = () => {
                 
                 // Calculate stats
                 const pending = cases.filter(c => {
-                    const status = (c.status || c.STATUS || '').toLowerCase();
-                    return status === 'pending' || status === 'open' || status === 'active' || !c.DATE_RESOLVED;
+                    const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
+                    return remarks === 'pending';
                 }).length;
                 
                 const terminated = cases.filter(c => {
-                    const status = (c.status || c.STATUS || '').toLowerCase();
-                    return status.includes('terminated') || 
-                           status.includes('resolved') || 
-                           status.includes('dismissed') || 
-                           status.includes('closed') ||
-                           status.includes('archived') ||
-                           c.DATE_RESOLVED;
+                    const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
+                    return remarks === 'terminated';
                 }).length;
 
                 setStats({
@@ -70,18 +65,13 @@ const StaffDashboard = () => {
         // Apply status filter
         if (statusFilter === 'pending') {
             result = result.filter(c => {
-                const status = (c.status || c.STATUS || '').toLowerCase();
-                return status === 'pending' || status === 'open' || status === 'active' || (!c.DATE_RESOLVED && !status.includes('terminated') && !status.includes('resolved') && !status.includes('dismissed'));
+                const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
+                return remarks === 'pending';
             });
         } else if (statusFilter === 'terminated') {
             result = result.filter(c => {
-                const status = (c.status || c.STATUS || '').toLowerCase();
-                return status.includes('terminated') || 
-                       status.includes('resolved') || 
-                       status.includes('dismissed') || 
-                       status.includes('closed') ||
-                       status.includes('archived') ||
-                       c.DATE_RESOLVED;
+                const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
+                return remarks === 'terminated';
             });
         }
 
@@ -102,21 +92,27 @@ const StaffDashboard = () => {
     };
 
     const getStatusBadge = (caseItem) => {
-        const status = (caseItem.status || caseItem.STATUS || '').toLowerCase();
-        const hasResolved = caseItem.DATE_RESOLVED;
+        const remarks = (caseItem.REMARKS || caseItem.remarks || '').toLowerCase();
         
-        if (status.includes('terminated') || status.includes('resolved') || status.includes('dismissed') || status.includes('closed') || hasResolved) {
+        if (remarks === 'terminated') {
             return (
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
                     <i className="fas fa-check-circle mr-1"></i>
                     Terminated
                 </span>
             );
+        } else if (remarks === 'pending') {
+            return (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                    <i className="fas fa-clock mr-1"></i>
+                    Pending
+                </span>
+            );
         }
         return (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                <i className="fas fa-clock mr-1"></i>
-                Pending
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                <i className="fas fa-question-circle mr-1"></i>
+                N/A
             </span>
         );
     };
@@ -345,7 +341,7 @@ const StaffDashboard = () => {
                                         Respondent
                                     </th>
                                     <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        Status
+                                        Remarks
                                     </th>
                                     <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
                                         Actions

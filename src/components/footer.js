@@ -7,7 +7,7 @@ const Footer = () => {
   
   const quickLinks = [
     { path: '/homepage', label: 'Home' },
-    { path: '/cases', label: 'Cases' },
+    
     { path: '/aboutus', label: 'About' },
   ];
 
@@ -76,15 +76,15 @@ const Footer = () => {
             <address className="text-slate-400 text-sm not-italic space-y-2">
               <p className="flex items-center justify-center md:justify-end gap-2 m-0">
                 <i className="fas fa-building text-blue-400/70"></i>
-                Hall of Justice
+                City Prosecution Office
               </p>
               <p className="flex items-center justify-center md:justify-end gap-2 m-0">
                 <i className="fas fa-location-dot text-blue-400/70"></i>
-                Carlos P. Garcia E Ave
+                 Hall of Justice New Capitol Site,  Lino Chatto Drive
               </p>
               <p className="flex items-center justify-center md:justify-end gap-2 m-0">
                 <i className="fas fa-city text-blue-400/70"></i>
-                Tagbilaran City, 6300 Bohol
+                Tagbilaran City,  Bohol
               </p>
             </address>
           </div>

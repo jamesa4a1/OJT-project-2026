@@ -146,17 +146,6 @@ const ClerkDashboard = () => {
                             <i className="fas fa-download"></i>
                             Export CSV
                         </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => { logout(); navigate('/homepage'); }}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl
-                                       bg-red-500 text-white font-semibold text-sm
-                                       hover:bg-red-600 transition-colors border-none cursor-pointer shadow-lg"
-                        >
-                            <i className="fas fa-sign-out-alt"></i>
-                            Logout
-                        </motion.button>
                     </div>
                 </div>
             </motion.div>

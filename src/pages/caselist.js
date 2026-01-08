@@ -11,6 +11,7 @@ const Caselist = () => {
   const [sortOption, setSortOption] = useState("RESPONDENT");
   const [sortDirection, setSortDirection] = useState("asc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFullImage, setShowFullImage] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -299,19 +300,36 @@ const Caselist = () => {
                       </div>
                     ))}
                     
-                    {selectedCase.INDEX_CARDS && (
-                      <a 
-                        href={selectedCase.INDEX_CARDS} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200
-                                   hover:bg-blue-100 transition-colors no-underline"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                          <i className="fas fa-external-link-alt text-white text-sm"></i>
+                    {selectedCase.INDEX_CARDS && selectedCase.INDEX_CARDS !== 'N/A' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                            <i className="fas fa-image text-white text-sm"></i>
+                          </div>
+                          <span className="text-blue-700 font-medium">Index Card Image</span>
                         </div>
-                        <span className="text-blue-700 font-medium">View Index Card</span>
-                      </a>
+                        <div className="relative">
+                          <img 
+                            src={`http://localhost:5000${selectedCase.INDEX_CARDS}`} 
+                            alt="Index Card" 
+                            onClick={() => setShowFullImage(true)}
+                            className="w-full max-h-80 object-contain rounded-xl border-2 border-slate-200 shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                          <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
+                            <i className="fas fa-search-plus mr-1"></i> Click to view full size
+                          </div>
+                        </div>
+                        <a 
+                          href={`http://localhost:5000${selectedCase.INDEX_CARDS}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="block text-center px-4 py-2 rounded-lg bg-blue-500 text-white font-medium
+                                     hover:bg-blue-600 transition-colors no-underline"
+                        >
+                          <i className="fas fa-external-link-alt mr-2"></i>Open in New Tab
+                        </a>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -319,6 +337,35 @@ const Caselist = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Fullscreen Image Modal */}
+        {showFullImage && selectedCase?.INDEX_CARDS && selectedCase.INDEX_CARDS !== 'N/A' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowFullImage(false)}
+            className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+            style={{ margin: 0 }}
+          >
+            <button
+              onClick={() => setShowFullImage(false)}
+              className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 
+                       text-white rounded-full flex items-center justify-center 
+                       transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
+            >
+              <i className="fas fa-times text-2xl"></i>
+            </button>
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              src={`http://localhost:5000${selectedCase.INDEX_CARDS}`}
+              alt="Full Size Index Card"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );

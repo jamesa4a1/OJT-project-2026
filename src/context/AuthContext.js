@@ -45,12 +45,12 @@ export const AuthProvider = ({ children }) => {
                 localStorage.setItem('ocpUser', JSON.stringify(userData));
                 return { success: true, role: userData.role };
             } else {
-                return { success: false, message: data.message };
+                return { success: false, message: data.message || 'Invalid email or password.' };
             }
         } catch (error) {
             console.error('Login error:', error);
-            // Fallback to localStorage if server is down
-            return loginOffline(email, password);
+            // Server is down - show appropriate message
+            return { success: false, message: 'Cannot connect to server. Please ensure the backend server is running (node server.js).' };
         }
     };
 

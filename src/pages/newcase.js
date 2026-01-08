@@ -6,6 +6,9 @@ import axios from "axios";
 const Newcase = () => {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+    const [indexCardImage, setIndexCardImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [showFullImage, setShowFullImage] = useState(false);
 
     const [formData, setFormData] = useState({
         DOCKET_NO: "",
@@ -20,13 +23,33 @@ const Newcase = () => {
         DATEFILED_IN_COURT: "N/A",
         REMARKS: "",
         REMARKS_DECISION: "",
-        PENALTY: "",
-        INDEX_CARDS: ""
+        PENALTY: ""
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name.toUpperCase()]: value });
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB');
+                return;
+            }
+            setIndexCardImage(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeImage = () => {
+        setIndexCardImage(null);
+        setImagePreview(null);
     };
 
     const handleSubmit = async (e) => {
@@ -37,8 +60,23 @@ const Newcase = () => {
             Object.entries(formData).map(([key, value]) => [key, value.trim() === "" ? "N/A" : value])
         );
 
+        // Create FormData for file upload
+        const submitData = new FormData();
+        Object.keys(cleanedData).forEach(key => {
+            submitData.append(key, cleanedData[key]);
+        });
+        
+        // Add image if selected
+        if (indexCardImage) {
+            submitData.append('indexCardImage', indexCardImage);
+        }
+
         try {
-            await axios.post("http://localhost:5000/add-case", cleanedData);
+            await axios.post("http://localhost:5000/add-case", submitData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
             alert("Case added successfully!");
             navigate("/caselist");
         } catch (error) {
@@ -255,12 +293,44 @@ const Newcase = () => {
                                     </div>
                                     <div>
                                         <label className={labelClass}>
-                                            <i className="fas fa-link text-blue-500 mr-2"></i>
-                                            Index Card (Google Drive URL)
+                                            <i className="fas fa-image text-blue-500 mr-2"></i>
+                                            Index Card Image
                                         </label>
-                                        <input type="text" name="INDEX_CARDS" value={formData.INDEX_CARDS}
-                                               onChange={handleChange} className={inputClass}
-                                               placeholder="https://drive.google.com/..." />
+                                        <div className="space-y-3">
+                                            {!imagePreview ? (
+                                                <label className="flex flex-col items-center justify-center w-full h-32 
+                                                                 border-2 border-dashed border-slate-300 rounded-xl 
+                                                                 hover:border-blue-500 hover:bg-blue-50/50 
+                                                                 transition-all duration-300 cursor-pointer group">
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <i className="fas fa-cloud-upload-alt text-3xl text-slate-400 
+                                                                    group-hover:text-blue-500 mb-2 transition-colors"></i>
+                                                        <p className="text-sm text-slate-500 group-hover:text-blue-600 font-medium">
+                                                            Click to upload index card image
+                                                        </p>
+                                                        <p className="text-xs text-slate-400 mt-1">PNG, JPG, JPEG (Max 5MB)</p>
+                                                    </div>
+                                                    <input type="file" className="hidden" 
+                                                           accept="image/png,image/jpeg,image/jpg"
+                                                           onChange={handleImageChange} />
+                                                </label>
+                                            ) : (
+                                                <div className="relative">
+                                                    <img src={imagePreview} alt="Index Card Preview" 
+                                                         onClick={() => setShowFullImage(true)}
+                                                         className="w-full h-48 object-cover rounded-xl border-2 border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" />
+                                                    <button type="button" onClick={removeImage}
+                                                            className="absolute top-2 right-2 px-3 py-2 
+                                                                     bg-red-500 hover:bg-red-600 text-white 
+                                                                     rounded-lg shadow-lg transition-colors cursor-pointer z-10">
+                                                        <i className="fas fa-times mr-1"></i> Remove
+                                                    </button>
+                                                    <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
+                                                        <i className="fas fa-search-plus mr-1"></i> Click to view full size
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -296,6 +366,35 @@ const Newcase = () => {
                     </div>
                 </motion.div>
             </motion.div>
+
+            {/* Fullscreen Image Modal */}
+            {showFullImage && imagePreview && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowFullImage(false)}
+                    className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+                    style={{ margin: 0 }}
+                >
+                    <button
+                        onClick={() => setShowFullImage(false)}
+                        className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 
+                                 text-white rounded-full flex items-center justify-center 
+                                 transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
+                    >
+                        <i className="fas fa-times text-2xl"></i>
+                    </button>
+                    <motion.img
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        src={imagePreview}
+                        alt="Full Size Preview"
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </motion.div>
+            )}
         </div>
     );
 };
