@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeContext } from '../../App';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const { user, logout, register } = useAuth();
+    const { isDark } = useContext(ThemeContext) || { isDark: false };
     const [stats, setStats] = useState({
         total: 0,
         resolved: 0,
@@ -138,16 +140,42 @@ const AdminDashboard = () => {
             if (response.ok) {
                 const cases = await response.json();
                 
-                const headers = ['Docket No', 'Title', 'Status', 'Date Filed', 'Complainant', 'Respondent'];
+                const headers = [
+                    'ID',
+                    'Docket No',
+                    'Date Filed',
+                    'Complainant',
+                    'Respondent',
+                    'Offense',
+                    'Date Resolved',
+                    'Resolving Prosecutor',
+                    'Criminal Case No',
+                    'Branch',
+                    'Date Filed in Court',
+                    'Remarks',
+                    'Remarks Decision',
+                    'Penalty',
+                    'Index Cards'
+                ];
+                
                 const csvContent = [
                     headers.join(','),
                     ...cases.map(c => [
-                        c.docket_no || '',
-                        `"${(c.title || '').replace(/"/g, '""')}"`,
-                        c.status || '',
-                        c.date_filed || '',
-                        `"${(c.complainant || '').replace(/"/g, '""')}"`,
-                        `"${(c.respondent || '').replace(/"/g, '""')}"`
+                        c.id || '',
+                        `"${(c.docket_no || c.DOCKET_NO || '').replace(/"/g, '""')}"`,
+                        c.date_filed || c.DATE_FILED || '',
+                        `"${(c.complainant || c.COMPLAINANT || '').replace(/"/g, '""')}"`,
+                        `"${(c.respondent || c.RESPONDENT || '').replace(/"/g, '""')}"`,
+                        `"${(c.offense || c.OFFENSE || '').replace(/"/g, '""')}"`,
+                        c.date_resolved || c.DATE_RESOLVED || '',
+                        `"${(c.resolving_prosecutor || c.RESOLVING_PROSECUTOR || '').replace(/"/g, '""')}"`,
+                        `"${(c.crim_case_no || c.CRIM_CASE_NO || '').replace(/"/g, '""')}"`,
+                        `"${(c.branch || c.BRANCH || '').replace(/"/g, '""')}"`,
+                        c.datefiled_in_court || c.DATEFILED_IN_COURT || '',
+                        `"${(c.remarks || c.REMARKS || '').replace(/"/g, '""')}"`,
+                        `"${(c.remarks_decision || c.REMARKS_DECISION || '').replace(/"/g, '""')}"`,
+                        `"${(c.penalty || c.PENALTY || '').replace(/"/g, '""')}"`,
+                        `"${(c.index_cards || c.INDEX_CARDS || '').replace(/"/g, '""')}"`
                     ].join(','))
                 ].join('\n');
 
@@ -163,12 +191,12 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div>
+        <div className="transition-colors duration-300">
             {/* Admin Welcome Banner */}
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-6 mb-8 shadow-xl relative overflow-hidden"
+                className={`rounded-2xl p-6 mb-8 shadow-xl relative overflow-hidden ${isDark ? 'bg-gradient-to-r from-blue-600 to-indigo-700' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}
             >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24"></div>
@@ -197,8 +225,8 @@ const AdminDashboard = () => {
                             whileTap={{ scale: 0.95 }}
                             onClick={handleExportCSV}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-xl
-                                       bg-emerald-500 text-white font-semibold text-sm
-                                       hover:bg-emerald-600 transition-colors border-none cursor-pointer shadow-lg"
+                                       bg-teal-500 text-white font-semibold text-sm
+                                       hover:bg-teal-600 transition-colors border-none cursor-pointer shadow-lg"
                         >
                             <i className="fas fa-download"></i>
                             Export CSV
@@ -215,8 +243,8 @@ const AdminDashboard = () => {
                 className="mb-8"
             >
                 <div className="flex items-center gap-2 mb-4">
-                    <i className="fas fa-bolt text-amber-500"></i>
-                    <h3 className="text-lg font-bold text-slate-700 m-0">Quick Actions</h3>
+                    <i className={`fas fa-bolt ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                    <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>Quick Actions</h3>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -224,23 +252,19 @@ const AdminDashboard = () => {
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => navigate('/newcase')}
-                        className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 
-                                   cursor-pointer group hover:shadow-xl transition-all"
+                        className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center
-                                                group-hover:bg-emerald-500 transition-colors">
-                                    <i className="fas fa-plus-circle text-emerald-600 text-xl 
-                                                  group-hover:text-white transition-colors"></i>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-cyan-500 transition-colors ${isDark ? 'bg-cyan-900/50' : 'bg-cyan-100'}`}>
+                                    <i className={`fas fa-plus-circle text-xl group-hover:text-white transition-colors ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}></i>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-slate-800 m-0">Add New Case</h4>
-                                    <p className="text-sm text-slate-500 m-0">Register a new case entry</p>
+                                    <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Add New Case</h4>
+                                    <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Register a new case entry</p>
                                 </div>
                             </div>
-                            <i className="fas fa-arrow-right text-slate-300 group-hover:text-emerald-500 
-                                          group-hover:translate-x-1 transition-all"></i>
+                            <i className={`fas fa-arrow-right group-hover:text-cyan-500 group-hover:translate-x-1 transition-all ${isDark ? 'text-slate-600' : 'text-slate-300'}`}></i>
                         </div>
                     </motion.div>
 
@@ -248,23 +272,19 @@ const AdminDashboard = () => {
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => navigate('/editcase')}
-                        className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 
-                                   cursor-pointer group hover:shadow-xl transition-all"
+                        className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center
-                                                group-hover:bg-amber-500 transition-colors">
-                                    <i className="fas fa-edit text-amber-600 text-xl 
-                                                  group-hover:text-white transition-colors"></i>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-sky-500 transition-colors ${isDark ? 'bg-sky-900/50' : 'bg-sky-100'}`}>
+                                    <i className={`fas fa-edit text-xl group-hover:text-white transition-colors ${isDark ? 'text-sky-400' : 'text-sky-600'}`}></i>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-slate-800 m-0">Edit Case</h4>
-                                    <p className="text-sm text-slate-500 m-0">Modify existing case details</p>
+                                    <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Edit Case</h4>
+                                    <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Modify existing case details</p>
                                 </div>
                             </div>
-                            <i className="fas fa-arrow-right text-slate-300 group-hover:text-amber-500 
-                                          group-hover:translate-x-1 transition-all"></i>
+                            <i className={`fas fa-arrow-right group-hover:text-sky-500 group-hover:translate-x-1 transition-all ${isDark ? 'text-slate-600' : 'text-slate-300'}`}></i>
                         </div>
                     </motion.div>
                 </div>
@@ -277,50 +297,50 @@ const AdminDashboard = () => {
                 transition={{ delay: 0.2 }}
                 className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
             >
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100">
+                <div className={`rounded-2xl p-5 shadow-lg transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                            <i className="fas fa-folder text-blue-600"></i>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+                            <i className={`fas fa-folder ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-slate-800 m-0">{stats.total}</p>
-                            <p className="text-xs text-slate-500 m-0">Total</p>
+                            <p className={`text-2xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.total}</p>
+                            <p className={`text-xs m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100">
+                <div className={`rounded-2xl p-5 shadow-lg transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                            <i className="fas fa-check-circle text-emerald-600"></i>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-teal-900/50' : 'bg-teal-100'}`}>
+                            <i className={`fas fa-check-circle ${isDark ? 'text-teal-400' : 'text-teal-600'}`}></i>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-slate-800 m-0">{stats.resolved}</p>
-                            <p className="text-xs text-slate-500 m-0">Resolved</p>
+                            <p className={`text-2xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.resolved}</p>
+                            <p className={`text-xs m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Resolved</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100">
+                <div className={`rounded-2xl p-5 shadow-lg transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                            <i className="fas fa-clock text-amber-600"></i>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-orange-900/50' : 'bg-orange-100'}`}>
+                            <i className={`fas fa-clock ${isDark ? 'text-orange-400' : 'text-orange-500'}`}></i>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-slate-800 m-0">{stats.pending}</p>
-                            <p className="text-xs text-slate-500 m-0">Pending</p>
+                            <p className={`text-2xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.pending}</p>
+                            <p className={`text-xs m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Pending</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100">
+                <div className={`rounded-2xl p-5 shadow-lg transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-                            <i className="fas fa-calendar text-violet-600"></i>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-violet-900/50' : 'bg-violet-100'}`}>
+                            <i className={`fas fa-calendar ${isDark ? 'text-violet-400' : 'text-violet-600'}`}></i>
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-slate-800 m-0">{stats.thisMonth}</p>
-                            <p className="text-xs text-slate-500 m-0">This Month</p>
+                            <p className={`text-2xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.thisMonth}</p>
+                            <p className={`text-xs m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>This Month</p>
                         </div>
                     </div>
                 </div>
@@ -333,14 +353,14 @@ const AdminDashboard = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100"
+                    className={`rounded-2xl p-6 shadow-lg transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                 >
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                            <i className="fas fa-clock text-amber-500"></i>
-                            <h3 className="text-lg font-bold text-slate-700 m-0">Recent Cases</h3>
+                            <i className={`fas fa-clock ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                            <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>Recent Cases</h3>
                         </div>
-                        <Link to="/caselist" className="text-amber-500 hover:text-amber-600 text-sm font-medium no-underline">
+                        <Link to="/caselist" className={`text-sm font-medium no-underline ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}>
                             View All →
                         </Link>
                     </div>
@@ -353,26 +373,26 @@ const AdminDashboard = () => {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.1 * index }}
-                                    className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                                    className={`flex items-center gap-4 p-3 rounded-xl transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}
                                     onClick={() => navigate(`/details/${caseItem.docket_no}`)}
                                 >
                                     <div className={`w-2 h-10 rounded-full ${
                                         caseItem.status?.toLowerCase() === 'resolved' || caseItem.status?.toLowerCase() === 'closed'
-                                            ? 'bg-emerald-500'
-                                            : 'bg-amber-500'
+                                            ? 'bg-teal-500'
+                                            : 'bg-orange-500'
                                     }`}></div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-slate-700 m-0 truncate">
+                                        <p className={`font-semibold m-0 truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>
                                             {caseItem.title || caseItem.docket_no || 'Untitled Case'}
                                         </p>
-                                        <p className="text-sm text-slate-400 m-0">
+                                        <p className={`text-sm m-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                             {caseItem.docket_no} • {caseItem.date_filed || 'No date'}
                                         </p>
                                     </div>
                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                         caseItem.status?.toLowerCase() === 'resolved' || caseItem.status?.toLowerCase() === 'closed'
-                                            ? 'bg-emerald-100 text-emerald-600'
-                                            : 'bg-amber-100 text-amber-600'
+                                            ? isDark ? 'bg-teal-900/50 text-teal-400' : 'bg-teal-100 text-teal-600'
+                                            : isDark ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-600'
                                     }`}>
                                         {caseItem.status || 'Pending'}
                                     </span>
@@ -380,7 +400,7 @@ const AdminDashboard = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-slate-400">
+                        <div className={`text-center py-8 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                             <i className="fas fa-folder-open text-4xl mb-3 opacity-50"></i>
                             <p className="m-0">No cases yet</p>
                         </div>
@@ -393,12 +413,12 @@ const AdminDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 mb-8"
+                className={`rounded-2xl p-6 shadow-lg mb-8 transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
             >
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
-                        <i className="fas fa-users-gear text-amber-500"></i>
-                        <h3 className="text-lg font-bold text-slate-700 m-0">User Management</h3>
+                        <i className={`fas fa-users-gear ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
+                        <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>User Management</h3>
                     </div>
                 </div>
 
@@ -406,12 +426,12 @@ const AdminDashboard = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-slate-200">
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">User</th>
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Email</th>
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Role</th>
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Last Login</th>
-                                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Actions</th>
+                            <tr className={`border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                                <th className={`text-left py-3 px-4 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>User</th>
+                                <th className={`text-left py-3 px-4 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Email</th>
+                                <th className={`text-left py-3 px-4 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Role</th>
+                                <th className={`text-left py-3 px-4 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Last Login</th>
+                                <th className={`text-left py-3 px-4 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -421,25 +441,24 @@ const AdminDashboard = () => {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                                    className={`border-b transition-colors ${isDark ? 'border-slate-700 hover:bg-slate-700/50' : 'border-slate-100 hover:bg-slate-50'}`}
                                 >
                                     <td className="py-3 px-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-9 h-9 rounded-lg ${u.role === 'Admin' ? 'bg-red-100' : 'bg-amber-100'} 
-                                                            flex items-center justify-center`}>
-                                                <i className={`fas ${u.role === 'Admin' ? 'fa-shield-halved text-red-600' : 'fa-user text-amber-600'}`}></i>
+                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${u.role === 'Admin' ? isDark ? 'bg-red-900/50' : 'bg-red-100' : isDark ? 'bg-sky-900/50' : 'bg-sky-100'}`}>
+                                                <i className={`fas ${u.role === 'Admin' ? isDark ? 'fa-shield-halved text-red-400' : 'fa-shield-halved text-red-600' : isDark ? 'fa-user text-sky-400' : 'fa-user text-sky-600'}`}></i>
                                             </div>
-                                            <span className="font-medium text-slate-700">{u.name}</span>
+                                            <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{u.name}</span>
                                         </div>
                                     </td>
-                                    <td className="py-3 px-4 text-slate-600 text-sm">{u.email}</td>
+                                    <td className={`py-3 px-4 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{u.email}</td>
                                     <td className="py-3 px-4">
                                         <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                                                        ${u.role === 'Admin' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                                                        ${u.role === 'Admin' ? isDark ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-600' : isDark ? 'bg-sky-900/50 text-sky-400' : 'bg-sky-100 text-sky-600'}`}>
                                             {u.role}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-4 text-slate-500 text-sm">
+                                    <td className={`py-3 px-4 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                                         {u.last_login ? new Date(u.last_login).toLocaleDateString('en-US', {
                                             month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                                         }) : 'Never'}
@@ -450,8 +469,7 @@ const AdminDashboard = () => {
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 onClick={() => { setSelectedUser(u); setShowDeleteModal(true); }}
-                                                className="w-8 h-8 rounded-lg bg-red-100 text-red-600 
-                                                           border-none cursor-pointer hover:bg-red-200 transition-colors"
+                                                className={`w-8 h-8 rounded-lg border-none cursor-pointer transition-colors ${isDark ? 'bg-red-900/50 text-red-400 hover:bg-red-900' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
                                             >
                                                 <i className="fas fa-trash-alt text-sm"></i>
                                             </motion.button>
@@ -475,17 +493,15 @@ const AdminDashboard = () => {
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate('/caselist')}
-                    className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 
-                               cursor-pointer group hover:shadow-xl transition-all"
+                    className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                 >
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center
-                                        group-hover:bg-blue-500 transition-colors">
-                            <i className="fas fa-list text-blue-600 text-xl group-hover:text-white transition-colors"></i>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-blue-500 transition-colors ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+                            <i className={`fas fa-list text-xl group-hover:text-white transition-colors ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
                         </div>
                         <div>
-                            <h4 className="font-bold text-slate-800 m-0">View All Cases</h4>
-                            <p className="text-sm text-slate-500 m-0">Browse case records</p>
+                            <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>View All Cases</h4>
+                            <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Browse case records</p>
                         </div>
                     </div>
                 </motion.div>
@@ -494,17 +510,15 @@ const AdminDashboard = () => {
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate('/newcase')}
-                    className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 
-                               cursor-pointer group hover:shadow-xl transition-all"
+                    className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                 >
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center
-                                        group-hover:bg-emerald-500 transition-colors">
-                            <i className="fas fa-plus text-emerald-600 text-xl group-hover:text-white transition-colors"></i>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-cyan-500 transition-colors ${isDark ? 'bg-cyan-900/50' : 'bg-cyan-100'}`}>
+                            <i className={`fas fa-plus text-xl group-hover:text-white transition-colors ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}></i>
                         </div>
                         <div>
-                            <h4 className="font-bold text-slate-800 m-0">New Case</h4>
-                            <p className="text-sm text-slate-500 m-0">Add a new record</p>
+                            <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>New Case</h4>
+                            <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Add a new record</p>
                         </div>
                     </div>
                 </motion.div>
@@ -513,17 +527,15 @@ const AdminDashboard = () => {
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate('/settings')}
-                    className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 
-                               cursor-pointer group hover:shadow-xl transition-all"
+                    className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                 >
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center
-                                        group-hover:bg-slate-500 transition-colors">
-                            <i className="fas fa-cog text-slate-600 text-xl group-hover:text-white transition-colors"></i>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-slate-500 transition-colors ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                            <i className={`fas fa-cog text-xl group-hover:text-white transition-colors ${isDark ? 'text-slate-400' : 'text-slate-600'}`}></i>
                         </div>
                         <div>
-                            <h4 className="font-bold text-slate-800 m-0">Settings</h4>
-                            <p className="text-sm text-slate-500 m-0">Manage your profile</p>
+                            <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Settings</h4>
+                            <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Manage your profile</p>
                         </div>
                     </div>
                 </motion.div>
@@ -543,54 +555,51 @@ const AdminDashboard = () => {
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                            className={`rounded-2xl p-6 w-full max-w-md shadow-2xl ${isDark ? 'bg-slate-800' : 'bg-white'}`}
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                                    <i className="fas fa-user-plus text-amber-600 text-xl"></i>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+                                    <i className={`fas fa-user-plus text-xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-slate-800 m-0">Create New Account</h3>
-                                    <p className="text-sm text-slate-500 m-0">Add a new user to the system</p>
+                                    <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Create New Account</h3>
+                                    <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Add a new user to the system</p>
                                 </div>
                             </div>
 
                             <form onSubmit={handleCreateUser} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Full Name</label>
                                     <input
                                         type="text"
                                         value={newUser.name}
                                         onChange={e => setNewUser({...newUser, name: e.target.value})}
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 
-                                                   focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none"
+                                        className={`w-full px-4 py-3 rounded-xl border outline-none transition-colors ${isDark ? 'bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
                                         placeholder="Enter full name"
                                         required
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Email Address</label>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Email Address</label>
                                     <input
                                         type="email"
                                         value={newUser.email}
                                         onChange={e => setNewUser({...newUser, email: e.target.value})}
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 
-                                                   focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none"
+                                        className={`w-full px-4 py-3 rounded-xl border outline-none transition-colors ${isDark ? 'bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
                                         placeholder="Enter email"
                                         required
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Password</label>
                                     <input
                                         type="password"
                                         value={newUser.password}
                                         onChange={e => setNewUser({...newUser, password: e.target.value})}
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 
-                                                   focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none"
+                                        className={`w-full px-4 py-3 rounded-xl border outline-none transition-colors ${isDark ? 'bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
                                         placeholder="Enter password"
                                         required
                                         minLength={6}
@@ -598,12 +607,11 @@ const AdminDashboard = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Role</label>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Role</label>
                                     <select
                                         value={newUser.role}
                                         onChange={e => setNewUser({...newUser, role: e.target.value})}
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 
-                                                   focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none bg-white"
+                                        className={`w-full px-4 py-3 rounded-xl border outline-none transition-colors ${isDark ? 'bg-slate-700 border-slate-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900' : 'bg-white border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
                                     >
                                         <option value="Clerk">Clerk</option>
                                         <option value="Admin">Admin</option>
@@ -614,7 +622,7 @@ const AdminDashboard = () => {
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className={`p-3 rounded-xl ${createStatus.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+                                        className={`p-3 rounded-xl ${createStatus.type === 'success' ? 'bg-teal-100 text-teal-700' : 'bg-red-100 text-red-700'}`}
                                     >
                                         <i className={`fas ${createStatus.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2`}></i>
                                         {createStatus.message}
@@ -627,8 +635,7 @@ const AdminDashboard = () => {
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                         onClick={() => setShowCreateModal(false)}
-                                        className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 
-                                                   font-semibold border-none cursor-pointer hover:bg-slate-200 transition-colors"
+                                        className={`flex-1 py-3 rounded-xl font-semibold border-none cursor-pointer transition-colors ${isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                                     >
                                         Cancel
                                     </motion.button>
@@ -637,7 +644,7 @@ const AdminDashboard = () => {
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                         disabled={isCreating}
-                                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 
+                                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 
                                                    text-white font-semibold border-none cursor-pointer shadow-lg
                                                    disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -668,15 +675,15 @@ const AdminDashboard = () => {
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center"
+                            className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center ${isDark ? 'bg-slate-800' : 'bg-white'}`}
                             onClick={e => e.stopPropagation()}
                         >
-                            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                                <i className="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-red-900/50' : 'bg-red-100'}`}>
+                                <i className={`fas fa-exclamation-triangle text-2xl ${isDark ? 'text-red-400' : 'text-red-500'}`}></i>
                             </div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-2">Delete User Account</h3>
-                            <p className="text-slate-600 mb-6">
-                                Are you sure you want to delete <strong>{selectedUser?.name}</strong>'s account? 
+                            <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Delete User Account</h3>
+                            <p className={`mb-6 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                Are you sure you want to delete <strong className={isDark ? 'text-white' : ''}>{selectedUser?.name}</strong>'s account? 
                                 This action cannot be undone.
                             </p>
                             <div className="flex gap-3">
@@ -684,8 +691,7 @@ const AdminDashboard = () => {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => setShowDeleteModal(false)}
-                                    className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 
-                                               font-semibold border-none cursor-pointer"
+                                    className={`flex-1 py-3 rounded-xl font-semibold border-none cursor-pointer ${isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600'}`}
                                 >
                                     Cancel
                                 </motion.button>
@@ -694,7 +700,7 @@ const AdminDashboard = () => {
                                     whileTap={{ scale: 0.98 }}
                                     onClick={handleDeleteUser}
                                     className="flex-1 py-3 rounded-xl bg-red-500 text-white 
-                                               font-semibold border-none cursor-pointer"
+                                               font-semibold border-none cursor-pointer hover:bg-red-600"
                                 >
                                     <i className="fas fa-trash-alt mr-2"></i>Delete
                                 </motion.button>

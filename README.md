@@ -135,7 +135,13 @@ App HOst- http://localhost:3000
 
 ## to start the Host in powershell terminal
 
+<<<<<<< HEAD
 cd "c:\Users\galam\OneDrive\Desktop\I miss kerstin\OJT-project-2026"; npm start 
+=======
+cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start 
+ 
+## to start also this for databse connection
+>>>>>>> a88e8b66c435b638eb6d7716af02ab2028242673
 
 node server.js
 
@@ -194,6 +200,7 @@ Click "Start" for MySQL (at minimum)
 Start the Node server: node server.js
 Start React: npm start
 
+<<<<<<< HEAD
 Frontend: http://localhost:3000
 Backend: http://localhost:5000
 
@@ -202,3 +209,5 @@ Backend: http://localhost:5000
 
 
 $env:Path += ";C:\Program Files\nodejs"; Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; cd "C:\Users\galam\OneDrive\Desktop\I miss kerstin\OJT-project-2026"; node server.js
+=======
+>>>>>>> a88e8b66c435b638eb6d7716af02ab2028242673
