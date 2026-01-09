@@ -142,6 +142,8 @@ App HOst- http://localhost:3000
 ## to start the Host in powershell terminal
 
 cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start 
+ 
+## to start also this for databse connection
 
 node server.js
 
@@ -199,3 +201,4 @@ Open XAMPP Control Panel
 Click "Start" for MySQL (at minimum)
 Start the Node server: node server.js
 Start React: npm start
+

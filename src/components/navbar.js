@@ -16,6 +16,7 @@ const Navbar = () => {
     ];
 
     const isActive = (path) => location.pathname === path;
+    const isAddAccountPage = location.pathname === '/add-account';
 
     const roleColors = {
         Admin: { bg: 'from-red-500 to-red-600', icon: 'fa-shield-halved', badge: 'bg-red-500' },
@@ -58,6 +59,7 @@ const Navbar = () => {
                     </Link>
 
                     {/* Desktop Navigation */}
+                    {!isAddAccountPage && (
                     <div className="hidden md:flex items-center gap-2">
                         {navItems.map((item, index) => (
                             <motion.div
@@ -135,6 +137,7 @@ const Navbar = () => {
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* Mobile Menu Button */}
                     <div className="flex md:hidden items-center gap-2">
@@ -151,6 +154,7 @@ const Navbar = () => {
                 </div>
 
                 {/* Mobile Navigation */}
+                {!isAddAccountPage && (
                 <motion.div
                     initial={false}
                     animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
@@ -221,6 +225,7 @@ const Navbar = () => {
                         </div>
                     </div>
                 </motion.div>
+                )}
             </div>
         </motion.nav>
     );

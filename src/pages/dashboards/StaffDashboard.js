@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeContext } from '../../App';
 
 const StaffDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { isDark } = useContext(ThemeContext) || { isDark: false };
     const [allCases, setAllCases] = useState([]);
     const [filteredCases, setFilteredCases] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -179,15 +181,15 @@ const StaffDashboard = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100"
+                    className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-6 shadow-lg border`}
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-slate-500 text-sm font-medium">Total Cases</p>
-                            <h3 className="text-3xl font-bold text-slate-800 mt-1">{stats.total}</h3>
+                            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium`}>Total Cases</p>
+                            <h3 className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'} mt-1`}>{stats.total}</h3>
                         </div>
-                        <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center">
-                            <i className="fas fa-folder-open text-blue-600 text-xl"></i>
+                        <div className={`w-14 h-14 rounded-2xl ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'} flex items-center justify-center`}>
+                            <i className={`fas fa-folder-open ${isDark ? 'text-blue-400' : 'text-blue-600'} text-xl`}></i>
                         </div>
                     </div>
                 </motion.div>
@@ -196,15 +198,15 @@ const StaffDashboard = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100"
+                    className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-6 shadow-lg border`}
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-slate-500 text-sm font-medium">Pending Cases</p>
-                            <h3 className="text-3xl font-bold text-amber-600 mt-1">{stats.pending}</h3>
+                            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium`}>Pending Cases</p>
+                            <h3 className={`text-3xl font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'} mt-1`}>{stats.pending}</h3>
                         </div>
-                        <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center">
-                            <i className="fas fa-clock text-amber-600 text-xl"></i>
+                        <div className={`w-14 h-14 rounded-2xl ${isDark ? 'bg-amber-500/20' : 'bg-amber-100'} flex items-center justify-center`}>
+                            <i className={`fas fa-clock ${isDark ? 'text-amber-400' : 'text-amber-600'} text-xl`}></i>
                         </div>
                     </div>
                 </motion.div>
@@ -213,15 +215,15 @@ const StaffDashboard = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100"
+                    className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-6 shadow-lg border`}
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-slate-500 text-sm font-medium">Terminated Cases</p>
-                            <h3 className="text-3xl font-bold text-red-600 mt-1">{stats.terminated}</h3>
+                            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium`}>Terminated Cases</p>
+                            <h3 className={`text-3xl font-bold ${isDark ? 'text-red-400' : 'text-red-600'} mt-1`}>{stats.terminated}</h3>
                         </div>
-                        <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center">
-                            <i className="fas fa-check-double text-red-600 text-xl"></i>
+                        <div className={`w-14 h-14 rounded-2xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'} flex items-center justify-center`}>
+                            <i className={`fas fa-check-double ${isDark ? 'text-red-400' : 'text-red-600'} text-xl`}></i>
                         </div>
                     </div>
                 </motion.div>
@@ -232,20 +234,24 @@ const StaffDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 mb-6"
+                className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-6 shadow-lg border mb-6`}
             >
                 <div className="flex flex-col md:flex-row gap-4">
                     {/* Search Input */}
                     <div className="flex-1 relative">
-                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <i className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                         <input
                             type="text"
                             placeholder="Search by Docket No, IS Case No, Complainant, Respondent..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 
-                                     focus:border-teal-500 focus:ring-4 focus:ring-teal-500/20 
-                                     transition-all outline-none text-slate-700"
+                            className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 
+                                     ${isDark 
+                                        ? 'bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400 focus:border-teal-500' 
+                                        : 'bg-white border-slate-200 text-slate-700 focus:border-teal-500'
+                                     } 
+                                     focus:ring-4 focus:ring-teal-500/20 
+                                     transition-all outline-none`}
                         />
                     </div>
 
@@ -285,15 +291,15 @@ const StaffDashboard = () => {
                 </div>
 
                 {/* Results Count */}
-                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+                <div className={`mt-4 flex items-center justify-between text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     <span>
-                        Showing <strong className="text-slate-700">{filteredCases.length}</strong> of{' '}
-                        <strong className="text-slate-700">{allCases.length}</strong> cases
+                        Showing <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{filteredCases.length}</strong> of{' '}
+                        <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>{allCases.length}</strong> cases
                     </span>
                     {searchQuery && (
                         <button
                             onClick={() => setSearchQuery('')}
-                            className="text-teal-600 hover:text-teal-700 font-medium border-none bg-transparent cursor-pointer"
+                            className={`${isDark ? 'text-teal-400 hover:text-teal-300' : 'text-teal-600 hover:text-teal-700'} font-medium border-none bg-transparent cursor-pointer`}
                         >
                             <i className="fas fa-times mr-1"></i>
                             Clear search
@@ -307,10 +313,10 @@ const StaffDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden"
+                className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl shadow-lg border overflow-hidden`}
             >
-                <div className="p-6 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                    <h3 className={`text-lg font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'} flex items-center gap-2`}>
                         <i className="fas fa-folder-open text-teal-500"></i>
                         Case Records
                     </h3>
@@ -319,36 +325,36 @@ const StaffDashboard = () => {
                 {isLoading ? (
                     <div className="p-12 text-center">
                         <i className="fas fa-spinner fa-spin text-4xl text-teal-500 mb-4"></i>
-                        <p className="text-slate-500">Loading cases...</p>
+                        <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>Loading cases...</p>
                     </div>
                 ) : filteredCases.length === 0 ? (
                     <div className="p-12 text-center">
-                        <i className="fas fa-folder-open text-4xl text-slate-300 mb-4"></i>
-                        <p className="text-slate-500">No cases found matching your criteria</p>
+                        <i className={`fas fa-folder-open text-4xl ${isDark ? 'text-slate-600' : 'text-slate-300'} mb-4`}></i>
+                        <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>No cases found matching your criteria</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-slate-50">
+                            <thead className={isDark ? 'bg-slate-700/50' : 'bg-slate-50'}>
                                 <tr>
-                                    <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <th className={`text-left py-4 px-6 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
                                         Docket / IS Case No
                                     </th>
-                                    <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <th className={`text-left py-4 px-6 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
                                         Complainant
                                     </th>
-                                    <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <th className={`text-left py-4 px-6 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
                                         Respondent
                                     </th>
-                                    <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <th className={`text-left py-4 px-6 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
                                         Remarks
                                     </th>
-                                    <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <th className={`text-left py-4 px-6 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wider`}>
                                         Actions
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-slate-100'}`}>
                                 <AnimatePresence>
                                     {filteredCases.map((caseItem, index) => (
                                         <motion.tr
@@ -357,22 +363,22 @@ const StaffDashboard = () => {
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
                                             transition={{ delay: index * 0.02 }}
-                                            className="hover:bg-slate-50 transition-colors"
+                                            className={`${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'} transition-colors`}
                                         >
                                             <td className="py-4 px-6">
                                                 <div>
-                                                    <p className="font-semibold text-slate-800">
+                                                    <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                                                         {caseItem.DOCKET_NO || caseItem.docket_no || 'N/A'}
                                                     </p>
-                                                    <p className="text-xs text-slate-500">
+                                                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                                                         IS: {caseItem.IS_CASE_NO || caseItem.is_case_no || 'N/A'}
                                                     </p>
                                                 </div>
                                             </td>
-                                            <td className="py-4 px-6 text-slate-600">
+                                            <td className={`py-4 px-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                                                 {caseItem.COMPLAINANT || caseItem.complainant || 'N/A'}
                                             </td>
-                                            <td className="py-4 px-6 text-slate-600">
+                                            <td className={`py-4 px-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                                                 {caseItem.RESPONDENT || caseItem.respondent || 'N/A'}
                                             </td>
                                             <td className="py-4 px-6">
@@ -381,9 +387,12 @@ const StaffDashboard = () => {
                                             <td className="py-4 px-6">
                                                 <Link
                                                     to={`/details/${caseItem.DOCKET_NO || caseItem.docket_no}`}
-                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg
-                                                             bg-teal-100 text-teal-700 text-sm font-semibold
-                                                             hover:bg-teal-200 transition-colors no-underline"
+                                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                                                             ${isDark 
+                                                                ? 'bg-teal-500/20 text-teal-400 hover:bg-teal-500/30' 
+                                                                : 'bg-teal-100 text-teal-700 hover:bg-teal-200'
+                                                             } text-sm font-semibold
+                                                             transition-colors no-underline`}
                                                 >
                                                     <i className="fas fa-eye"></i>
                                                     View

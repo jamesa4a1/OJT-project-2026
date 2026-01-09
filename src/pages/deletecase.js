@@ -68,10 +68,6 @@ const Deletecase = () => {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-100 border border-red-200 mb-4">
-            <i className="fas fa-trash-alt text-red-600"></i>
-            <span className="text-red-700 font-medium text-sm">Delete Case</span>
-          </div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">Delete Case</h1>
           <p className="text-slate-500">Permanently remove a case from the system</p>
         </div>
