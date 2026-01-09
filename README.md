@@ -1,47 +1,31 @@
-<<<<<<< HEAD
+## INSTRUCTIONS ON HOW TO RUN THE PROGRAM
 
-
-
-### INSTRUCTIONS ON HOW TO RUN THE PROGRAM
-
+### Prerequisites
 > Open the XAMPP application
-> click start beside APACHE and MYSQL
-> then, click the admin button beside MYSQL
+> Click start beside APACHE and MYSQL
+> Then click the admin button beside MYSQL
 
-------
+### Setup Steps
+1. **First Time Setup:**
+   - Open PowerShell
+   - Navigate: `cd "C:\Users\galam\OneDrive\Desktop\I miss kerstin\OJT-project-2026"`
+   - Run: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+   - Run: `npm install`
 
-> click new terminal
-> type cd hoj_proj_main-main
-> copy and paste this : Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass ---- then click ENTER
-> copy and paste this : npm install then click ENTER 
-> copy and paste this : npm start
+2. **Running the Application:**
+   - Terminal 1 (Frontend): `npm start` (runs on http://localhost:3000)
+   - Terminal 2 (Backend): `node server.js` (runs on http://localhost:5000)
 
---------
+### Database Setup
+> To import a file:
+> 1. Click on the database in phpMyAdmin
+> 2. Click on SQL tab
+> 3. Type: `DROP TABLE cases;`
+> 4. Click GO button
+> 5. Click the import tab
+> 6. Upload the MySQL file and click import
 
-> open new terminal by clicking the plus icon on the upper right corner of the terminal.
-> then type node server.js then click ENTER
-
-### FOR THE DATABSE
-
-> to import a file, click on the database okok
-> click on SQL tab above
-> Type: DROP TABLE cases;
-> click GO button below
-> click the import tab above
-> upload the mysql file then scroll down and click the import button
-
-
-## before running the website run this on powershell 
-sample directory
-
-cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm install
-
-cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start
-
------------------------------------------------------------
-
-
-
+---
 
 # Getting Started with Create React App
 
@@ -113,10 +97,10 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-=======
-# docket
-OJT
->>>>>>> a323a8a17b97e84ae4b65b1ee39dafefb9b675b5
+
+---
+
+
 
 
 ## For future updates To pull (get latest changes):
@@ -130,10 +114,20 @@ git add .
 git commit -m "Your commit message"
 git push
 
-## To clone (pull) the repository for the first time:
+## To clone (pull) the repository for the first time: in powershell
 
-cd "c:\Users\HP User\Desktop"
+cd 
 git clone https://github.com/jamesa4a1/OJT-project-2026.git "OJT PROJECT 2026(1)"
+
+## after cloning run this on powershell
+
+npm install
+
+npm start  
+
+optional if the backend server is not running:
+
+node server.js
 
 ## hosts
 
@@ -141,7 +135,7 @@ App HOst- http://localhost:3000
 
 ## to start the Host in powershell terminal
 
-cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start 
+cd "c:\Users\galam\OneDrive\Desktop\I miss kerstin\OJT-project-2026"; npm start 
 
 node server.js
 
@@ -199,3 +193,12 @@ Open XAMPP Control Panel
 Click "Start" for MySQL (at minimum)
 Start the Node server: node server.js
 Start React: npm start
+
+Frontend: http://localhost:3000
+Backend: http://localhost:5000
+
+
+## if you want to restart the backend server 
+
+
+$env:Path += ";C:\Program Files\nodejs"; Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; cd "C:\Users\galam\OneDrive\Desktop\I miss kerstin\OJT-project-2026"; node server.js
