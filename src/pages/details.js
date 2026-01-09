@@ -14,6 +14,18 @@ const Details = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  
+  // Helper function to get proper image URL
+  const getImageUrl = (indexCardPath) => {
+    if (!indexCardPath || indexCardPath === 'N/A') return null;
+    // If it's already a full URL (external), use as-is
+    if (indexCardPath.startsWith('http://') || indexCardPath.startsWith('https://')) {
+      return indexCardPath;
+    }
+    // Otherwise, it's a local path - prepend server URL
+    return `http://localhost:5000${indexCardPath}`;
+  };
   
   // Check if user is staff (read-only mode)
   const isStaff = user?.role === 'Staff';
@@ -318,16 +330,25 @@ const Details = () => {
                     Index Card Image
                   </h3>
                   <div className="relative">
-                    <img 
-                      src={`http://localhost:5000${caseDetails.INDEX_CARDS}`} 
-                      alt="Index Card" 
-                      onClick={() => setShowFullImage(true)}
-                      className={`w-full max-h-96 object-contain rounded-xl border-2 ${isDark ? 'border-slate-600' : 'border-slate-200'} shadow-md cursor-pointer hover:opacity-90 transition-opacity`}
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    <div className="absolute bottom-3 left-3 px-4 py-2 bg-black/70 text-white text-sm rounded-xl backdrop-blur-sm">
-                      <i className="fas fa-search-plus mr-2"></i> Click to view full size
-                    </div>
+                    {!imageError ? (
+                      <img 
+                        src={getImageUrl(caseDetails.INDEX_CARDS)} 
+                        alt="Index Card" 
+                        onClick={() => setShowFullImage(true)}
+                        className={`w-full max-h-96 object-contain rounded-xl border-2 ${isDark ? 'border-slate-600' : 'border-slate-200'} shadow-md cursor-pointer hover:opacity-90 transition-opacity`}
+                        onError={() => setImageError(true)}
+                      />
+                    ) : (
+                      <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-gray-100'} text-center`}>
+                        <i className="fas fa-exclamation-triangle text-yellow-500 text-2xl mb-2"></i>
+                        <p className={`${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Image could not be loaded</p>
+                      </div>
+                    )}
+                    {!imageError && (
+                      <div className="absolute bottom-3 left-3 px-4 py-2 bg-black/70 text-white text-sm rounded-xl backdrop-blur-sm">
+                        <i className="fas fa-search-plus mr-2"></i> Click to view full size
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -395,20 +416,20 @@ const Details = () => {
                 </div>
                 {caseDetails.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && (
                   <motion.a whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                    href={`http://localhost:5000${caseDetails.INDEX_CARDS}`} target="_blank" rel="noopener noreferrer"
+                    href={getImageUrl(caseDetails.INDEX_CARDS)} target="_blank" rel="noopener noreferrer"
                     className={`px-4 py-2 rounded-xl ${isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-doj-navy'} text-white font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300 no-underline`}>
                     <i className="fas fa-eye"></i>View Image
                   </motion.a>
                 )}
               </div>
-              {caseDetails.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && (
+              {caseDetails.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && !imageError && (
                 <div className="mt-4 relative">
                   <img 
-                    src={`http://localhost:5000${caseDetails.INDEX_CARDS}`} 
+                    src={getImageUrl(caseDetails.INDEX_CARDS)} 
                     alt="Index Card" 
                     onClick={() => setShowFullImage(true)}
                     className={`w-full max-h-96 object-contain rounded-lg border-2 ${isDark ? 'border-slate-600' : 'border-slate-200'} shadow-sm cursor-pointer hover:opacity-90 transition-opacity`}
-                    onError={(e) => { e.target.style.display = 'none'; }}
+                    onError={() => setImageError(true)}
                   />
                   <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
                     <i className="fas fa-search-plus mr-1"></i> Click to view full size
@@ -436,7 +457,7 @@ const Details = () => {
       </motion.div>
 
       {/* Fullscreen Image Modal */}
-      {showFullImage && caseDetails?.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && (
+      {showFullImage && caseDetails?.INDEX_CARDS && caseDetails.INDEX_CARDS !== 'N/A' && !imageError && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -456,7 +477,7 @@ const Details = () => {
           <motion.img
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            src={`http://localhost:5000${caseDetails.INDEX_CARDS}`}
+            src={getImageUrl(caseDetails.INDEX_CARDS)}
             alt="Full Size Index Card"
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}

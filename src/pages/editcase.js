@@ -14,7 +14,19 @@ const Editcase = () => {
   const [indexCardImage, setIndexCardImage] = useState(null); 
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullImage, setShowFullImage] = useState(null);
+  const [currentImageError, setCurrentImageError] = useState(false);
   const navigate = useNavigate();
+
+  // Helper function to get proper image URL
+  const getImageUrl = (indexCardPath) => {
+    if (!indexCardPath || indexCardPath === 'N/A') return null;
+    // If it's already a full URL (external), use as-is
+    if (indexCardPath.startsWith('http://') || indexCardPath.startsWith('https://')) {
+      return indexCardPath;
+    }
+    // Otherwise, it's a local path - prepend server URL
+    return `http://localhost:5000${indexCardPath}`;
+  };
 
   // Fetch all cases on component mount
   useEffect(() => {
@@ -61,6 +73,7 @@ const Editcase = () => {
     setError("");
     setIndexCardImage(null);
     setImagePreview(null);
+    setCurrentImageError(false); // Reset image error for new case
     // Scroll to the edit form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -430,16 +443,26 @@ const Editcase = () => {
                       <i className="fas fa-image text-blue-500 mr-2"></i>Current Image:
                     </p>
                     <div className="relative w-full min-h-[300px] rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex items-center justify-center">
-                      <img 
-                        src={`http://localhost:5000${caseData[0].INDEX_CARDS}`} 
-                        alt="Current Index Card" 
-                        onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
-                        className="max-w-full max-h-[400px] object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-lg rounded"
-                        style={{ display: 'block' }}
-                      />
-                      <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg">
-                        <i className="fas fa-search-plus mr-1"></i> Click to view full size
-                      </div>
+                      {!currentImageError ? (
+                        <>
+                          <img 
+                            src={getImageUrl(caseData[0].INDEX_CARDS)} 
+                            alt="Current Index Card" 
+                            onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
+                            className="max-w-full max-h-[400px] object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-lg rounded"
+                            onError={() => setCurrentImageError(true)}
+                          />
+                          <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg">
+                            <i className="fas fa-search-plus mr-1"></i> Click to view full size
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-8 text-slate-400">
+                          <i className="fas fa-exclamation-triangle text-4xl mb-3 text-amber-400"></i>
+                          <p className="font-semibold text-slate-600 mb-2">Image not loading</p>
+                          <p className="text-xs text-slate-500 text-center">The stored path may be invalid.<br/>Upload a new image to fix this.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -636,7 +659,7 @@ const Editcase = () => {
           <motion.img
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            src={showFullImage.startsWith('data:') ? showFullImage : `http://localhost:5000${showFullImage}`}
+            src={showFullImage.startsWith('data:') ? showFullImage : getImageUrl(showFullImage)}
             alt="Full Size Image"
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}

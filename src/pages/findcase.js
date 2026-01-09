@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -14,11 +14,64 @@ const Findcase = () => {
   });
   
   const [caseData, setCaseData] = useState([]);
+  const [allCases, setAllCases] = useState([]);
   const [error, setError] = useState("");
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
+  const [imageError, setImageError] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const navigate = useNavigate();
+
+  // Function to download image
+  const handleDownloadImage = (imageUrl, fileName) => {
+    console.log('Download button clicked!');
+    console.log('Image URL:', imageUrl);
+    console.log('File name:', fileName);
+    
+    // Extract filename from the URL
+    const urlParts = imageUrl.split('/');
+    const originalFileName = urlParts[urlParts.length - 1];
+    
+    // Create download URL using server endpoint
+    const downloadUrl = `http://localhost:5000/download/index-card/${originalFileName}`;
+    
+    // Create a temporary link and click it
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('Download initiated');
+  };
+
+  // Fetch all cases on component mount
+  useEffect(() => {
+    fetchAllCases();
+  }, []);
+
+  // Reset image error when case selection changes
+  useEffect(() => {
+    setImageError(false);
+  }, [selectedCase]);
+
+  const fetchAllCases = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get("http://localhost:5000/cases");
+      if (Array.isArray(response.data)) {
+        setAllCases(response.data);
+        setCaseData(response.data); // Display all cases initially
+      }
+    } catch (err) {
+      console.error("Error fetching all cases:", err);
+      setError("Failed to load cases from database.");
+    }
+    setIsLoading(false);
+  };
 
   const handleChange = (e) => {
     setSearchQuery({ ...searchQuery, [e.target.name]: e.target.value });
@@ -37,9 +90,12 @@ const Findcase = () => {
     const formattedStartDate = convertToYMD(searchQuery.start_date);
     const formattedEndDate = convertToYMD(searchQuery.end_date);
 
+    // If no search criteria, show all cases
     if (!searchQuery.DOCKET_NO && !searchQuery.RESPONDENT && !searchQuery.RESOLVING_PROSECUTOR &&
         !searchQuery.REMARKS && !formattedStartDate && !formattedEndDate) {
-      setError("Please enter at least one search criteria.");
+      setCaseData(allCases);
+      setError("");
+      setSearchPerformed(true);
       setIsLoading(false);
       return;
     }
@@ -194,6 +250,46 @@ const Findcase = () => {
           </div>
         </motion.div>
 
+        {/* All Cases Display */}
+        {!searchPerformed && caseData.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                      className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-violet-50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <i className="fas fa-database text-blue-500"></i>
+                All Cases ({caseData.length})
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">Use the search form above to filter cases</p>
+            </div>
+            <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+              {caseData.map((c, idx) => (
+                <motion.div key={idx} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.02 }}
+                            className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedCase(c)}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-mono font-bold text-slate-800 mb-1">{c.DOCKET_NO}</p>
+                      <p className="text-sm text-slate-600 mb-1">
+                        <i className="fas fa-user text-violet-500 mr-1"></i>
+                        {c.COMPLAINANT} vs {c.RESPONDENT}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        <i className="fas fa-calendar text-emerald-500 mr-1"></i>
+                        Filed: {c.DATE_FILED || 'N/A'}
+                      </p>
+                    </div>
+                    <button className="px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-medium text-sm
+                                       hover:bg-blue-200 transition-colors border-none cursor-pointer">
+                      <i className="fas fa-eye mr-2"></i>View
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Results */}
         {searchPerformed && caseData.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -233,7 +329,7 @@ const Findcase = () => {
                         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
                         onClick={() => setSelectedCase(null)}>
               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                          className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                          className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
                           onClick={(e) => e.stopPropagation()}>
                 <div className="p-8">
                   <div className="flex items-center justify-between mb-6">
@@ -243,17 +339,142 @@ const Findcase = () => {
                     </button>
                   </div>
                   <div className="space-y-3">
-                    {Object.entries(selectedCase).map(([key, value]) => (
-                      <div key={key} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <i className="fas fa-file text-blue-600 text-sm"></i>
+                    {Object.entries(selectedCase).map(([key, value]) => {
+                      // Special handling for INDEX_CARDS - display as image
+                      if (key === 'INDEX_CARDS' && value && value !== 'N/A') {
+                        // Determine if it's a Google Drive link or local path
+                        let imageUrl;
+                        let isGoogleDrive = false;
+                        
+                        if (value.includes('drive.google.com')) {
+                          isGoogleDrive = true;
+                          // Extract file ID from Google Drive URL
+                          const match = value.match(/id=([^&]+)/);
+                          if (match && match[1]) {
+                            // Properly format Google Drive direct link
+                            imageUrl = `https://drive.google.com/uc?id=${match[1]}&export=download`;
+                          } else {
+                            imageUrl = value; // Use as-is if we can't parse it
+                          }
+                        } else if (value.startsWith('http')) {
+                          imageUrl = value;
+                        } else {
+                          // Local file path
+                          imageUrl = `http://localhost:5000${value}`;
+                        }
+                        
+                        console.log('Image source:', isGoogleDrive ? 'Google Drive' : 'Local');
+                        console.log('Loading image from:', imageUrl);
+                        
+                        return (
+                          <div key={key} className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                <i className="fas fa-image text-blue-600 text-sm"></i>
+                              </div>
+                              <p className="text-sm text-slate-700 font-semibold uppercase">
+                                Index Card {isGoogleDrive && <span className="text-xs text-blue-500">(Google Drive)</span>}
+                              </p>
+                            </div>
+                            <div className="relative w-full min-h-[300px] rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex items-center justify-center">
+                              {!imageError ? (
+                                <img 
+                                  src={imageUrl} 
+                                  alt="Index Card" 
+                                  className="max-w-full max-h-[400px] object-contain shadow-lg rounded"
+                                  crossOrigin="anonymous"
+                                  onLoad={() => console.log('✓ Image loaded successfully')}
+                                  onError={(e) => {
+                                    console.error('✗ Image failed to load:', imageUrl);
+                                    setImageError(true);
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex flex-col items-center justify-center p-8 text-slate-400">
+                                  <i className="fas fa-exclamation-triangle text-4xl mb-3 text-amber-400"></i>
+                                  <p className="font-semibold text-slate-600 mb-2">Image not available</p>
+                                  {isGoogleDrive ? (
+                                    <div className="text-xs text-center max-w-md">
+                                      <p className="text-amber-600 mb-2">Google Drive link format may be incorrect</p>
+                                      <p className="text-slate-500">Please ensure the file is publicly accessible or use local file upload instead</p>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-center max-w-md">
+                                      <p className="text-slate-500 mb-1">Path: {value}</p>
+                                      <p className="text-slate-500">Make sure the file exists in the uploads folder</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-3 mt-4">
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  console.log('Button clicked - imageUrl:', imageUrl);
+                                  handleDownloadImage(imageUrl, `index-card-${selectedCase.DOCKET_NO || 'case'}.png`);
+                                }}
+                                disabled={isDownloading || imageError}
+                                type="button"
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
+                                         bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold
+                                         hover:shadow-lg hover:shadow-emerald-500/30 transition-all duration-300 
+                                         disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none"
+                              >
+                                {isDownloading ? (
+                                  <>
+                                    <i className="fas fa-spinner fa-spin"></i>
+                                    Downloading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <i className="fas fa-download"></i>
+                                    Download Image
+                                  </>
+                                )}
+                              </button>
+                              <a 
+                                href={imageUrl} 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
+                                         bg-blue-100 text-blue-700 font-semibold
+                                         hover:bg-blue-200 transition-all duration-300 no-underline"
+                              >
+                                <i className="fas fa-external-link-alt"></i>
+                                Open Full Size
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div key={key} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <i className="fas fa-file text-blue-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500 font-medium uppercase">{key.replace(/_/g, ' ')}</p>
+                            <p className="text-slate-800 font-medium">{value || "N/A"}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500 font-medium uppercase">{key.replace(/_/g, ' ')}</p>
-                          <p className="text-slate-800 font-medium">{value || "N/A"}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Back Button */}
+                  <div className="mt-6 pt-6 border-t border-slate-200">
+                    <button 
+                      onClick={() => setSelectedCase(null)}
+                      className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl 
+                               bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold
+                               hover:shadow-lg transition-all duration-300 cursor-pointer border-none"
+                    >
+                      <i className="fas fa-arrow-left"></i>
+                      Back to Results
+                    </button>
                   </div>
                 </div>
               </motion.div>

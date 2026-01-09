@@ -119,25 +119,24 @@ OJT
 >>>>>>> a323a8a17b97e84ae4b65b1ee39dafefb9b675b5
 
 
-## For future updates To pull (get latest changes):
-To pull (get latest changes):
 
-git pull
-
-To push (upload your changes):
-
-git add .
-git commit -m "Your commit message"
-git push
 
 ## To clone (pull) the repository for the first time:
 
 cd "c:\Users\HP User\Desktop"
 git clone https://github.com/jamesa4a1/OJT-project-2026.git "OJT PROJECT 2026(1)"
 
+
+
+
+
 ## hosts
 
 App HOst- http://localhost:3000 
+
+
+
+
 
 ## to start the Host in powershell terminal
 
@@ -146,6 +145,9 @@ cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start
 ## to start also this for databse connection
 
 node server.js
+
+
+
 
 ## To pause/stop the servers:
 
@@ -159,15 +161,29 @@ The React dev server (if running npm start)
 The backend server (if running node server.js)
 You can close the terminal windows after that. XAMPP can be stopped from the XAMPP Control Panel by clicking "Stop" on Apache and MySQL.
 
-## Elevated Code 
+   
 
-oct_docketing
+
+
+
 
 ## command to push in github 
 
 git add .
 git commit -m "message of whats been changes"
 git push origin main
+
+
+
+
+## For future updates To pull (get latest changes):
+To pull (get latest changes):
+
+git pull
+
+
+
+
 
 ## if error ((push declined due to email privacy restrictions))
 

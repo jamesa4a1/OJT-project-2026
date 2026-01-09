@@ -14,6 +14,24 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Download endpoint for index card images
+app.get('/download/index-card/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, 'uploads', 'index_cards', filename);
+  
+  // Check if file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  
+  // Set headers for download
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  
+  // Send file
+  res.sendFile(filePath);
+});
+
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads', 'profiles');
 const indexCardsDir = path.join(__dirname, 'uploads', 'index_cards');
@@ -517,25 +535,9 @@ app.get("/cases", (req, res) => {
     if (err) {
       res.status(500).send(err);
     } else {
-      const updatedResults = results.map((row) => {
-        let driveFileId = null;
-        
-        if (row.INDEX_CARDS) {
-          const match = row.INDEX_CARDS.match(/[-\w]{25,}/); // Extract file ID from URL
-          if (match) {
-            driveFileId = match[0];
-          }
-        }
-
-        return {
-          ...row,
-          INDEX_CARDS: driveFileId
-            ? `https://drive.google.com/uc?id=${driveFileId}`  // Correct public link format
-            : null,
-        };
-      });
-
-      res.json(updatedResults);
+      // Return results as-is without modifying INDEX_CARDS
+      // INDEX_CARDS should contain local paths like /uploads/index_cards/filename.png
+      res.json(results);
     }
   });
 });
