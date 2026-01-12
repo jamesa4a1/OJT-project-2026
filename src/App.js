@@ -20,6 +20,7 @@ import AdminDashboard from './pages/dashboards/AdminDashboard';
 import StaffDashboard from './pages/dashboards/StaffDashboard';
 import AddAccount from './pages/AddAccount';
 import Settings from './pages/Settings';
+import ExcelSync from './pages/ExcelSync';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from 'framer-motion';
 // design
@@ -66,7 +67,7 @@ const AnimatedRoutes = () => {
   const { isAuthenticated, user } = useAuth();
   
   // Pages that should use dashboard layout (authenticated pages)
-  const dashboardPages = ['/dashboard', '/admin-dashboard', '/staff-dashboard', '/newcase', '/findcase', '/editcase', '/caselist', '/deletecase', '/details', '/settings'];
+  const dashboardPages = ['/dashboard', '/admin-dashboard', '/staff-dashboard', '/newcase', '/findcase', '/editcase', '/caselist', '/managecases', '/details', '/settings', '/excel-sync'];
   const isDashboardPage = dashboardPages.some(page => location.pathname.startsWith(page));
   const hideNavFooter = isDashboardPage && isAuthenticated;
   
@@ -87,10 +88,11 @@ const AnimatedRoutes = () => {
             <Route path="/caselist" element={isAuthenticated ? <DashboardPageWrapper><Caselist/></DashboardPageWrapper> : <PageWrapper><Caselist/></PageWrapper>} />
             <Route path="/newcase" element={isAuthenticated ? <DashboardPageWrapper><Newcase/></DashboardPageWrapper> : <PageWrapper><Newcase/></PageWrapper>} />
             <Route path="/findcase" element={isAuthenticated ? <DashboardPageWrapper><Findcase/></DashboardPageWrapper> : <PageWrapper><Findcase/></PageWrapper>} />
-            <Route path="/deletecase" element={isAuthenticated ? <DashboardPageWrapper><Deletecase/></DashboardPageWrapper> : <PageWrapper><Deletecase/></PageWrapper>}/>
+            <Route path="/managecases" element={isAuthenticated ? <DashboardPageWrapper><Deletecase/></DashboardPageWrapper> : <PageWrapper><Deletecase/></PageWrapper>}/>
             <Route path="/editcase" element={isAuthenticated ? <DashboardPageWrapper><Editcase/></DashboardPageWrapper> : <PageWrapper><Editcase/></PageWrapper>} />
             <Route path="/homepage" element={<PageWrapper><Homepage/></PageWrapper>} />
             <Route path="/aboutus" element={<PageWrapper><About/></PageWrapper>} />
+            <Route path="/excel-sync" element={isAuthenticated ? <DashboardPageWrapper><ExcelSync/></DashboardPageWrapper> : <Navigate to="/login" replace />} />
             <Route path="/details/:docketNo" element={isAuthenticated ? <DashboardPageWrapper><Details /></DashboardPageWrapper> : <PageWrapper><Details /></PageWrapper>} />
           </Routes>
         </AnimatePresence>

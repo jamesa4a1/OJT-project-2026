@@ -15,13 +15,14 @@ const Newcase = () => {
         DATE_FILED: "",
         COMPLAINANT: "",
         RESPONDENT: "",
+        ADDRESS_OF_RESPONDENT: "",
         OFFENSE: "",
+        DATE_OF_COMMISSION: "",
         DATE_RESOLVED: "",
         RESOLVING_PROSECUTOR: "",
         CRIM_CASE_NO: "N/A",
         BRANCH: "",
         DATEFILED_IN_COURT: "N/A",
-        REMARKS: "",
         REMARKS_DECISION: "",
         PENALTY: ""
     });
@@ -194,6 +195,16 @@ const Newcase = () => {
                                                placeholder="Enter respondent name" required />
                                     </div>
                                 </div>
+                                
+                                <div>
+                                    <label className={labelClass}>
+                                        <i className="fas fa-map-marker-alt text-red-500 mr-2"></i>
+                                        Address of Respondent
+                                    </label>
+                                    <input type="text" name="ADDRESS_OF_RESPONDENT" value={formData.ADDRESS_OF_RESPONDENT}
+                                           onChange={handleChange} className={inputClass}
+                                           placeholder="Enter respondent's address" />
+                                </div>
                             </div>
 
                             {/* Section: Case Details */}
@@ -211,6 +222,15 @@ const Newcase = () => {
                                     <input type="text" name="OFFENSE" value={formData.OFFENSE}
                                            onChange={handleChange} className={inputClass}
                                            placeholder="Describe the offense" />
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>
+                                        <i className="fas fa-calendar-day text-orange-500 mr-2"></i>
+                                        Date of Commission
+                                    </label>
+                                    <input type="date" name="DATE_OF_COMMISSION" value={formData.DATE_OF_COMMISSION}
+                                           onChange={handleChange} className={inputClass} />
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -271,66 +291,58 @@ const Newcase = () => {
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className={labelClass}>Decision</label>
-                                        <input type="text" name="REMARKS" value={formData.REMARKS}
-                                               onChange={handleChange} className={inputClass}
-                                               placeholder="Enter decision" />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Remarks</label>
+                                        <label className={labelClass}>Remarks Decision</label>
                                         <input type="text" name="REMARKS_DECISION" value={formData.REMARKS_DECISION}
                                                onChange={handleChange} className={inputClass}
-                                               placeholder="Additional remarks" />
+                                               placeholder="Enter remarks/decision" />
                                     </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className={labelClass}>Penalty</label>
                                         <input type="text" name="PENALTY" value={formData.PENALTY}
                                                onChange={handleChange} className={inputClass}
                                                placeholder="Penalty imposed" />
                                     </div>
-                                    <div>
-                                        <label className={labelClass}>
-                                            <i className="fas fa-image text-blue-500 mr-2"></i>
-                                            Index Card Image
-                                        </label>
-                                        <div className="space-y-3">
-                                            {!imagePreview ? (
-                                                <label className="flex flex-col items-center justify-center w-full h-32 
-                                                                 border-2 border-dashed border-slate-300 rounded-xl 
-                                                                 hover:border-blue-500 hover:bg-blue-50/50 
-                                                                 transition-all duration-300 cursor-pointer group">
-                                                    <div className="flex flex-col items-center justify-center">
-                                                        <i className="fas fa-cloud-upload-alt text-3xl text-slate-400 
-                                                                    group-hover:text-blue-500 mb-2 transition-colors"></i>
-                                                        <p className="text-sm text-slate-500 group-hover:text-blue-600 font-medium">
-                                                            Click to upload index card image
-                                                        </p>
-                                                        <p className="text-xs text-slate-400 mt-1">PNG, JPG, JPEG (Max 5MB)</p>
-                                                    </div>
-                                                    <input type="file" className="hidden" 
-                                                           accept="image/png,image/jpeg,image/jpg"
-                                                           onChange={handleImageChange} />
-                                                </label>
-                                            ) : (
-                                                <div className="relative">
-                                                    <img src={imagePreview} alt="Index Card Preview" 
-                                                         onClick={() => setShowFullImage(true)}
-                                                         className="w-full h-48 object-cover rounded-xl border-2 border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" />
-                                                    <button type="button" onClick={removeImage}
-                                                            className="absolute top-2 right-2 px-3 py-2 
-                                                                     bg-red-500 hover:bg-red-600 text-white 
-                                                                     rounded-lg shadow-lg transition-colors cursor-pointer z-10">
-                                                        <i className="fas fa-times mr-1"></i> Remove
-                                                    </button>
-                                                    <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
-                                                        <i className="fas fa-search-plus mr-1"></i> Click to view full size
-                                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className={labelClass}>
+                                        <i className="fas fa-image text-blue-500 mr-2"></i>
+                                        Index Card Image
+                                    </label>
+                                    <div className="space-y-3">
+                                        {!imagePreview ? (
+                                            <label className="flex flex-col items-center justify-center w-full h-32 
+                                                             border-2 border-dashed border-slate-300 rounded-xl 
+                                                             hover:border-blue-500 hover:bg-blue-50/50 
+                                                             transition-all duration-300 cursor-pointer group">
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <i className="fas fa-cloud-upload-alt text-3xl text-slate-400 
+                                                                group-hover:text-blue-500 mb-2 transition-colors"></i>
+                                                    <p className="text-sm text-slate-500 group-hover:text-blue-600 font-medium">
+                                                        Click to upload index card image
+                                                    </p>
+                                                    <p className="text-xs text-slate-400 mt-1">PNG, JPG, JPEG (Max 5MB)</p>
                                                 </div>
-                                            )}
-                                        </div>
+                                                <input type="file" className="hidden" 
+                                                       accept="image/png,image/jpeg,image/jpg"
+                                                       onChange={handleImageChange} />
+                                            </label>
+                                        ) : (
+                                            <div className="relative">
+                                                <img src={imagePreview} alt="Index Card Preview" 
+                                                     onClick={() => setShowFullImage(true)}
+                                                     className="w-full h-48 object-cover rounded-xl border-2 border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" />
+                                                <button type="button" onClick={removeImage}
+                                                        className="absolute top-2 right-2 px-3 py-2 
+                                                                 bg-red-500 hover:bg-red-600 text-white 
+                                                                 rounded-lg shadow-lg transition-colors cursor-pointer z-10">
+                                                    <i className="fas fa-times mr-1"></i> Remove
+                                                </button>
+                                                <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
+                                                    <i className="fas fa-search-plus mr-1"></i> Click to view full size
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

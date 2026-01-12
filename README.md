@@ -132,7 +132,21 @@ git clone https://github.com/jamesa4a1/OJT-project-2026.git "OJT PROJECT 2026(1)
 
 ## hosts
 
-App HOst- http://localhost:3000 
+App Host- http://localhost:3000 
+
+## NEW FEATURE: Excel Import/Export (No Macros Needed!)
+
+You can now download and upload Excel files to sync with your database WITHOUT MACROS!
+
+**To Use:**
+1. Login as Admin
+2. Go to Admin Dashboard
+3. Click "Excel Sync" button
+4. Download Excel file (Pull from database)
+5. Edit the file in Excel
+6. Upload the file back (Push to database)
+
+**See EXCEL_SYNC_INSTRUCTIONS.md for detailed instructions.** 
 
 
 
@@ -172,6 +186,8 @@ You can close the terminal windows after that. XAMPP can be stopped from the XAM
 git add .
 git commit -m "message of whats been changes"
 git push origin main
+
+
 
 
 

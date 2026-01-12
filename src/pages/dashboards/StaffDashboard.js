@@ -39,13 +39,13 @@ const StaffDashboard = () => {
                 
                 // Calculate stats
                 const pending = cases.filter(c => {
-                    const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
-                    return remarks === 'pending';
+                    const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+                    return decision === 'pending';
                 }).length;
                 
                 const terminated = cases.filter(c => {
-                    const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
-                    return remarks === 'terminated';
+                    const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+                    return decision === 'terminated';
                 }).length;
 
                 setStats({
@@ -67,13 +67,13 @@ const StaffDashboard = () => {
         // Apply status filter
         if (statusFilter === 'pending') {
             result = result.filter(c => {
-                const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
-                return remarks === 'pending';
+                const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+                return decision === 'pending';
             });
         } else if (statusFilter === 'terminated') {
             result = result.filter(c => {
-                const remarks = (c.REMARKS || c.remarks || '').toLowerCase();
-                return remarks === 'terminated';
+                const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+                return decision === 'terminated';
             });
         }
 
@@ -94,16 +94,16 @@ const StaffDashboard = () => {
     };
 
     const getStatusBadge = (caseItem) => {
-        const remarks = (caseItem.REMARKS || caseItem.remarks || '').toLowerCase();
+        const decision = (caseItem.REMARKS_DECISION || caseItem.remarks_decision || '').toLowerCase();
         
-        if (remarks === 'terminated') {
+        if (decision === 'terminated') {
             return (
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
                     <i className="fas fa-check-circle mr-1"></i>
                     Terminated
                 </span>
             );
-        } else if (remarks === 'pending') {
+        } else if (decision === 'pending') {
             return (
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                     <i className="fas fa-clock mr-1"></i>

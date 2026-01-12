@@ -190,7 +190,7 @@ const ClerkDashboard = () => {
                     <motion.div
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => navigate('/editcase')}
+                        onClick={() => navigate('/managecases')}
                         className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 
                                    cursor-pointer group hover:shadow-xl transition-all"
                     >
@@ -198,12 +198,12 @@ const ClerkDashboard = () => {
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center
                                                 group-hover:bg-blue-500 transition-colors">
-                                    <i className="fas fa-edit text-blue-600 text-xl 
+                                    <i className="fas fa-tasks text-blue-600 text-xl 
                                                   group-hover:text-white transition-colors"></i>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-slate-800 m-0">Edit Case</h4>
-                                    <p className="text-sm text-slate-500 m-0">Modify existing case details</p>
+                                    <h4 className="font-bold text-slate-800 m-0">Manage Cases</h4>
+                                    <p className="text-sm text-slate-500 m-0">View and edit case details</p>
                                 </div>
                             </div>
                             <i className="fas fa-arrow-right text-slate-300 group-hover:text-blue-500 
@@ -311,7 +311,7 @@ const ClerkDashboard = () => {
                         {user?.role === 'Admin' && (
                             <motion.button
                                 whileHover={{ x: 4 }}
-                                onClick={() => navigate('/deletecase')}
+                                onClick={() => navigate('/managecases')}
                                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
                                            bg-red-50 hover:bg-red-100 transition-colors
                                            border-none cursor-pointer text-left"

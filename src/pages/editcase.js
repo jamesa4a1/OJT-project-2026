@@ -292,7 +292,18 @@ const Editcase = () => {
                       placeholder="Enter respondent name"
                     />
                   </div>
-
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <i className="fas fa-map-marker-alt text-amber-500 mr-2"></i>Address of Respondent
+                    </label>
+                    <input
+                      type="text"
+                      value={editedCase.ADDRESS_OF_RESPONDENT !== undefined ? editedCase.ADDRESS_OF_RESPONDENT : (caseData[0].ADDRESS_OF_RESPONDENT || '')}
+                      onChange={(e) => handleFieldChange('ADDRESS_OF_RESPONDENT', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
+                      placeholder="Enter respondent address"
+                    />
+                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       <i className="fas fa-exclamation-triangle text-amber-500 mr-2"></i>Offense
@@ -303,6 +314,18 @@ const Editcase = () => {
                       onChange={(e) => handleFieldChange('OFFENSE', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter offense"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <i className="fas fa-calendar-day text-amber-500 mr-2"></i>Date of Commission
+                    </label>
+                    <input
+                      type="date"
+                      value={editedCase.DATE_OF_COMMISSION !== undefined ? editedCase.DATE_OF_COMMISSION : (caseData[0].DATE_OF_COMMISSION?.split('T')[0] || '')}
+                      onChange={(e) => handleFieldChange('DATE_OF_COMMISSION', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
                   </div>
                 </div>
@@ -344,13 +367,15 @@ const Editcase = () => {
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       <i className="fas fa-clipboard-check text-amber-500 mr-2"></i>Decision
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={editedCase.REMARKS_DECISION !== undefined ? editedCase.REMARKS_DECISION : (caseData[0].REMARKS_DECISION || '')}
                       onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                      placeholder="Enter decision"
-                    />
+                    >
+                      <option value="">Select decision</option>
+                      <option value="pending">Pending</option>
+                      <option value="terminated">Terminated</option>
+                    </select>
                   </div>
 
                   <div>
@@ -364,21 +389,6 @@ const Editcase = () => {
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter penalty"
                     />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-comment text-amber-500 mr-2"></i>Remarks
-                    </label>
-                    <select
-                      value={editedCase.REMARKS !== undefined ? editedCase.REMARKS : (caseData[0].REMARKS || '')}
-                      onChange={(e) => handleFieldChange('REMARKS', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                    >
-                  
-                      <option value="pending">Pending</option>
-                      <option value="terminated">Terminated</option>
-                    </select>
                   </div>
                 </div>
               </div>
