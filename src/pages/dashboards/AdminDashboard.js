@@ -18,6 +18,8 @@ const AdminDashboard = () => {
         totalClerks: 0
     });
     const [recentCases, setRecentCases] = useState([]);
+    const [allCases, setAllCases] = useState([]);
+    const [showAllCases, setShowAllCases] = useState(false);
     const [users, setUsers] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -79,6 +81,7 @@ const AdminDashboard = () => {
                 }));
 
                 setRecentCases(mappedCases.slice(0, 5));
+                setAllCases(mappedCases);
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -402,16 +405,21 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <i className={`fas fa-clock ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
-                            <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>Recent Cases</h3>
+                            <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>
+                                {showAllCases ? 'All Cases' : 'Recent Cases'}
+                            </h3>
                         </div>
-                        <Link to="/caselist" className={`text-sm font-medium no-underline ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}>
-                            View All →
-                        </Link>
+                        <button 
+                            onClick={() => setShowAllCases(!showAllCases)}
+                            className={`text-sm font-medium no-underline bg-transparent border-none cursor-pointer ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}
+                        >
+                            {showAllCases ? '← Show Recent' : 'View All →'}
+                        </button>
                     </div>
                     
-                    {recentCases.length > 0 ? (
+                    {(showAllCases ? allCases : recentCases).length > 0 ? (
                         <div className="space-y-3">
-                            {recentCases.map((caseItem, index) => (
+                            {(showAllCases ? allCases : recentCases).map((caseItem, index) => (
                                 <motion.div
                                     key={caseItem.id || index}
                                     initial={{ opacity: 0, x: -20 }}

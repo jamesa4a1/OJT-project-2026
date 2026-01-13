@@ -476,9 +476,13 @@ const Settings = () => {
                                                         onChange={handleInputChange}
                                                         className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-slate-800 font-medium outline-none"
                                                         placeholder="Enter your full name"
+                                                        autoFocus
                                                     />
                                                 ) : (
-                                                    <div className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium">
+                                                    <div 
+                                                        onClick={() => setIsEditing(true)}
+                                                        className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium cursor-pointer hover:bg-slate-100 hover:border-blue-300 transition-all"
+                                                    >
                                                         {formData.name || 'Not set'}
                                                     </div>
                                                 )}
@@ -499,7 +503,10 @@ const Settings = () => {
                                                         placeholder="your@email.com"
                                                     />
                                                 ) : (
-                                                    <div className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium">
+                                                    <div 
+                                                        onClick={() => setIsEditing(true)}
+                                                        className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium cursor-pointer hover:bg-slate-100 hover:border-blue-300 transition-all"
+                                                    >
                                                         {formData.email || 'Not set'}
                                                     </div>
                                                 )}

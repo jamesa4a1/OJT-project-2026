@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import ImageModal from '../components/ImageModal';
 
 const Deletecase = () => {
   const { user } = useAuth();
@@ -690,12 +691,17 @@ const Deletecase = () => {
                       />
                       {imagePreview && (
                         <div className="mt-3">
-                          <p className="text-xs text-slate-500 mb-2">Click image to view fullscreen</p>
-                          <img 
+                          <p className="text-xs text-slate-500 mb-2 flex items-center gap-2">
+                            <i className="fas fa-expand-arrows-alt text-amber-500"></i>
+                            Click image to view fullscreen
+                          </p>
+                          <motion.img 
                             src={imagePreview.startsWith('data:') ? imagePreview : `http://localhost:5000${imagePreview.startsWith('/') ? imagePreview : '/' + imagePreview}`}
                             alt="Index Card Preview" 
-                            className="max-w-full h-auto rounded-xl border-2 border-slate-200 max-h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                            className="max-w-full h-auto rounded-xl border-2 border-slate-200 max-h-64 object-contain cursor-pointer shadow-lg"
                             onClick={() => setShowFullscreenImage(true)}
+                            whileHover={{ scale: 1.02, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
+                            whileTap={{ scale: 0.98 }}
                             onError={(e) => {
                               console.error('Image failed to load:', imagePreview);
                               console.error('Constructed URL:', e.target.src);
@@ -809,46 +815,13 @@ const Deletecase = () => {
           )}
         </AnimatePresence>
 
-        {/* Fullscreen Image Modal - Outside all other modals */}
-        {showFullscreenImage && imagePreview && (
-          <div
-            className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
-            style={{ padding: '3rem' }}
-            onClick={() => setShowFullscreenImage(false)}
-          >
-            {/* Close Button - X in top right */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowFullscreenImage(false);
-              }}
-              className="absolute top-6 right-6 w-12 h-12 text-white hover:text-gray-300 
-                         transition-all duration-200 flex items-center justify-center cursor-pointer border-none bg-transparent z-[10001]"
-              style={{ fontSize: '2rem' }}
-            >
-              ✕
-            </button>
-            
-            {/* Image Container with white background */}
-            <div 
-              className="relative w-full h-full flex items-center justify-center bg-white rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-              style={{ maxWidth: '90vw', maxHeight: '90vh' }}
-            >
-              <img
-                src={imagePreview.startsWith('data:') ? imagePreview : `http://localhost:5000${imagePreview.startsWith('/') ? imagePreview : '/' + imagePreview}`}
-                alt="Index Card Fullscreen"
-                className="w-auto h-auto"
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                  display: 'block'
-                }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Professional Image Modal */}
+        <ImageModal
+          isOpen={showFullscreenImage}
+          onClose={() => setShowFullscreenImage(false)}
+          imageUrl={imagePreview ? (imagePreview.startsWith('data:') ? imagePreview : `http://localhost:5000${imagePreview.startsWith('/') ? imagePreview : '/' + imagePreview}`) : ''}
+          imageName={selectedCase?.DOCKET_NO ? `Index-Card-${selectedCase.DOCKET_NO}.jpg` : 'index-card.jpg'}
+        />
       </motion.div>
     </div>
   );

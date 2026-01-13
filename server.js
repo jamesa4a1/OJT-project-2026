@@ -1247,34 +1247,68 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Excel file is empty' });
     }
 
+    // Helper function to find column value with flexible matching
+    const getColumnValue = (row, possibleNames) => {
+      for (let name of possibleNames) {
+        if (row[name] !== undefined && row[name] !== null && row[name] !== '') {
+          return row[name];
+        }
+      }
+      return null;
+    };
+
     let added = 0;
     let updated = 0;
     let errors = [];
+    let warnings = [];
+
+    // Check for common column name issues
+    const firstRow = data[0];
+    const columnNames = Object.keys(firstRow);
+    const commonIssues = {
+      'Date Filing': 'Date Filed',
+      'Respondents': 'Respondent',
+      'Complainants': 'Complainant',
+      'Offenses': 'Offense',
+      'Address of Respondents': 'Address of Respondent'
+    };
+
+    for (let wrongName in commonIssues) {
+      if (columnNames.includes(wrongName)) {
+        warnings.push(`Column "${wrongName}" detected - should be "${commonIssues[wrongName]}". Attempting to process anyway.`);
+      }
+    }
 
     // Process each row
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       
       try {
-        // Map Excel columns to database fields
+        // Map Excel columns to database fields with flexible matching
         const caseData = {
-          id: row['ID'] || row['id'],
-          DOCKET_NO: row['Docket No'] || row['DOCKET_NO'] || '',
-          DATE_FILED: row['Date Filed'] || row['DATE_FILED'] || null,
-          COMPLAINANT: row['Complainant'] || row['COMPLAINANT'] || '',
-          RESPONDENT: row['Respondent'] || row['RESPONDENT'] || '',
-          ADDRESS_OF_RESPONDENT: row['Address of Respondent'] || row['ADDRESS_OF_RESPONDENT'] || '',
-          OFFENSE: row['Offense'] || row['OFFENSE'] || '',
-          DATE_OF_COMMISSION: row['Date of Commission'] || row['DATE_OF_COMMISSION'] || null,
-          DATE_RESOLVED: row['Date Resolved'] || row['DATE_RESOLVED'] || null,
-          RESOLVING_PROSECUTOR: row['Resolving Prosecutor'] || row['RESOLVING_PROSECUTOR'] || '',
-          CRIM_CASE_NO: row['Criminal Case No'] || row['CRIM_CASE_NO'] || '',
-          BRANCH: row['Branch'] || row['BRANCH'] || '',
-          DATEFILED_IN_COURT: row['Date Filed in Court'] || row['DATEFILED_IN_COURT'] || null,
-          REMARKS_DECISION: row['Remarks Decision'] || row['REMARKS_DECISION'] || '',
-          PENALTY: row['Penalty'] || row['PENALTY'] || '',
-          INDEX_CARDS: row['Index Cards'] || row['INDEX_CARDS'] || 'N/A'
+          id: getColumnValue(row, ['ID', 'id']),
+          DOCKET_NO: getColumnValue(row, ['Docket No', 'DOCKET_NO', 'Docket Number', 'DocketNo']) || '',
+          DATE_FILED: getColumnValue(row, ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled']),
+          COMPLAINANT: getColumnValue(row, ['Complainant', 'COMPLAINANT', 'Complainants']) || '',
+          RESPONDENT: getColumnValue(row, ['Respondent', 'RESPONDENT', 'Respondents']) || '',
+          ADDRESS_OF_RESPONDENT: getColumnValue(row, ['Address of Respondent', 'ADDRESS_OF_RESPONDENT', 'Address of Respondents', 'Respondent Address']) || '',
+          OFFENSE: getColumnValue(row, ['Offense', 'OFFENSE', 'Offenses']) || '',
+          DATE_OF_COMMISSION: getColumnValue(row, ['Date of Commission', 'DATE_OF_COMMISSION', 'Commission Date']),
+          DATE_RESOLVED: getColumnValue(row, ['Date Resolved', 'DATE_RESOLVED', 'Resolution Date']),
+          RESOLVING_PROSECUTOR: getColumnValue(row, ['Resolving Prosecutor', 'RESOLVING_PROSECUTOR', 'Prosecutor']) || '',
+          CRIM_CASE_NO: getColumnValue(row, ['Criminal Case No', 'CRIM_CASE_NO', 'Case Number', 'Case No']) || '',
+          BRANCH: getColumnValue(row, ['Branch', 'BRANCH']) || '',
+          DATEFILED_IN_COURT: getColumnValue(row, ['Date Filed in Court', 'DATEFILED_IN_COURT', 'Court Filing Date']),
+          REMARKS_DECISION: getColumnValue(row, ['Remarks Decision', 'REMARKS_DECISION', 'Decision', 'Remarks']) || '',
+          PENALTY: getColumnValue(row, ['Penalty', 'PENALTY']) || '',
+          INDEX_CARDS: getColumnValue(row, ['Index Cards', 'INDEX_CARDS', 'IndexCards']) || 'N/A'
         };
+
+        // Validate required fields
+        if (!caseData.DOCKET_NO) {
+          errors.push(`Row ${i + 2}: Missing Docket Number`);
+          continue;
+        }
 
         // Check if case exists by ID or DOCKET_NO
         const checkQuery = caseData.id 
@@ -1353,10 +1387,11 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
 
     res.json({
       success: true,
-      message: `Import completed: ${added} added, ${updated} updated`,
+      message: `Import completed: ${added} added, ${updated} updated${warnings.length > 0 ? ' (with warnings)' : ''}`,
       added,
       updated,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined
     });
 
   } catch (error) {
