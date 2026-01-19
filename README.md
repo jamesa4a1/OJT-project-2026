@@ -234,3 +234,12 @@ Click "Start" for MySQL (at minimum)
 Start the Node server: node server.js
 Start React: npm start
 
+
+
+## error  listen EADDRINUSE: address already in use :::5000
+
+Get-Process -Id (Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, StartTime
+
+Stop-Process -Id 16356 -Force
+
+node server.js

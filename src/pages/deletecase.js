@@ -11,6 +11,7 @@ const Deletecase = () => {
   const [filteredCases, setFilteredCases] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("default"); // 'default', 'complainant-asc', 'date-asc', 'date-desc'
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'pending', 'terminated'
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -31,6 +32,24 @@ const Deletecase = () => {
   // Filter cases when search term changes
   useEffect(() => {
     let filtered = cases;
+    
+    // Apply status filter
+    if (statusFilter === 'pending') {
+      filtered = filtered.filter(c => {
+        const status = (c.REMARKS_DECISION || '').toLowerCase();
+        return status === 'pending';
+      });
+    } else if (statusFilter === 'dismissed') {
+      filtered = filtered.filter(c => {
+        const status = (c.REMARKS_DECISION || '').toLowerCase();
+        return status === 'dismissed';
+      });
+    } else if (statusFilter === 'convicted') {
+      filtered = filtered.filter(c => {
+        const status = (c.REMARKS_DECISION || '').toLowerCase();
+        return status === 'convicted';
+      });
+    }
     
     // Apply search filter
     if (searchTerm.trim() !== "") {
@@ -57,7 +76,7 @@ const Deletecase = () => {
     }
     
     setFilteredCases(sorted);
-  }, [searchTerm, cases, sortOption]);
+  }, [searchTerm, cases, sortOption, statusFilter]);
 
   const fetchAllCases = async () => {
     setIsLoading(true);
@@ -222,7 +241,7 @@ const Deletecase = () => {
 
         {/* Back Button & Search */}
         <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
-          <motion.button whileHover={{ x: -5 }} whileTap={{ scale: 0.95 }} onClick={() => navigate("/dashboard")}
+          <motion.button whileHover={{ x: -5 }} whileTap={{ scale: 0.95 }} onClick={() => navigate("/admin-dashboard")}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer">
             <i className="fas fa-arrow-left"></i>
             <span className="font-medium">Back to Menu</span>
@@ -256,6 +275,23 @@ const Deletecase = () => {
               <option value="complainant-asc">Complainant (A-Z)</option>
               <option value="date-asc">Date Filed (Oldest First)</option>
               <option value="date-desc">Date Filed (Newest First)</option>
+            </select>
+          </div>
+
+          {/* Status Filter Dropdown */}
+          <div className="relative w-full md:w-64">
+            <i className="fas fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                        focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
+                        transition-all duration-300 outline-none text-slate-700 cursor-pointer font-semibold"
+            >
+              <option value="all">All Cases</option>
+              <option value="pending">Pending</option>
+              <option value="dismissed">Dismissed</option>
+              <option value="convicted">Convicted</option>
             </select>
           </div>
 
@@ -304,7 +340,7 @@ const Deletecase = () => {
                     <th className="px-4 py-4 text-left font-semibold">Complainant</th>
                     <th className="px-4 py-4 text-left font-semibold">Respondent</th>
                     <th className="px-4 py-4 text-left font-semibold">Offense</th>
-                    <th className="px-4 py-4 text-left font-semibold">Branch</th>
+                    <th className="px-4 py-4 text-left font-semibold">Decision</th>
                     <th className="px-4 py-4 text-center font-semibold">Actions</th>
                   </tr>
                 </thead>
@@ -328,7 +364,21 @@ const Deletecase = () => {
                           {caseItem.OFFENSE || 'N/A'}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{caseItem.BRANCH || 'N/A'}</td>
+                      <td className="px-4 py-4 text-slate-600">
+                        {(() => {
+                          const decision = (caseItem.REMARKS_DECISION || '').toLowerCase();
+                          if (decision === 'pending') return (
+                            <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 text-sm font-semibold">Pending</span>
+                          );
+                          if (decision === 'dismissed') return (
+                            <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">Dismissed</span>
+                          );
+                          if (decision === 'convicted') return (
+                            <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">Convicted</span>
+                          );
+                          return <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold">{caseItem.REMARKS_DECISION || 'N/A'}</span>;
+                        })()}
+                      </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center justify-center gap-2">
                           {/* View Button */}
@@ -627,7 +677,8 @@ const Deletecase = () => {
                       >
                         <option value="">Select decision</option>
                         <option value="pending">Pending</option>
-                        <option value="terminated">Terminated</option>
+                        <option value="dismissed">Dismissed</option>
+                        <option value="convicted">Convicted</option>
                       </select>
                     </div>
 

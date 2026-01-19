@@ -333,7 +333,7 @@ const AddAccount = () => {
                         className="lg:col-span-2 space-y-6"
                     >
                         {/* Stats Cards */}
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-4 gap-4">
                             <motion.div
                                 whileHover={{ y: -4 }}
                                 className="bg-white rounded-xl shadow-md p-4 border border-slate-100"
@@ -375,6 +375,22 @@ const AddAccount = () => {
                                     </div>
                                     <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
                                         <i className="fas fa-user-pen text-teal-600 text-xl"></i>
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            {/* Staff Card */}
+                            <motion.div
+                                whileHover={{ y: -4 }}
+                                className="bg-white rounded-xl shadow-md p-4 border border-slate-100"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-3xl font-bold text-slate-800 m-0">{users.filter(u => u.role === 'Staff').length}</p>
+                                        <p className="text-slate-500 text-sm m-0 mt-1">Staff</p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                                        <i className="fas fa-user-group text-green-600 text-xl"></i>
                                     </div>
                                 </div>
                             </motion.div>

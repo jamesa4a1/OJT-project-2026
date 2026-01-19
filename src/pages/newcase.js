@@ -292,9 +292,18 @@ const Newcase = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className={labelClass}>Remarks Decision</label>
-                                        <input type="text" name="REMARKS_DECISION" value={formData.REMARKS_DECISION}
-                                               onChange={handleChange} className={inputClass}
-                                               placeholder="Enter remarks/decision" />
+                                        <select
+                                            name="REMARKS_DECISION"
+                                            value={formData.REMARKS_DECISION}
+                                            onChange={handleChange}
+                                            className={inputClass}
+                                            required
+                                        >
+                                            <option value="">Select status</option>
+                                            <option value="Pending">Pending</option>
+                                            <option value="Dismissed">Dismissed</option>
+                                            <option value="Convicted">Convicted</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <label className={labelClass}>Penalty</label>

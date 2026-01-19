@@ -11,12 +11,13 @@ const StaffDashboard = () => {
     const [allCases, setAllCases] = useState([]);
     const [filteredCases, setFilteredCases] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'terminated'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'dismissed', 'convicted'
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         total: 0,
         pending: 0,
-        terminated: 0
+        dismissed: 0,
+        convicted: 0
     });
 
     // Fetch all cases
@@ -42,16 +43,19 @@ const StaffDashboard = () => {
                     const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
                     return decision === 'pending';
                 }).length;
-                
-                const terminated = cases.filter(c => {
+                const dismissed = cases.filter(c => {
                     const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
-                    return decision === 'terminated';
+                    return decision === 'dismissed';
                 }).length;
-
+                const convicted = cases.filter(c => {
+                    const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+                    return decision === 'convicted';
+                }).length;
                 setStats({
                     total: cases.length,
-                    pending: pending,
-                    terminated: terminated
+                    pending,
+                    dismissed,
+                    convicted
                 });
             }
         } catch (error) {
@@ -70,10 +74,15 @@ const StaffDashboard = () => {
                 const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
                 return decision === 'pending';
             });
-        } else if (statusFilter === 'terminated') {
+        } else if (statusFilter === 'dismissed') {
             result = result.filter(c => {
                 const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
-                return decision === 'terminated';
+                return decision === 'dismissed';
+            });
+        } else if (statusFilter === 'convicted') {
+            result = result.filter(c => {
+                const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+                return decision === 'convicted';
             });
         }
 
@@ -95,19 +104,25 @@ const StaffDashboard = () => {
 
     const getStatusBadge = (caseItem) => {
         const decision = (caseItem.REMARKS_DECISION || caseItem.remarks_decision || '').toLowerCase();
-        
-        if (decision === 'terminated') {
-            return (
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                    <i className="fas fa-check-circle mr-1"></i>
-                    Terminated
-                </span>
-            );
-        } else if (decision === 'pending') {
+        if (decision === 'pending') {
             return (
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                     <i className="fas fa-clock mr-1"></i>
                     Pending
+                </span>
+            );
+        } else if (decision === 'dismissed') {
+            return (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    <i className="fas fa-times-circle mr-1"></i>
+                    Dismissed
+                </span>
+            );
+        } else if (decision === 'convicted') {
+            return (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                    <i className="fas fa-gavel mr-1"></i>
+                    Convicted
                 </span>
             );
         }
@@ -176,7 +191,7 @@ const StaffDashboard = () => {
             </motion.div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -219,11 +234,28 @@ const StaffDashboard = () => {
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium`}>Terminated Cases</p>
-                            <h3 className={`text-3xl font-bold ${isDark ? 'text-red-400' : 'text-red-600'} mt-1`}>{stats.terminated}</h3>
+                            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium`}>Dismissed Cases</p>
+                            <h3 className={`text-3xl font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'} mt-1`}>{stats.dismissed}</h3>
                         </div>
-                        <div className={`w-14 h-14 rounded-2xl ${isDark ? 'bg-red-500/20' : 'bg-red-100'} flex items-center justify-center`}>
-                            <i className={`fas fa-check-double ${isDark ? 'text-red-400' : 'text-red-600'} text-xl`}></i>
+                        <div className={`w-14 h-14 rounded-2xl ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'} flex items-center justify-center`}>
+                            <i className={`fas fa-times-circle ${isDark ? 'text-blue-400' : 'text-blue-600'} text-xl`}></i>
+                        </div>
+                    </div>
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-6 shadow-lg border`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium`}>Convicted Cases</p>
+                            <h3 className={`text-3xl font-bold ${isDark ? 'text-green-400' : 'text-green-600'} mt-1`}>{stats.convicted}</h3>
+                        </div>
+                        <div className={`w-14 h-14 rounded-2xl ${isDark ? 'bg-green-500/20' : 'bg-green-100'} flex items-center justify-center`}>
+                            <i className={`fas fa-gavel ${isDark ? 'text-green-400' : 'text-green-600'} text-xl`}></i>
                         </div>
                     </div>
                 </motion.div>
@@ -275,17 +307,27 @@ const StaffDashboard = () => {
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                         >
                             <i className="fas fa-clock mr-2"></i>
-                            Pending
+                            Pending Cases
                         </button>
                         <button
-                            onClick={() => setStatusFilter('terminated')}
+                            onClick={() => setStatusFilter('dismissed')}
                             className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
-                                      ${statusFilter === 'terminated' 
-                                        ? 'bg-red-500 text-white shadow-lg' 
+                                      ${statusFilter === 'dismissed' 
+                                        ? 'bg-blue-500 text-white shadow-lg' 
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                         >
-                            <i className="fas fa-check-double mr-2"></i>
-                            Terminated
+                            <i className="fas fa-times-circle mr-2"></i>
+                            Dismissed Cases
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('convicted')}
+                            className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
+                                      ${statusFilter === 'convicted' 
+                                        ? 'bg-green-500 text-white shadow-lg' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                            <i className="fas fa-gavel mr-2"></i>
+                            Convicted Cases
                         </button>
                     </div>
                 </div>
