@@ -103,22 +103,14 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 
 
-## For future updates To pull (get latest changes):
-To pull (get latest changes):
 
-git pull
-
-To push (upload your changes):
-
-git add .
-git commit -m "Your commit message"
-git push
 
 ## To clone (pull) the repository for the first time: in powershell
 
 cd 
 git clone https://github.com/jamesa4a1/OJT-project-2026.git "OJT PROJECT 2026(1)"
 
+<<<<<<< HEAD
 ## after cloning run this on powershell
 
 npm install
@@ -128,10 +120,33 @@ npm start
 optional if the backend server is not running:
 
 node server.js
+=======
+
+
+
+>>>>>>> 2967cda7df6ae5c01e3fcc6937a7892a38fe9549
 
 ## hosts
 
-App HOst- http://localhost:3000 
+App Host- http://localhost:3000 
+
+## NEW FEATURE: Excel Import/Export (No Macros Needed!)
+
+You can now download and upload Excel files to sync with your database WITHOUT MACROS!
+
+**To Use:**
+1. Login as Admin
+2. Go to Admin Dashboard
+3. Click "Excel Sync" button
+4. Download Excel file (Pull from database)
+5. Edit the file in Excel
+6. Upload the file back (Push to database)
+
+**See EXCEL_SYNC_INSTRUCTIONS.md for detailed instructions.** 
+
+
+
+
 
 ## to start the Host in powershell terminal
 
@@ -145,6 +160,9 @@ cd "c:\Users\HP User\Desktop\OJT PROJECT 2026(1)"; npm start
 
 node server.js
 
+
+
+
 ## To pause/stop the servers:
 
 In each terminal window where a server is running:
@@ -157,15 +175,31 @@ The React dev server (if running npm start)
 The backend server (if running node server.js)
 You can close the terminal windows after that. XAMPP can be stopped from the XAMPP Control Panel by clicking "Stop" on Apache and MySQL.
 
-## Elevated Code 
+   
 
-oct_docketing
+
+
+
 
 ## command to push in github 
 
 git add .
 git commit -m "message of whats been changes"
 git push origin main
+
+
+
+
+
+
+## For future updates To pull (get latest changes):
+To pull (get latest changes):
+
+git pull
+
+
+
+
 
 ## if error ((push declined due to email privacy restrictions))
 
@@ -201,6 +235,7 @@ Start the Node server: node server.js
 Start React: npm start
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Frontend: http://localhost:3000
 Backend: http://localhost:5000
 
@@ -211,3 +246,14 @@ Backend: http://localhost:5000
 $env:Path += ";C:\Program Files\nodejs"; Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; cd "C:\Users\galam\OneDrive\Desktop\I miss kerstin\OJT-project-2026"; node server.js
 =======
 >>>>>>> a88e8b66c435b638eb6d7716af02ab2028242673
+=======
+
+
+## error  listen EADDRINUSE: address already in use :::5000
+
+Get-Process -Id (Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, StartTime
+
+Stop-Process -Id 16356 -Force
+
+node server.js
+>>>>>>> 2967cda7df6ae5c01e3fcc6937a7892a38fe9549

@@ -58,7 +58,7 @@ const Cases = () => {
             title: 'Delete Case',
             description: 'Remove cases from the system',
             icon: 'fa-trash-alt',
-            path: '/deletecase',
+            path: '/managecases',
             color: 'from-red-500 to-red-600',
             shadowColor: 'shadow-red-500/30',
             hoverBg: 'hover:bg-red-50',

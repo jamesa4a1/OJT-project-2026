@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
+import axios from 'axios';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -17,6 +18,8 @@ const AdminDashboard = () => {
         totalClerks: 0
     });
     const [recentCases, setRecentCases] = useState([]);
+    const [allCases, setAllCases] = useState([]);
+    const [showAllCases, setShowAllCases] = useState(false);
     const [users, setUsers] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -36,26 +39,49 @@ const AdminDashboard = () => {
             if (response.ok) {
                 const cases = await response.json();
                 
+                // Map uppercase DB fields to lowercase for frontend
+                const mappedCases = cases.map(c => ({
+                    ...c,
+                    id: c.id,
+                    docket_no: c.DOCKET_NO,
+                    date_filed: c.DATE_FILED,
+                    complainant: c.COMPLAINANT,
+                    respondent: c.RESPONDENT,
+                    offense: c.OFFENSE,
+                    date_resolved: c.DATE_RESOLVED,
+                    status: c.REMARKS || 'pending',
+                    title: c.DOCKET_NO
+                }));
+                
                 const now = new Date();
                 const thisMonth = now.getMonth();
                 const thisYear = now.getFullYear();
                 
-                const resolved = cases.filter(c => c.status?.toLowerCase() === 'resolved' || c.status?.toLowerCase() === 'closed').length;
-                const pending = cases.filter(c => c.status?.toLowerCase() === 'pending' || c.status?.toLowerCase() === 'open').length;
-                const monthCases = cases.filter(c => {
-                    const caseDate = new Date(c.date_filed || c.created_at);
+                const resolved = mappedCases.filter(c => 
+                    c.status?.toLowerCase() === 'resolved' || 
+                    c.status?.toLowerCase() === 'closed' ||
+                    c.status?.toLowerCase() === 'terminated'
+                ).length;
+                const pending = mappedCases.filter(c => 
+                    c.status?.toLowerCase() === 'pending' || 
+                    c.status?.toLowerCase() === 'open' ||
+                    c.status?.toLowerCase() === 'ongoing'
+                ).length;
+                const monthCases = mappedCases.filter(c => {
+                    const caseDate = new Date(c.date_filed || c.DATE_FILED);
                     return caseDate.getMonth() === thisMonth && caseDate.getFullYear() === thisYear;
                 }).length;
 
                 setStats(prev => ({
                     ...prev,
-                    total: cases.length,
+                    total: mappedCases.length,
                     resolved: resolved,
                     pending: pending,
                     thisMonth: monthCases
                 }));
 
-                setRecentCases(cases.slice(0, 5));
+                setRecentCases(mappedCases.slice(0, 5));
+                setAllCases(mappedCases);
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -247,7 +273,7 @@ const AdminDashboard = () => {
                     <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>Quick Actions</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <motion.div
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
@@ -285,6 +311,27 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
                             <i className={`fas fa-arrow-right group-hover:text-sky-500 group-hover:translate-x-1 transition-all ${isDark ? 'text-slate-600' : 'text-slate-300'}`}></i>
+                        </div>
+                    </motion.div>
+
+                    {/* Excel Sync Button (Upload/Download) */}
+                    <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => navigate('/excel-sync')}
+                        className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-teal-500 transition-colors ${isDark ? 'bg-teal-900/50' : 'bg-teal-100'}`}>
+                                    <i className={`fas fa-sync-alt text-xl group-hover:text-white transition-colors ${isDark ? 'text-teal-400' : 'text-teal-600'}`}></i>
+                                </div>
+                                <div>
+                                    <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Excel Sync</h4>
+                                    <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Import/Export Excel files</p>
+                                </div>
+                            </div>
+                            <i className={`fas fa-arrow-right group-hover:text-teal-500 group-hover:translate-x-1 transition-all ${isDark ? 'text-slate-600' : 'text-slate-300'}`}></i>
                         </div>
                     </motion.div>
                 </div>
@@ -358,43 +405,52 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <i className={`fas fa-clock ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
-                            <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>Recent Cases</h3>
+                            <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>
+                                {showAllCases ? 'All Cases' : 'Recent Cases'}
+                            </h3>
                         </div>
-                        <Link to="/caselist" className={`text-sm font-medium no-underline ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}>
-                            View All →
-                        </Link>
+                        <button 
+                            onClick={() => setShowAllCases(!showAllCases)}
+                            className={`text-sm font-medium no-underline bg-transparent border-none cursor-pointer ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}
+                        >
+                            {showAllCases ? '← Show Recent' : 'View All →'}
+                        </button>
                     </div>
                     
-                    {recentCases.length > 0 ? (
+                    {(showAllCases ? allCases : recentCases).length > 0 ? (
                         <div className="space-y-3">
-                            {recentCases.map((caseItem, index) => (
+                            {(showAllCases ? allCases : recentCases).map((caseItem, index) => (
                                 <motion.div
                                     key={caseItem.id || index}
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.1 * index }}
                                     className={`flex items-center gap-4 p-3 rounded-xl transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}
-                                    onClick={() => navigate(`/details/${caseItem.docket_no}`)}
+                                    onClick={() => navigate(`/details/${caseItem.DOCKET_NO || caseItem.docket_no}`)}
                                 >
                                     <div className={`w-2 h-10 rounded-full ${
-                                        caseItem.status?.toLowerCase() === 'resolved' || caseItem.status?.toLowerCase() === 'closed'
+                                        caseItem.status?.toLowerCase() === 'resolved' || 
+                                        caseItem.status?.toLowerCase() === 'closed' ||
+                                        caseItem.status?.toLowerCase() === 'terminated'
                                             ? 'bg-teal-500'
                                             : 'bg-orange-500'
                                     }`}></div>
                                     <div className="flex-1 min-w-0">
                                         <p className={`font-semibold m-0 truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>
-                                            {caseItem.title || caseItem.docket_no || 'Untitled Case'}
+                                            {caseItem.DOCKET_NO || caseItem.docket_no || 'Untitled Case'}
                                         </p>
                                         <p className={`text-sm m-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                            {caseItem.docket_no} • {caseItem.date_filed || 'No date'}
+                                            {caseItem.RESPONDENT || caseItem.respondent} • {caseItem.DATE_FILED ? new Date(caseItem.DATE_FILED).toLocaleDateString() : 'No date'}
                                         </p>
                                     </div>
                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                        caseItem.status?.toLowerCase() === 'resolved' || caseItem.status?.toLowerCase() === 'closed'
+                                        caseItem.status?.toLowerCase() === 'resolved' || 
+                                        caseItem.status?.toLowerCase() === 'closed' ||
+                                        caseItem.status?.toLowerCase() === 'terminated'
                                             ? isDark ? 'bg-teal-900/50 text-teal-400' : 'bg-teal-100 text-teal-600'
                                             : isDark ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-600'
                                     }`}>
-                                        {caseItem.status || 'Pending'}
+                                        {caseItem.REMARKS || caseItem.status || 'Pending'}
                                     </span>
                                 </motion.div>
                             ))}

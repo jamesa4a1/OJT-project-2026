@@ -27,9 +27,9 @@ const About = () => {
                      providing essential legal services to the people of Bohol. Our office is 
                      committed to the fair and efficient administration of justice.`,
             address: {
-                street: 'Carlos P. Garcia E Ave',
+                street: 'New Capitol Site,  Lino Chatto Drive',
                 city: 'Tagbilaran City',
-                postal: '6300 Bohol',
+                postal: 'City Prosecution Office',
                 country: 'Philippines'
             }
         },

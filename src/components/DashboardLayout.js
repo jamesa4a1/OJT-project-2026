@@ -33,10 +33,8 @@ const DashboardLayout = ({ children }) => {
     const adminSidebarItems = [
         { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', path: '/admin-dashboard' },
         { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
-        { id: 'findcase', label: 'Find Case', icon: 'fa-search', path: '/findcase' },
-        { id: 'editcase', label: 'Update Case', icon: 'fa-edit', path: '/editcase' },
+        { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
         { id: 'addaccount', label: 'Add Account', icon: 'fa-user-plus', path: '/add-account' },
-        { id: 'deletecase', label: 'Delete Case', icon: 'fa-trash-alt', path: '/deletecase' },
         { id: 'caselist', label: 'Terminated Cases', icon: 'fa-archive', path: '/caselist' },
         { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
     ];
@@ -44,14 +42,12 @@ const DashboardLayout = ({ children }) => {
     const clerkSidebarItems = [
         { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', path: '/dashboard' },
         { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
-        { id: 'findcase', label: 'Find Case', icon: 'fa-search', path: '/findcase' },
-        { id: 'editcase', label: 'Update Case', icon: 'fa-edit', path: '/editcase' },
+        { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
         { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
     ];
 
     const staffSidebarItems = [
         { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', path: '/staff-dashboard' },
-        { id: 'findcase', label: 'Find Case', icon: 'fa-search', path: '/findcase' },
         { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
     ];
 

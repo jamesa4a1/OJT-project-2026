@@ -14,7 +14,19 @@ const Editcase = () => {
   const [indexCardImage, setIndexCardImage] = useState(null); 
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullImage, setShowFullImage] = useState(null);
+  const [currentImageError, setCurrentImageError] = useState(false);
   const navigate = useNavigate();
+
+  // Helper function to get proper image URL
+  const getImageUrl = (indexCardPath) => {
+    if (!indexCardPath || indexCardPath === 'N/A') return null;
+    // If it's already a full URL (external), use as-is
+    if (indexCardPath.startsWith('http://') || indexCardPath.startsWith('https://')) {
+      return indexCardPath;
+    }
+    // Otherwise, it's a local path - prepend server URL
+    return `http://localhost:5000${indexCardPath}`;
+  };
 
   // Fetch all cases on component mount
   useEffect(() => {
@@ -61,6 +73,7 @@ const Editcase = () => {
     setError("");
     setIndexCardImage(null);
     setImagePreview(null);
+    setCurrentImageError(false); // Reset image error for new case
     // Scroll to the edit form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -279,7 +292,18 @@ const Editcase = () => {
                       placeholder="Enter respondent name"
                     />
                   </div>
-
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <i className="fas fa-map-marker-alt text-amber-500 mr-2"></i>Address of Respondent
+                    </label>
+                    <input
+                      type="text"
+                      value={editedCase.ADDRESS_OF_RESPONDENT !== undefined ? editedCase.ADDRESS_OF_RESPONDENT : (caseData[0].ADDRESS_OF_RESPONDENT || '')}
+                      onChange={(e) => handleFieldChange('ADDRESS_OF_RESPONDENT', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
+                      placeholder="Enter respondent address"
+                    />
+                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       <i className="fas fa-exclamation-triangle text-amber-500 mr-2"></i>Offense
@@ -290,6 +314,18 @@ const Editcase = () => {
                       onChange={(e) => handleFieldChange('OFFENSE', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter offense"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <i className="fas fa-calendar-day text-amber-500 mr-2"></i>Date of Commission
+                    </label>
+                    <input
+                      type="date"
+                      value={editedCase.DATE_OF_COMMISSION !== undefined ? editedCase.DATE_OF_COMMISSION : (caseData[0].DATE_OF_COMMISSION?.split('T')[0] || '')}
+                      onChange={(e) => handleFieldChange('DATE_OF_COMMISSION', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
                   </div>
                 </div>
@@ -331,13 +367,15 @@ const Editcase = () => {
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       <i className="fas fa-clipboard-check text-amber-500 mr-2"></i>Decision
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={editedCase.REMARKS_DECISION !== undefined ? editedCase.REMARKS_DECISION : (caseData[0].REMARKS_DECISION || '')}
                       onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                      placeholder="Enter decision"
-                    />
+                    >
+                      <option value="">Select decision</option>
+                      <option value="pending">Pending</option>
+                      <option value="terminated">Terminated</option>
+                    </select>
                   </div>
 
                   <div>
@@ -351,21 +389,6 @@ const Editcase = () => {
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter penalty"
                     />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-comment text-amber-500 mr-2"></i>Remarks
-                    </label>
-                    <select
-                      value={editedCase.REMARKS !== undefined ? editedCase.REMARKS : (caseData[0].REMARKS || '')}
-                      onChange={(e) => handleFieldChange('REMARKS', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                    >
-                  
-                      <option value="pending">Pending</option>
-                      <option value="terminated">Terminated</option>
-                    </select>
                   </div>
                 </div>
               </div>
@@ -430,16 +453,26 @@ const Editcase = () => {
                       <i className="fas fa-image text-blue-500 mr-2"></i>Current Image:
                     </p>
                     <div className="relative w-full min-h-[300px] rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex items-center justify-center">
-                      <img 
-                        src={`http://localhost:5000${caseData[0].INDEX_CARDS}`} 
-                        alt="Current Index Card" 
-                        onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
-                        className="max-w-full max-h-[400px] object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-lg rounded"
-                        style={{ display: 'block' }}
-                      />
-                      <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg">
-                        <i className="fas fa-search-plus mr-1"></i> Click to view full size
-                      </div>
+                      {!currentImageError ? (
+                        <>
+                          <img 
+                            src={getImageUrl(caseData[0].INDEX_CARDS)} 
+                            alt="Current Index Card" 
+                            onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
+                            className="max-w-full max-h-[400px] object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-lg rounded"
+                            onError={() => setCurrentImageError(true)}
+                          />
+                          <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg">
+                            <i className="fas fa-search-plus mr-1"></i> Click to view full size
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-8 text-slate-400">
+                          <i className="fas fa-exclamation-triangle text-4xl mb-3 text-amber-400"></i>
+                          <p className="font-semibold text-slate-600 mb-2">Image not loading</p>
+                          <p className="text-xs text-slate-500 text-center">The stored path may be invalid.<br/>Upload a new image to fix this.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -636,7 +669,7 @@ const Editcase = () => {
           <motion.img
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            src={showFullImage.startsWith('data:') ? showFullImage : `http://localhost:5000${showFullImage}`}
+            src={showFullImage.startsWith('data:') ? showFullImage : getImageUrl(showFullImage)}
             alt="Full Size Image"
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}

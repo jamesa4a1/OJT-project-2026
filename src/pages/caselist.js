@@ -12,6 +12,32 @@ const Caselist = () => {
   const [sortDirection, setSortDirection] = useState("asc");
   const [searchTerm, setSearchTerm] = useState("");
   const [showFullImage, setShowFullImage] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Function to download Excel file
+  const handleDownloadExcel = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await axios.get("http://localhost:5000/download-excel", {
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'cases.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading Excel:", error);
+      alert("Failed to download Excel file");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   useEffect(() => {
     setIsLoading(true);
@@ -120,6 +146,30 @@ const Caselist = () => {
               <option value="asc">A-Z</option>
               <option value="desc">Z-A</option>
             </select>
+
+            {/* Download Excel Button */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleDownloadExcel}
+              disabled={isDownloading}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl
+                         bg-emerald-600 text-white font-medium
+                         hover:bg-emerald-700 transition-all duration-300 shadow-sm
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-file-excel"></i>
+                  <span>Download Excel</span>
+                </>
+              )}
+            </motion.button>
           </div>
         </div>
 
