@@ -765,6 +765,11 @@ app.delete("/delete-case", (req, res) => {
   });
 });
 
+// Root route
+app.get("/", (req, res) => {
+  res.json({ message: "Backend server is running successfully!" });
+});
+
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
