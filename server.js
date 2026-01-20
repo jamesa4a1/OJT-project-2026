@@ -6,8 +6,12 @@ const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const XLSX = require("xlsx");
+const schedule = require("node-schedule");
 
 const app = express();
+
+// Store active schedules
+let activeSchedules = {};
 
 // Excel file path - stored in uploads folder
 const EXCEL_FILE_PATH = path.join(__dirname, 'uploads', 'cases.xlsx');
@@ -408,6 +412,30 @@ app.delete("/api/user/:id", (req, res) => {
   });
 });
 
+// Update user role (Admin only)
+app.put("/api/user/:id", (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  if (!role) {
+    return res.status(400).json({ success: false, message: "Role is required" });
+  }
+
+  const validRoles = ['Clerk', 'Staff', 'Admin'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ success: false, message: "Invalid role" });
+  }
+
+  db.query("UPDATE users SET role = ? WHERE id = ?", [role, id], (err) => {
+    if (err) {
+      console.error("Error updating user:", err);
+      return res.status(500).json({ success: false, message: "Failed to update user role" });
+    }
+    res.json({ success: true, message: "User role updated successfully" });
+  });
+});
+
+
 // Login user
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
@@ -639,7 +667,7 @@ app.delete("/api/user/:id/picture", (req, res) => {
 
 // Get all cases para sad makuha nag lin sa gdrive
 app.get("/cases", (req, res) => {
-  db.query("SELECT * FROM cases", (err, results) => {
+  db.query("SELECT * FROM cases WHERE is_deleted = 0", (err, results) => {
     if (err) {
       res.status(500).send(err);
     } else {
@@ -699,7 +727,7 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), (req, res) => {
 app.get("/get-case", (req, res) => {
 const { docket_no, respondent, resolving_prosecutor, remarks, start_date, end_date } = req.query;
 
-  let sql = "SELECT * FROM cases WHERE 1=1";
+  let sql = "SELECT * FROM cases WHERE is_deleted = 0";
   let values = [];
 
   if (!docket_no && !respondent && !resolving_prosecutor && !remarks && !start_date && !end_date) {
@@ -827,8 +855,13 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
   // Add other updated fields
   Object.keys(req.body).forEach((key) => {
     if (key !== 'id' && key !== 'indexCardImage') {
+      let value = req.body[key];
+      // Normalize REMARKS_DECISION to uppercase first letter
+      if (key === 'REMARKS_DECISION' && typeof value === 'string') {
+        value = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+      }
       fields.push(key);
-      updateValues.push(req.body[key]);
+      updateValues.push(value);
     }
   });
 
@@ -875,7 +908,7 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
 });
 
 
-//delete case
+//delete case (soft delete)
 
 app.delete("/delete-case", (req, res) => {
   console.log("Delete request received with body:", req.body); // Debugging log
@@ -887,7 +920,7 @@ app.delete("/delete-case", (req, res) => {
       return res.status(400).json({ message: "Docket number is required for deletion." });
   }
 
-  const deleteQuery = "DELETE FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+  const deleteQuery = "UPDATE cases SET is_deleted = 1, deleted_at = NOW() WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
 
   db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, result) => {
       if (err) {
@@ -914,10 +947,159 @@ app.delete("/delete-case", (req, res) => {
   });
 });
 
-// Root route
-app.get("/", (req, res) => {
-  res.json({ message: "Backend server is running successfully!" });
+// Get deleted cases
+app.get("/deleted-cases", (req, res) => {
+  db.query("SELECT * FROM cases WHERE is_deleted = 1 ORDER BY deleted_at DESC", (err, results) => {
+    if (err) {
+      res.status(500).send(err);
+    } else {
+      res.json(results);
+    }
+  });
 });
+
+// Restore deleted case
+app.patch("/restore-case", (req, res) => {
+  try {
+    console.log("Restore request received with body:", req.body);
+
+    const { docket_no } = req.body;
+
+    if (!docket_no) {
+        console.error("No docket number provided.");
+        return res.status(400).json({ message: "Docket number is required for restoration." });
+    }
+
+    const restoreQuery = "UPDATE cases SET is_deleted = 0, deleted_at = NULL WHERE DOCKET_NO = ? AND is_deleted = 1";
+
+    db.query(restoreQuery, [docket_no], (err, result) => {
+        if (err) {
+            console.error("Error restoring case:", err);
+            return res.status(500).json({ message: "Error restoring case.", error: err.message });
+        }
+
+        if (result.affectedRows === 0) {
+            console.warn("No matching deleted case found for restoration.");
+            return res.status(404).json({ message: "No matching deleted case found." });
+        }
+
+        // Sync Excel file after restoring case
+        exportCasesToExcel()
+          .then(() => {
+            console.log("Excel file synced after case restoration");
+          })
+          .catch(excelErr => {
+            console.error("Error syncing Excel file:", excelErr);
+          });
+
+        console.log("Case restored successfully.");
+        return res.json({ message: "Case restored successfully!" });
+    });
+  } catch (error) {
+    console.error("Unexpected error in restore-case endpoint:", error);
+    res.status(500).json({ message: "Unexpected error occurred", error: error.message });
+  }
+});
+
+// Auto-delete configuration endpoint
+app.post("/configure-auto-delete", (req, res) => {
+  const { scheduleType, dayOfWeek, dayOfMonth, time } = req.body;
+  
+  console.log("Auto-delete configuration received:", {
+    scheduleType,
+    dayOfWeek,
+    dayOfMonth,
+    time
+  });
+  
+  try {
+    // Cancel any existing schedule
+    if (activeSchedules.autoDelete) {
+      activeSchedules.autoDelete.cancel();
+      console.log("Previous schedule cancelled");
+    }
+
+    // Create cron expression based on schedule type
+    let cronExpression;
+    const [hours, minutes] = time.split(':');
+    
+    if (scheduleType === 'daily') {
+      cronExpression = `${minutes} ${hours} * * *`; // Daily at specified time
+    } else if (scheduleType === 'weekly') {
+      const dayMap = {
+        'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4,
+        'Friday': 5, 'Saturday': 6, 'Sunday': 0
+      };
+      const dayNum = dayMap[dayOfWeek];
+      cronExpression = `${minutes} ${hours} * * ${dayNum}`; // Weekly on specified day
+    } else if (scheduleType === 'monthly') {
+      cronExpression = `${minutes} ${hours} ${dayOfMonth} * *`; // Monthly on specified day
+    }
+
+    console.log(`Scheduling cron: ${cronExpression}`);
+
+    // Schedule the deletion
+    activeSchedules.autoDelete = schedule.scheduleJob(cronExpression, () => {
+      console.log("⏰ Auto-delete scheduled time reached! Deleting cases...");
+      
+      // Permanently delete all soft-deleted cases
+      const deleteQuery = `DELETE FROM cases WHERE is_deleted = 1`;
+      
+      db.query(deleteQuery, (err, results) => {
+        if (err) {
+          console.error("Error permanently deleting cases:", err);
+          return;
+        }
+        
+        console.log(`✅ Permanently deleted ${results.affectedRows} soft-deleted cases`);
+        
+        // Update Excel file after deletion
+        exportCasesToExcel()
+          .then(() => {
+            console.log("✅ Excel file updated after auto-deletion");
+          })
+          .catch(err => {
+            console.error("Error updating Excel file:", err);
+          });
+      });
+    });
+
+    res.json({
+      success: true,
+      message: `Auto-delete schedule configured: ${scheduleType} at ${time}${dayOfWeek ? ` on ${dayOfWeek}` : ''}${dayOfMonth ? ` on day ${dayOfMonth}` : ''}`,
+      config: {
+        scheduleType,
+        dayOfWeek,
+        dayOfMonth,
+        time,
+        cronExpression
+      }
+    });
+    
+    console.log("✅ Auto-delete schedule configured successfully");
+  } catch (error) {
+    console.error("Error configuring auto-delete:", error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to configure auto-delete schedule: ' + error.message
+    });
+  }
+});
+
+// Serve static files from the React app build directory
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'build')));
+  
+  // Catch all handler: send back React's index.html file for all non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'build/index.html'));
+  });
+} else {
+  // Root route for development
+  app.get("/", (req, res) => {
+    res.json({ message: "Backend server is running successfully!" });
+  });
+}
 
 app.listen(5000, () => {
   console.log("Server running on port 5000");
@@ -1042,8 +1224,8 @@ app.post("/bulk-update-cases", express.json(), (req, res) => {
       
       const docketNo = mappedData.DOCKET_NO;
       
-      // First, check if a case with this DOCKET_NO already exists
-      db.query('SELECT id FROM cases WHERE DOCKET_NO = ?', [docketNo], (err, existingRows) => {
+      // First, check if a case with this DOCKET_NO already exists (and is not deleted)
+      db.query('SELECT id FROM cases WHERE DOCKET_NO = ? AND is_deleted = 0', [docketNo], (err, existingRows) => {
         if (err) {
           console.error(`Error checking existing case:`, err);
           errors.push(`Row ${index + 1}: Database error`);
@@ -1291,7 +1473,6 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       try {
         // Map Excel columns to database fields with flexible matching
         const caseData = {
-          id: getColumnValue(row, ['ID', 'id']),
           DOCKET_NO: getColumnValue(row, ['Docket No', 'DOCKET_NO', 'Docket Number', 'DocketNo']) || '',
           DATE_FILED: getColumnValue(row, ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled']),
           COMPLAINANT: getColumnValue(row, ['Complainant', 'COMPLAINANT', 'Complainants']) || '',
@@ -1315,71 +1496,71 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           continue;
         }
 
-        // Check if case exists by ID or DOCKET_NO
-        const checkQuery = caseData.id 
-          ? "SELECT id FROM cases WHERE id = ?"
-          : "SELECT id FROM cases WHERE DOCKET_NO = ?";
-        const checkValue = caseData.id || caseData.DOCKET_NO;
+        // Check if case exists by DOCKET_NO (always use DOCKET_NO, not ID) and is not deleted
+        const checkQuery = "SELECT id FROM cases WHERE DOCKET_NO = ? AND is_deleted = 0";
 
-        await new Promise((resolve, reject) => {
-          db.query(checkQuery, [checkValue], (err, results) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-
-            if (results.length > 0) {
-              // Update existing case
-              const updateQuery = `UPDATE cases SET 
-                DOCKET_NO = ?, DATE_FILED = ?, COMPLAINANT = ?, RESPONDENT = ?, 
-                ADDRESS_OF_RESPONDENT = ?, OFFENSE = ?, DATE_OF_COMMISSION = ?,
-                DATE_RESOLVED = ?, RESOLVING_PROSECUTOR = ?, 
-                CRIM_CASE_NO = ?, BRANCH = ?, DATEFILED_IN_COURT = ?, 
-                REMARKS_DECISION = ?, PENALTY = ?, INDEX_CARDS = ?
-                WHERE id = ?`;
-              
-              db.query(updateQuery, [
-                caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, 
-                caseData.RESPONDENT, caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, 
-                caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
-                caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
-                caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
-                caseData.PENALTY, caseData.INDEX_CARDS, results[0].id
-              ], (updateErr) => {
-                if (updateErr) {
-                  reject(updateErr);
-                } else {
-                  updated++;
-                  resolve();
-                }
-              });
-            } else {
-              // Insert new case
-              const insertQuery = `INSERT INTO cases 
-                (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
-                OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, 
-                CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-              
-              db.query(insertQuery, [
-                caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, 
-                caseData.RESPONDENT, caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, 
-                caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
-                caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
-                caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
-                caseData.PENALTY, caseData.INDEX_CARDS
-              ], (insertErr) => {
-                if (insertErr) {
-                  reject(insertErr);
-                } else {
-                  added++;
-                  resolve();
-                }
-              });
-            }
+        const checkResult = await new Promise((resolve, reject) => {
+          db.query(checkQuery, [caseData.DOCKET_NO], (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
           });
         });
+
+        if (checkResult.length > 0) {
+          // Update existing case
+          const updateQuery = `UPDATE cases SET 
+            DATE_FILED = ?, COMPLAINANT = ?, RESPONDENT = ?, 
+            ADDRESS_OF_RESPONDENT = ?, OFFENSE = ?, DATE_OF_COMMISSION = ?,
+            DATE_RESOLVED = ?, RESOLVING_PROSECUTOR = ?, 
+            CRIM_CASE_NO = ?, BRANCH = ?, DATEFILED_IN_COURT = ?, 
+            REMARKS_DECISION = ?, PENALTY = ?, INDEX_CARDS = ?
+            WHERE DOCKET_NO = ?`;
+          
+          await new Promise((resolve, reject) => {
+            db.query(updateQuery, [
+              caseData.DATE_FILED, caseData.COMPLAINANT, 
+              caseData.RESPONDENT, caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, 
+              caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
+              caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
+              caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
+              caseData.PENALTY, caseData.INDEX_CARDS, caseData.DOCKET_NO
+            ], (updateErr) => {
+              if (updateErr) reject(updateErr);
+              else {
+                updated++;
+                resolve();
+              }
+            });
+          });
+        } else {
+          // Insert new case (ID will be auto-generated by database)
+          const insertQuery = `INSERT INTO cases 
+            (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
+            OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, 
+            CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          
+          await new Promise((resolve, reject) => {
+            db.query(insertQuery, [
+              caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, 
+              caseData.RESPONDENT, caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, 
+              caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
+              caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
+              caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
+              caseData.PENALTY, caseData.INDEX_CARDS
+            ], (insertErr) => {
+              if (insertErr) reject(insertErr);
+              else {
+                added++;
+                resolve();
+              }
+            });
+          });
+        }
+
+        console.log(`Row ${i + 2} processed successfully`);
       } catch (rowError) {
+        console.error(`Row ${i + 2} error:`, rowError.message);
         errors.push(`Row ${i + 2}: ${rowError.message}`);
       }
     }

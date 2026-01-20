@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import { motion } from 'framer-motion';
+import ImageModal from '../components/ImageModal';
 
 const Editcase = () => {
   const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: "", RESPONDENT: "" });
@@ -368,13 +369,17 @@ const Editcase = () => {
                       <i className="fas fa-clipboard-check text-amber-500 mr-2"></i>Decision
                     </label>
                     <select
-                      value={editedCase.REMARKS_DECISION !== undefined ? editedCase.REMARKS_DECISION : (caseData[0].REMARKS_DECISION || '')}
+                      value={
+                        editedCase.REMARKS_DECISION !== undefined
+                          ? editedCase.REMARKS_DECISION || 'Pending'
+                          : (caseData[0].REMARKS_DECISION || 'Pending')
+                      }
                       onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     >
-                      <option value="">Select decision</option>
-                      <option value="pending">Pending</option>
-                      <option value="terminated">Terminated</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Dismissed">Dismissed</option>
+                      <option value="Convicted">Convicted</option>
                     </select>
                   </div>
 
@@ -648,34 +653,13 @@ const Editcase = () => {
         )}
       </motion.div>
 
-      {/* Fullscreen Image Modal */}
-      {showFullImage && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => setShowFullImage(null)}
-          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
-          style={{ margin: 0 }}
-        >
-          <button
-            onClick={() => setShowFullImage(null)}
-            className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 
-                     text-white rounded-full flex items-center justify-center 
-                     transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
-          >
-            <i className="fas fa-times text-2xl"></i>
-          </button>
-          <motion.img
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            src={showFullImage.startsWith('data:') ? showFullImage : getImageUrl(showFullImage)}
-            alt="Full Size Image"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </motion.div>
-      )}
+      {/* Professional Image Modal */}
+      <ImageModal
+        isOpen={showFullImage !== null}
+        onClose={() => setShowFullImage(null)}
+        imageUrl={showFullImage ? (showFullImage.startsWith('data:') ? showFullImage : getImageUrl(showFullImage)) : ''}
+        imageName={caseData && caseData[0]?.DOCKET_NO ? `Index-Card-${caseData[0].DOCKET_NO}.jpg` : 'index-card.jpg'}
+      />
     </div>
   );
 };

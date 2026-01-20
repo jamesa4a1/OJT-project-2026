@@ -64,10 +64,19 @@ const DashboardPageWrapper = ({ children }) => {
 // Animated Routes Component
 const AnimatedRoutes = () => {
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
+  
+  // Show loading state while authentication is being checked
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
   
   // Pages that should use dashboard layout (authenticated pages)
-  const dashboardPages = ['/dashboard', '/admin-dashboard', '/staff-dashboard', '/newcase', '/findcase', '/editcase', '/caselist', '/managecases', '/details', '/settings', '/excel-sync'];
+  const dashboardPages = ['/dashboard', '/admin-dashboard', '/staff-dashboard', '/newcase', '/findcase', '/editcase', '/caselist', '/managecases', '/details', '/settings', '/excel-sync', '/add-account'];
   const isDashboardPage = dashboardPages.some(page => location.pathname.startsWith(page));
   const hideNavFooter = isDashboardPage && isAuthenticated;
   
@@ -82,7 +91,7 @@ const AnimatedRoutes = () => {
             <Route path="/dashboard" element={<DashboardPageWrapper><ClerkDashboard/></DashboardPageWrapper>} />
             <Route path="/admin-dashboard" element={<DashboardPageWrapper><AdminDashboard/></DashboardPageWrapper>} />
             <Route path="/staff-dashboard" element={<DashboardPageWrapper><StaffDashboard/></DashboardPageWrapper>} />
-            <Route path="/add-account" element={isAuthenticated && user?.role === 'Admin' ? <AddAccount/> : <Navigate to="/login" replace />} />
+            <Route path="/add-account" element={isAuthenticated && user?.role === 'Admin' ? <DashboardPageWrapper><AddAccount/></DashboardPageWrapper> : <Navigate to="/login" replace />} />
             <Route path="/settings" element={isAuthenticated ? <DashboardPageWrapper><Settings/></DashboardPageWrapper> : <Navigate to="/login" replace />} />
             <Route path="/cases" element={<PageWrapper><Cases/></PageWrapper>} />
             <Route path="/caselist" element={isAuthenticated ? <DashboardPageWrapper><Caselist/></DashboardPageWrapper> : <PageWrapper><Caselist/></PageWrapper>} />

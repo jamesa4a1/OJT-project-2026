@@ -94,25 +94,62 @@ const ExcelSync = () => {
       const errors = [];
       const normalizedExpected = expectedColumns.map(col => col.toLowerCase().trim());
       
+      // Function to find the closest matching column name
+      const findClosestMatch = (wrongName) => {
+        const normalized = wrongName.toLowerCase().trim();
+        
+        // Calculate Levenshtein distance to find closest match
+        const calculateDistance = (a, b) => {
+          const matrix = [];
+          for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+          }
+          for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+          }
+          for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+              if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+              } else {
+                matrix[i][j] = Math.min(
+                  matrix[i - 1][j - 1] + 1,
+                  matrix[i][j - 1] + 1,
+                  matrix[i - 1][j] + 1
+                );
+              }
+            }
+          }
+          return matrix[b.length][a.length];
+        };
+        
+        let closest = null;
+        let minDistance = Infinity;
+        
+        expectedColumns.forEach(col => {
+          const distance = calculateDistance(normalized, col.toLowerCase());
+          if (distance < minDistance) {
+            minDistance = distance;
+            closest = col;
+          }
+        });
+        
+        // Only suggest if it's reasonably close (distance <= 3)
+        return minDistance <= 3 ? closest : null;
+      };
+      
       headers.forEach((header, index) => {
         const normalizedHeader = String(header).toLowerCase().trim();
         
         // Check if column exists in expected columns
         if (!normalizedExpected.includes(normalizedHeader)) {
-          // Find closest match for better error message
-          let suggestion = '';
+          const closestMatch = findClosestMatch(normalizedHeader);
           
-          if (normalizedHeader.includes('filing') || normalizedHeader.includes('file')) {
-            suggestion = ' Did you mean "Date Filed"?';
-          } else if (normalizedHeader === 'respondents') {
-            suggestion = ' Did you mean "Respondent"?';
-          } else if (normalizedHeader === 'complainants') {
-            suggestion = ' Did you mean "Complainant"?';
-          } else if (normalizedHeader === 'offenses') {
-            suggestion = ' Did you mean "Offense"?';
+          if (closestMatch) {
+            errors.push(`Column "${header}" is wrong name, use "${closestMatch}" instead.`);
+          } else {
+            errors.push(`Column "${header}" is not a valid column name.`);
           }
-          
-          errors.push(`Column "${header}" is not a correct column name.${suggestion}`);
         }
       });
 

@@ -56,28 +56,35 @@ const Newcase = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-
-        const cleanedData = Object.fromEntries(
-            Object.entries(formData).map(([key, value]) => [key, value.trim() === "" ? "N/A" : value])
-        );
-
-        // Create FormData for file upload
-        const submitData = new FormData();
-        Object.keys(cleanedData).forEach(key => {
-            submitData.append(key, cleanedData[key]);
-        });
-        
-        // Add image if selected
-        if (indexCardImage) {
-            submitData.append('indexCardImage', indexCardImage);
-        }
-
         try {
-            await axios.post("http://localhost:5000/add-case", submitData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+            const formDataToSend = new FormData();
+            Object.keys(formData).forEach(key => {
+                formDataToSend.append(key, formData[key]);
             });
+            if (indexCardImage) {
+                formDataToSend.append('indexCardImage', indexCardImage);
+            }
+            const response = await axios.post('http://localhost:5000/add-case', formDataToSend, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            console.log(response.data);
+            setFormData({
+                DOCKET_NO: "",
+                DATE_FILED: "",
+                COMPLAINANT: "",
+                RESPONDENT: "",
+                ADDRESS_OF_RESPONDENT: "",
+                OFFENSE: "",
+                DATE_OF_COMMISSION: "",
+                DATE_RESOLVED: "",
+                RESOLVING_PROSECUTOR: "",
+                CRIM_CASE_NO: "N/A",
+                BRANCH: "",
+                DATEFILED_IN_COURT: "N/A",
+                REMARKS_DECISION: "",
+                PENALTY: ""
+            });
+            removeImage();
             alert("Case added successfully!");
             navigate("/caselist");
         } catch (error) {
@@ -96,20 +103,14 @@ const Newcase = () => {
     const labelClass = `block text-sm font-semibold text-slate-700 mb-2`;
 
     return (
-        <div>
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="max-w-4xl mx-auto"
+                className="w-full"
             >
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full 
-                                    bg-emerald-100 border border-emerald-200 mb-4">
-                        <i className="fas fa-plus-circle text-emerald-600"></i>
-                        <span className="text-emerald-700 font-medium text-sm">New Case Entry</span>
-                    </div>
                     <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">
                         Add New Case
                     </h1>
@@ -139,8 +140,6 @@ const Newcase = () => {
                 >
                     <div className="p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            
-                            {/* Section: Basic Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
                                     <i className="fas fa-file-alt text-blue-500"></i>
@@ -168,7 +167,7 @@ const Newcase = () => {
                                 </div>
                             </div>
 
-                            {/* Section: Parties */}
+                            {/* Section: Parties Involved */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
                                     <i className="fas fa-users text-violet-500"></i>
@@ -294,12 +293,11 @@ const Newcase = () => {
                                         <label className={labelClass}>Remarks Decision</label>
                                         <select
                                             name="REMARKS_DECISION"
-                                            value={formData.REMARKS_DECISION}
+                                            value={formData.REMARKS_DECISION || 'Pending'}
                                             onChange={handleChange}
                                             className={inputClass}
                                             required
                                         >
-                                            <option value="">Select status</option>
                                             <option value="Pending">Pending</option>
                                             <option value="Dismissed">Dismissed</option>
                                             <option value="Convicted">Convicted</option>
@@ -385,39 +383,37 @@ const Newcase = () => {
                             </div>
                         </form>
                     </div>
-                </motion.div>
-            </motion.div>
+                    </motion.div>
 
-            {/* Fullscreen Image Modal */}
-            {showFullImage && imagePreview && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setShowFullImage(false)}
-                    className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
-                    style={{ margin: 0 }}
-                >
-                    <button
-                        onClick={() => setShowFullImage(false)}
-                        className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 
-                                 text-white rounded-full flex items-center justify-center 
-                                 transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
-                    >
-                        <i className="fas fa-times text-2xl"></i>
-                    </button>
-                    <motion.img
-                        initial={{ scale: 0.8 }}
-                        animate={{ scale: 1 }}
-                        src={imagePreview}
-                        alt="Full Size Preview"
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </motion.div>
-            )}
-        </div>
-    );
-};
+                    {/* Fullscreen Image Modal */}
+                    {showFullImage && imagePreview && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowFullImage(false)}
+                            className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+                            style={{ margin: 0 }}
+                        >
+                            <button
+                                onClick={() => setShowFullImage(false)}
+                                className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 
+                                         text-white rounded-full flex items-center justify-center 
+                                         transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
+                            >
+                                <i className="fas fa-times text-2xl"></i>
+                            </button>
+                            <motion.img
+                                initial={{ scale: 0.8 }}
+                                animate={{ scale: 1 }}
+                                src={imagePreview}
+                                alt="Full Size Preview"
+                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </motion.div>
+                    )}
+            </motion.div>
+        );    };
 
 export default Newcase;

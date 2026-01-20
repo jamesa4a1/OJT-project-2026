@@ -49,7 +49,7 @@ const AdminDashboard = () => {
                     respondent: c.RESPONDENT,
                     offense: c.OFFENSE,
                     date_resolved: c.DATE_RESOLVED,
-                    status: c.REMARKS || 'pending',
+                    status: c.REMARKS_DECISION || 'Pending',
                     title: c.DOCKET_NO
                 }));
                 
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
                     thisMonth: monthCases
                 }));
 
-                setRecentCases(mappedCases.slice(0, 5));
+                setRecentCases(mappedCases.slice(0, 3));
                 setAllCases(mappedCases);
             }
         } catch (error) {
@@ -402,63 +402,92 @@ const AdminDashboard = () => {
                     transition={{ delay: 0.4 }}
                     className={`rounded-2xl p-6 shadow-lg transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                 >
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <i className={`fas fa-clock ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
-                            <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-700'}`}>
-                                {showAllCases ? 'All Cases' : 'Recent Cases'}
-                            </h3>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+                                <i className={`fas fa-briefcase text-lg ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
+                            </div>
+                            <div>
+                                <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                    Recent Cases
+                                </h3>
+                                <p className={`text-xs m-0 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+                                    {recentCases.length} {recentCases.length === 1 ? 'case' : 'cases'}
+                                </p>
+                            </div>
                         </div>
                         <button 
-                            onClick={() => setShowAllCases(!showAllCases)}
-                            className={`text-sm font-medium no-underline bg-transparent border-none cursor-pointer ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}
+                            onClick={() => navigate('/managecases')}
+                            className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors no-underline border-none cursor-pointer ${isDark ? 'text-blue-400 hover:bg-slate-700' : 'text-blue-600 hover:bg-blue-50'}`}
                         >
-                            {showAllCases ? '← Show Recent' : 'View All →'}
+                            View All →
                         </button>
                     </div>
                     
-                    {(showAllCases ? allCases : recentCases).length > 0 ? (
-                        <div className="space-y-3">
-                            {(showAllCases ? allCases : recentCases).map((caseItem, index) => (
-                                <motion.div
-                                    key={caseItem.id || index}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.1 * index }}
-                                    className={`flex items-center gap-4 p-3 rounded-xl transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}
-                                    onClick={() => navigate(`/details/${caseItem.DOCKET_NO || caseItem.docket_no}`)}
-                                >
-                                    <div className={`w-2 h-10 rounded-full ${
-                                        caseItem.status?.toLowerCase() === 'resolved' || 
-                                        caseItem.status?.toLowerCase() === 'closed' ||
-                                        caseItem.status?.toLowerCase() === 'terminated'
-                                            ? 'bg-teal-500'
-                                            : 'bg-orange-500'
-                                    }`}></div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`font-semibold m-0 truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>
-                                            {caseItem.DOCKET_NO || caseItem.docket_no || 'Untitled Case'}
-                                        </p>
-                                        <p className={`text-sm m-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                            {caseItem.RESPONDENT || caseItem.respondent} • {caseItem.DATE_FILED ? new Date(caseItem.DATE_FILED).toLocaleDateString() : 'No date'}
-                                        </p>
-                                    </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                        caseItem.status?.toLowerCase() === 'resolved' || 
-                                        caseItem.status?.toLowerCase() === 'closed' ||
-                                        caseItem.status?.toLowerCase() === 'terminated'
-                                            ? isDark ? 'bg-teal-900/50 text-teal-400' : 'bg-teal-100 text-teal-600'
-                                            : isDark ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-600'
-                                    }`}>
-                                        {caseItem.REMARKS || caseItem.status || 'Pending'}
-                                    </span>
-                                </motion.div>
-                            ))}
+                    {recentCases.length > 0 ? (
+                        <div className="space-y-2">
+                            {recentCases.map((caseItem, index) => {
+                                const isResolved = 
+                                    caseItem.status?.toLowerCase() === 'resolved' || 
+                                    caseItem.status?.toLowerCase() === 'closed' ||
+                                    caseItem.status?.toLowerCase() === 'terminated' ||
+                                    caseItem.status?.toLowerCase() === 'guilty' ||
+                                    caseItem.status?.toLowerCase() === 'acquitted';
+                                
+                                return (
+                                    <motion.div
+                                        key={caseItem.id || index}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.1 * index }}
+                                        className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+                                            isDark 
+                                                ? 'border-slate-700 hover:border-blue-600 hover:bg-slate-700/50' 
+                                                : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/30'
+                                        }`}
+                                        onClick={() => navigate(`/details/${caseItem.DOCKET_NO || caseItem.docket_no}`)}
+                                    >
+                                        {/* Status Indicator */}
+                                        <div className={`w-1 h-12 rounded-full flex-shrink-0 ${isResolved ? 'bg-gradient-to-b from-emerald-400 to-teal-600' : 'bg-gradient-to-b from-amber-400 to-orange-600'}`}></div>
+                                        
+                                        {/* Case Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className={`font-bold m-0 text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                                    {caseItem.DOCKET_NO || caseItem.docket_no || 'Untitled Case'}
+                                                </p>
+                                                <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${
+                                                    isResolved
+                                                        ? isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                                                        : isDark ? 'bg-orange-900/40 text-orange-300' : 'bg-orange-100 text-orange-700'
+                                                }`}>
+                                                    {caseItem.status || 'Pending'}
+                                                </span>
+                                            </div>
+                                            <p className={`text-sm m-0 line-clamp-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                <i className="fas fa-user text-xs mr-1.5"></i>
+                                                {caseItem.RESPONDENT || caseItem.respondent || 'N/A'}
+                                            </p>
+                                            <p className={`text-xs m-0 mt-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+                                                <i className="fas fa-calendar text-xs mr-1.5"></i>
+                                                {caseItem.DATE_FILED ? new Date(caseItem.DATE_FILED).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
+                                                {caseItem.date_resolved || caseItem.DATE_RESOLVED ? ` • Resolved: ${new Date(caseItem.DATE_RESOLVED).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Arrow Indicator */}
+                                        <div className={`text-xl transition-colors flex-shrink-0 ${isDark ? 'text-slate-600 group-hover:text-blue-400' : 'text-slate-300 group-hover:text-blue-500'}`}>
+                                            <i className="fas fa-arrow-right"></i>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
                         </div>
                     ) : (
-                        <div className={`text-center py-8 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            <i className="fas fa-folder-open text-4xl mb-3 opacity-50"></i>
-                            <p className="m-0">No cases yet</p>
+                        <div className={`text-center py-12 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            <i className="fas fa-inbox text-5xl mb-4 opacity-30"></i>
+                            <p className="m-0 font-medium">No cases found</p>
+                            <p className="text-xs m-0 mt-2">Cases will appear here once they are created</p>
                         </div>
                     )}
                 </motion.div>

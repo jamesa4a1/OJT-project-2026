@@ -91,7 +91,8 @@ const Register = () => {
 
     const roleColors = {
         Admin: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200', icon: 'fa-shield-halved' },
-        Clerk: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: 'fa-pen-to-square' }
+        Clerk: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: 'fa-pen-to-square' },
+        Staff: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', icon: 'fa-user' }
     };
 
     if (success) {

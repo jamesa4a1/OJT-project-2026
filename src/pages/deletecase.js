@@ -229,7 +229,7 @@ const Deletecase = () => {
         <div className="absolute bottom-20 left-20 w-72 h-72 bg-slate-500/5 rounded-full blur-3xl"></div>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 max-w-7xl mx-auto">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-full mx-auto px-4 lg:px-6">
         
         {/* Header */}
         <div className="text-center mb-8">
@@ -240,67 +240,73 @@ const Deletecase = () => {
         </div>
 
         {/* Back Button & Search */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
-          <motion.button whileHover={{ x: -5 }} whileTap={{ scale: 0.95 }} onClick={() => navigate("/admin-dashboard")}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer">
-            <i className="fas fa-arrow-left"></i>
-            <span className="font-medium">Back to Menu</span>
-          </motion.button>
-
-          {/* Search Bar */}
-          <div className="relative w-full md:w-96">
-            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <input 
-              type="text" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by docket, name, or offense..."
-              className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
-                        focus:border-red-500 focus:ring-4 focus:ring-red-500/20
-                        transition-all duration-300 outline-none text-slate-700"
-            />
+        <div className="flex flex-col gap-4 mb-6">
+          {/* Back Button Row */}
+          <div className="flex justify-start">
+            <motion.button whileHover={{ x: -5 }} whileTap={{ scale: 0.95 }} onClick={() => navigate("/admin-dashboard")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer">
+              <i className="fas fa-arrow-left"></i>
+              <span className="font-medium">Back to Menu</span>
+            </motion.button>
           </div>
 
-          {/* Sort Dropdown */}
-          <div className="relative w-full md:w-64">
-            <i className="fas fa-sort-amount-down absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
-                        focus:border-red-500 focus:ring-4 focus:ring-red-500/20
-                        transition-all duration-300 outline-none text-slate-700 cursor-pointer"
-            >
-              <option value="default">Default Order</option>
-              <option value="complainant-asc">Complainant (A-Z)</option>
-              <option value="date-asc">Date Filed (Oldest First)</option>
-              <option value="date-desc">Date Filed (Newest First)</option>
-            </select>
-          </div>
+          {/* Controls Row */}
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-center">
+            {/* Search Bar */}
+            <div className="relative w-full lg:w-96">
+              <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input 
+                type="text" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by docket, name, or offense..."
+                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                          focus:border-red-500 focus:ring-4 focus:ring-red-500/20
+                          transition-all duration-300 outline-none text-slate-700"
+              />
+            </div>
 
-          {/* Status Filter Dropdown */}
-          <div className="relative w-full md:w-64">
-            <i className="fas fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
-                        focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
-                        transition-all duration-300 outline-none text-slate-700 cursor-pointer font-semibold"
-            >
-              <option value="all">All Cases</option>
-              <option value="pending">Pending</option>
-              <option value="dismissed">Dismissed</option>
-              <option value="convicted">Convicted</option>
-            </select>
-          </div>
+            {/* Sort Dropdown */}
+            <div className="relative w-full lg:w-64">
+              <i className="fas fa-sort-amount-down absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                          focus:border-red-500 focus:ring-4 focus:ring-red-500/20
+                          transition-all duration-300 outline-none text-slate-700 cursor-pointer"
+              >
+                <option value="default">Default Order</option>
+                <option value="complainant-asc">Complainant (A-Z)</option>
+                <option value="date-asc">Date Filed (Oldest First)</option>
+                <option value="date-desc">Date Filed (Newest First)</option>
+              </select>
+            </div>
 
-          {/* Refresh Button */}
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={fetchAllCases}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 text-white hover:bg-slate-800 transition-all duration-300 shadow-sm cursor-pointer">
-            <i className={`fas fa-sync-alt ${isLoading ? 'animate-spin' : ''}`}></i>
-            <span className="font-medium">Refresh</span>
-          </motion.button>
+            {/* Status Filter Dropdown */}
+            <div className="relative w-full lg:w-64">
+              <i className="fas fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                          focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
+                          transition-all duration-300 outline-none text-slate-700 cursor-pointer font-semibold"
+              >
+                <option value="all">All Cases</option>
+                <option value="pending">Pending</option>
+                <option value="dismissed">Dismissed</option>
+                <option value="convicted">Convicted</option>
+              </select>
+            </div>
+
+            {/* Refresh Button */}
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={fetchAllCases}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-700 text-white hover:bg-slate-800 transition-all duration-300 shadow-sm cursor-pointer min-w-fit">
+              <i className={`fas fa-sync-alt ${isLoading ? 'animate-spin' : ''}`}></i>
+              <span className="font-medium whitespace-nowrap">Refresh</span>
+            </motion.button>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -671,14 +677,13 @@ const Deletecase = () => {
                         <i className="fas fa-clipboard-check text-green-500 mr-2"></i>Decision
                       </label>
                       <select
-                        value={editedCase.REMARKS_DECISION || ''}
+                        value={editedCase.REMARKS_DECISION || 'Pending'}
                         onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                       >
-                        <option value="">Select decision</option>
-                        <option value="pending">Pending</option>
-                        <option value="dismissed">Dismissed</option>
-                        <option value="convicted">Convicted</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Dismissed">Dismissed</option>
+                        <option value="Convicted">Convicted</option>
                       </select>
                     </div>
 

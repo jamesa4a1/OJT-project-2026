@@ -25,27 +25,47 @@ const ClerkDashboard = () => {
             if (response.ok) {
                 const cases = await response.json();
                 
+                // Map uppercase DB fields to lowercase
+                const mappedCases = cases.map(c => ({
+                    ...c,
+                    status: c.REMARKS_DECISION || c.REMARKS || 'Pending',
+                    docket_no: c.DOCKET_NO || c.docket_no,
+                    complainant: c.COMPLAINANT || c.complainant,
+                    respondent: c.RESPONDENT || c.respondent,
+                    date_filed: c.DATE_FILED || c.date_filed
+                }));
+                
                 // Calculate stats
                 const now = new Date();
                 const thisMonth = now.getMonth();
                 const thisYear = now.getFullYear();
                 
-                const resolved = cases.filter(c => c.status?.toLowerCase() === 'resolved' || c.status?.toLowerCase() === 'closed').length;
-                const pending = cases.filter(c => c.status?.toLowerCase() === 'pending' || c.status?.toLowerCase() === 'open').length;
-                const monthCases = cases.filter(c => {
-                    const caseDate = new Date(c.date_filed || c.created_at);
+                const resolved = mappedCases.filter(c => 
+                    c.status?.toLowerCase() === 'resolved' || 
+                    c.status?.toLowerCase() === 'closed' ||
+                    c.status?.toLowerCase() === 'terminated' ||
+                    c.status?.toLowerCase() === 'guilty' ||
+                    c.status?.toLowerCase() === 'acquitted'
+                ).length;
+                const pending = mappedCases.filter(c => 
+                    c.status?.toLowerCase() === 'pending' || 
+                    c.status?.toLowerCase() === 'open' ||
+                    c.status?.toLowerCase() === 'ongoing'
+                ).length;
+                const monthCases = mappedCases.filter(c => {
+                    const caseDate = new Date(c.date_filed);
                     return caseDate.getMonth() === thisMonth && caseDate.getFullYear() === thisYear;
                 }).length;
 
                 setStats({
-                    total: cases.length,
+                    total: mappedCases.length,
                     resolved: resolved,
                     pending: pending,
                     thisMonth: monthCases
                 });
 
                 // Get recent cases (last 5)
-                setRecentCases(cases.slice(0, 5));
+                setRecentCases(mappedCases.slice(0, 5));
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -333,62 +353,81 @@ const ClerkDashboard = () => {
                     transition={{ delay: 0.4 }}
                     className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-slate-100"
                 >
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <i className="fas fa-clock text-amber-500"></i>
-                            <h3 className="text-lg font-bold text-slate-700 m-0">Recent Cases</h3>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                                <i className="fas fa-briefcase text-amber-600 text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 m-0">Recent Cases</h3>
+                                <p className="text-xs text-slate-500 m-0">{recentCases.length} {recentCases.length === 1 ? 'case' : 'cases'}</p>
+                            </div>
                         </div>
                         <Link 
                             to="/caselist" 
-                            className="text-sm font-medium text-blue-600 hover:text-blue-700 
-                                       flex items-center gap-1 no-underline"
+                            className="text-sm font-semibold text-amber-600 hover:text-amber-700 
+                                       flex items-center gap-2 no-underline px-3 py-2 rounded-lg hover:bg-amber-50 transition-colors"
                         >
                             View All <i className="fas fa-arrow-right text-xs"></i>
                         </Link>
                     </div>
                     
                     {recentCases.length > 0 ? (
-                        <div className="space-y-3">
-                            {recentCases.map((caseItem, index) => (
-                                <motion.div
-                                    key={caseItem.docket_no || caseItem.DOCKET_NO || index}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.1 * index }}
-                                    onClick={() => navigate(`/details/${caseItem.docket_no || caseItem.DOCKET_NO}`)}
-                                    className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 
-                                               cursor-pointer transition-colors border border-transparent 
-                                               hover:border-slate-200"
-                                >
-                                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                                        <i className="fas fa-folder text-slate-500"></i>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-slate-800 truncate m-0">
-                                            {caseItem.docket_no || caseItem.DOCKET_NO || 'N/A'}
-                                        </p>
-                                        <p className="text-sm text-slate-500 truncate m-0">
-                                            {caseItem.title || caseItem.complainant || caseItem.COMPLAINANT || 'No title'}
-                                        </p>
-                                    </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium
-                                                   ${caseItem.status?.toLowerCase() === 'resolved' || caseItem.status?.toLowerCase() === 'closed'
-                                                       ? 'bg-emerald-100 text-emerald-700'
-                                                       : caseItem.status?.toLowerCase() === 'pending'
-                                                       ? 'bg-amber-100 text-amber-700'
-                                                       : 'bg-blue-100 text-blue-700'}`}>
-                                        {caseItem.status || 'Open'}
-                                    </span>
-                                </motion.div>
-                            ))}
+                        <div className="space-y-2">
+                            {recentCases.map((caseItem, index) => {
+                                const isResolved = 
+                                    caseItem.status?.toLowerCase() === 'resolved' || 
+                                    caseItem.status?.toLowerCase() === 'closed' ||
+                                    caseItem.status?.toLowerCase() === 'terminated' ||
+                                    caseItem.status?.toLowerCase() === 'guilty' ||
+                                    caseItem.status?.toLowerCase() === 'acquitted';
+                                
+                                return (
+                                    <motion.div
+                                        key={caseItem.docket_no || caseItem.DOCKET_NO || index}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.1 * index }}
+                                        onClick={() => navigate(`/details/${caseItem.docket_no || caseItem.DOCKET_NO}`)}
+                                        className="flex items-center gap-4 p-4 rounded-xl hover:bg-blue-50 
+                                                   cursor-pointer transition-all border border-slate-200 hover:border-blue-300"
+                                    >
+                                        <div className={`w-1 h-12 rounded-full flex-shrink-0 ${isResolved ? 'bg-gradient-to-b from-emerald-400 to-teal-600' : 'bg-gradient-to-b from-amber-400 to-orange-600'}`}></div>
+                                        
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className="font-bold text-slate-800 truncate m-0">
+                                                    {caseItem.docket_no || caseItem.DOCKET_NO || 'N/A'}
+                                                </p>
+                                                <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                                                    isResolved
+                                                        ? 'bg-emerald-100 text-emerald-700'
+                                                        : 'bg-amber-100 text-amber-700'
+                                                }`}>
+                                                    {caseItem.status || 'Pending'}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-slate-600 truncate m-0">
+                                                <i className="fas fa-user text-xs mr-1.5 text-slate-500"></i>
+                                                {caseItem.respondent || caseItem.RESPONDENT || 'N/A'}
+                                            </p>
+                                            <p className="text-xs text-slate-500 m-0 mt-1">
+                                                <i className="fas fa-calendar text-xs mr-1.5"></i>
+                                                {caseItem.date_filed ? new Date(caseItem.date_filed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
+                                            </p>
+                                        </div>
+                                        <i className="fas fa-arrow-right text-slate-300 text-sm flex-shrink-0"></i>
+                                    </motion.div>
+                                );
+                            })}
                         </div>
                     ) : (
-                        <div className="text-center py-8">
+                        <div className="text-center py-12">
                             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                                <i className="fas fa-folder-open text-slate-400 text-2xl"></i>
+                                <i className="fas fa-inbox text-slate-400 text-2xl"></i>
                             </div>
-                            <p className="text-slate-500 m-0">No recent cases found</p>
-                            <p className="text-sm text-slate-400 m-0">Cases will appear here once added</p>
+                            <p className="text-slate-600 m-0 font-medium">No recent cases found</p>
+                            <p className="text-sm text-slate-400 m-0 mt-2">Cases will appear here once added</p>
                         </div>
                     )}
                 </motion.div>
