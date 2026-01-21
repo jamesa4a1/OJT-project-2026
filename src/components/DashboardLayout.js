@@ -32,6 +32,7 @@ const DashboardLayout = ({ children }) => {
     // Different sidebar items based on role
     const adminSidebarItems = [
         { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', path: '/admin-dashboard' },
+        { id: 'excelsync', label: 'Excel Sync', icon: 'fa-file-excel', path: '/excel-sync' },
         { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
         { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
         { id: 'addaccount', label: 'Add Account', icon: 'fa-user-plus', path: '/add-account' },

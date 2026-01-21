@@ -226,8 +226,9 @@ db.connect((err) => {
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
-      role ENUM('Admin', 'Clerk') DEFAULT 'Clerk',
+      role ENUM('Admin', 'Clerk', 'Staff') DEFAULT 'Clerk',
       profile_picture VARCHAR(500) DEFAULT NULL,
+      is_active TINYINT DEFAULT 1,
       last_login TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -246,6 +247,26 @@ db.connect((err) => {
           db.query("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL DEFAULT NULL AFTER profile_picture", (alterErr) => {
             if (alterErr) console.error("Error adding last_login column:", alterErr);
             else console.log("Added last_login column to users table.");
+          });
+        }
+      });
+      
+      // Add is_active column if it doesn't exist (for existing tables)
+      db.query("SHOW COLUMNS FROM users LIKE 'is_active'", (err, results) => {
+        if (!err && results.length === 0) {
+          db.query("ALTER TABLE users ADD COLUMN is_active TINYINT DEFAULT 1 AFTER profile_picture", (alterErr) => {
+            if (alterErr) console.error("Error adding is_active column:", alterErr);
+            else console.log("✅ Added is_active column to users table.");
+          });
+        }
+      });
+      
+      // Update role enum to include Staff if it doesn't
+      db.query("SHOW COLUMNS FROM users LIKE 'role'", (err, results) => {
+        if (!err && results.length > 0 && !results[0].Type.includes("'Staff'")) {
+          db.query("ALTER TABLE users MODIFY role ENUM('Admin', 'Clerk', 'Staff') DEFAULT 'Clerk'", (alterErr) => {
+            if (alterErr) console.error("Error updating role enum:", alterErr);
+            else console.log("✅ Updated role enum to include Staff.");
           });
         }
       });
@@ -374,7 +395,7 @@ app.post("/api/auth/register", async (req, res) => {
 
 // Get all users (Admin only)
 app.get("/api/users", (req, res) => {
-  db.query("SELECT id, name, email, role, profile_picture, last_login, created_at FROM users ORDER BY created_at DESC", (err, results) => {
+  db.query("SELECT id, name, email, role, profile_picture, last_login, created_at, is_active FROM users ORDER BY created_at DESC", (err, results) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).json({ success: false, message: "Database error" });
@@ -387,7 +408,7 @@ app.get("/api/users", (req, res) => {
 app.delete("/api/user/:id", (req, res) => {
   const { id } = req.params;
   
-  // Prevent deleting admin accounts
+  // Check if user exists and get their role
   db.query("SELECT role FROM users WHERE id = ?", [id], (err, results) => {
     if (err) {
       console.error("Database error:", err);
@@ -398,22 +419,104 @@ app.delete("/api/user/:id", (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
     
+    // If trying to delete an admin, check if it's the last one
     if (results[0].role === 'Admin') {
-      return res.status(403).json({ success: false, message: "Cannot delete admin accounts" });
+      db.query("SELECT COUNT(*) as adminCount FROM users WHERE role = 'Admin'", (countErr, countResults) => {
+        if (countErr) {
+          console.error("Database error:", countErr);
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        
+        if (countResults[0].adminCount <= 1) {
+          return res.status(403).json({ success: false, message: "Cannot delete the last admin account" });
+        }
+        
+        // Safe to delete this admin
+        db.query("DELETE FROM users WHERE id = ?", [id], (deleteErr) => {
+          if (deleteErr) {
+            console.error("Error deleting user:", deleteErr);
+            return res.status(500).json({ success: false, message: "Failed to delete user" });
+          }
+          res.json({ success: true, message: "User deleted successfully" });
+        });
+      });
+    } else {
+      // Non-admin user, safe to delete
+      db.query("DELETE FROM users WHERE id = ?", [id], (deleteErr) => {
+        if (deleteErr) {
+          console.error("Error deleting user:", deleteErr);
+          return res.status(500).json({ success: false, message: "Failed to delete user" });
+        }
+        res.json({ success: true, message: "User deleted successfully" });
+      });
+    }
+  });
+});
+
+// Toggle user active status (Admin only)
+app.put("/api/user/:id/toggle-status", (req, res) => {
+  const { id } = req.params;
+  
+  // Get user details (status and role)
+  db.query("SELECT id, role, is_active FROM users WHERE id = ?", [id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error. The is_active column may not exist." });
     }
     
-    db.query("DELETE FROM users WHERE id = ?", [id], (deleteErr) => {
-      if (deleteErr) {
-        console.error("Error deleting user:", deleteErr);
-        return res.status(500).json({ success: false, message: "Failed to delete user" });
-      }
-      res.json({ success: true, message: "User deleted successfully" });
-    });
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    const user = results[0];
+    const currentStatus = user.is_active;
+    const newStatus = currentStatus === 1 ? 0 : 1;
+    
+    // Check if trying to deactivate an admin
+    if (user.role === 'Admin' && newStatus === 0) {
+      // Count active admins
+      db.query("SELECT COUNT(*) as count FROM users WHERE role = 'Admin' AND is_active = 1", (countErr, countResults) => {
+        if (countErr) {
+          console.error("Database error:", countErr);
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        
+        const activeAdminCount = countResults[0].count;
+        
+        // Prevent deactivation if this is the last admin
+        if (activeAdminCount <= 1) {
+          console.log(`⛔ Cannot deactivate user ${id}: This is the last active admin`);
+          return res.status(403).json({ 
+            success: false, 
+            message: "Cannot deactivate the last active admin account. At least one active admin must remain." 
+          });
+        }
+        
+        // Proceed with deactivation
+        performToggle();
+      });
+    } else {
+      // For non-admins or reactivation, proceed directly
+      performToggle();
+    }
+    
+    function performToggle() {
+      console.log(`Toggling user ${id}: current status = ${currentStatus}, new status = ${newStatus}`);
+      
+      db.query("UPDATE users SET is_active = ? WHERE id = ?", [newStatus, id], (updateErr) => {
+        if (updateErr) {
+          console.error("Error toggling user status:", updateErr);
+          return res.status(500).json({ success: false, message: "Failed to toggle user status" });
+        }
+        console.log(`✅ User ${id} is_active updated to ${newStatus}`);
+        res.json({ success: true, message: "User status updated", isActive: newStatus === 1 });
+      });
+    }
   });
 });
 
 // Update user role (Admin only)
-app.put("/api/user/:id", (req, res) => {
+app.put("/api/user/:id/role", (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
@@ -456,12 +559,20 @@ app.post("/api/auth/login", (req, res) => {
     
     const user = results[0];
     
+    // Check if account is active
+    if (user.is_active === 0) {
+      console.log(`❌ Login blocked: User ${email} account is deactivated (is_active = ${user.is_active})`);
+      return res.status(403).json({ success: false, message: "Your account has been deactivated. Please contact the administrator." });
+    }
+    
     // Compare passwords
     const isValidPassword = await bcrypt.compare(password, user.password);
     
     if (!isValidPassword) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
+    
+    console.log(`✅ Login successful: ${email} (is_active = ${user.is_active})`);
     
     // Update last_login timestamp
     db.query("UPDATE users SET last_login = NOW() WHERE id = ?", [user.id]);
@@ -496,6 +607,25 @@ app.get("/api/user/:id", (req, res) => {
     }
     
     res.json({ success: true, user: results[0] });
+  });
+});
+
+// Check user account status (for real-time deactivation)
+app.get("/api/user/:id/status", (req, res) => {
+  const { id } = req.params;
+  
+  db.query("SELECT is_active FROM users WHERE id = ?", [id], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    const isActive = results[0].is_active === 1;
+    res.json({ success: true, isActive });
   });
 });
 

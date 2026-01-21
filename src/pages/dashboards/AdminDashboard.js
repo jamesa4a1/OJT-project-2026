@@ -21,6 +21,7 @@ const AdminDashboard = () => {
     const [allCases, setAllCases] = useState([]);
     const [showAllCases, setShowAllCases] = useState(false);
     const [users, setUsers] = useState([]);
+    const [showAllUsers, setShowAllUsers] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -297,7 +298,7 @@ const AdminDashboard = () => {
                     <motion.div
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => navigate('/editcase')}
+                        onClick={() => navigate('/managecases')}
                         className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                     >
                         <div className="flex items-center justify-between">
@@ -306,7 +307,7 @@ const AdminDashboard = () => {
                                     <i className={`fas fa-edit text-xl group-hover:text-white transition-colors ${isDark ? 'text-sky-400' : 'text-sky-600'}`}></i>
                                 </div>
                                 <div>
-                                    <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Edit Case</h4>
+                                    <h4 className={`font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Manage Cases</h4>
                                     <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Modify existing case details</p>
                                 </div>
                             </div>
@@ -426,7 +427,7 @@ const AdminDashboard = () => {
                     
                     {recentCases.length > 0 ? (
                         <div className="space-y-2">
-                            {recentCases.map((caseItem, index) => {
+                            {(showAllCases ? recentCases : recentCases.slice(0, 5)).map((caseItem, index) => {
                                 const isResolved = 
                                     caseItem.status?.toLowerCase() === 'resolved' || 
                                     caseItem.status?.toLowerCase() === 'closed' ||
@@ -490,6 +491,38 @@ const AdminDashboard = () => {
                             <p className="text-xs m-0 mt-2">Cases will appear here once they are created</p>
                         </div>
                     )}
+                    
+                    {/* See More / See Less Button */}
+                    {recentCases.length > 5 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`flex justify-center mt-6 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
+                        >
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setShowAllCases(!showAllCases)}
+                                className={`px-6 py-2.5 rounded-xl font-semibold border transition-all flex items-center gap-2 ${
+                                    isDark 
+                                        ? 'bg-slate-700 hover:bg-slate-600 text-white border-slate-600' 
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                                }`}
+                            >
+                                {showAllCases ? (
+                                    <>
+                                        <i className="fas fa-chevron-up"></i>
+                                        See Less
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-chevron-down"></i>
+                                        See More
+                                    </>
+                                )}
+                            </motion.button>
+                        </motion.div>
+                    )}
                 </motion.div>
             </div>
 
@@ -520,7 +553,7 @@ const AdminDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((u, index) => (
+                            {(showAllUsers ? users : users.slice(0, 5)).map((u, index) => (
                                 <motion.tr 
                                     key={u.id}
                                     initial={{ opacity: 0, y: 10 }}
@@ -565,6 +598,38 @@ const AdminDashboard = () => {
                         </tbody>
                     </table>
                 </div>
+                
+                {/* See More / See Less Button */}
+                {users.length > 5 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex justify-center mt-6 pt-4 border-t border-slate-200"
+                    >
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowAllUsers(!showAllUsers)}
+                            className={`px-6 py-2.5 rounded-xl font-semibold border transition-all flex items-center gap-2 ${
+                                isDark 
+                                    ? 'bg-slate-700 hover:bg-slate-600 text-white border-slate-600' 
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                            }`}
+                        >
+                            {showAllUsers ? (
+                                <>
+                                    <i className="fas fa-chevron-up"></i>
+                                    See Less
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fas fa-chevron-down"></i>
+                                    See More
+                                </>
+                            )}
+                        </motion.button>
+                    </motion.div>
+                )}
             </motion.div>
 
             {/* Quick Actions */}
@@ -577,7 +642,7 @@ const AdminDashboard = () => {
                 <motion.div
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => navigate('/caselist')}
+                    onClick={() => navigate('/managecases')}
                     className={`rounded-2xl p-5 shadow-lg cursor-pointer group hover:shadow-xl transition-all ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-100'}`}
                 >
                     <div className="flex items-center gap-4">

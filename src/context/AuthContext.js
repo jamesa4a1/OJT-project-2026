@@ -15,6 +15,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDeactivated, setIsDeactivated] = useState(false);
 
     useEffect(() => {
         // Check for saved user in localStorage on mount
@@ -24,6 +25,32 @@ export const AuthProvider = ({ children }) => {
         }
         setIsLoading(false);
     }, []);
+
+    // Real-time account status checker
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const checkAccountStatus = async () => {
+            try {
+                const response = await fetch(`${API_URL}/user/${user.id}/status`);
+                const data = await response.json();
+                
+                if (data.success && data.isActive === false) {
+                    setIsDeactivated(true);
+                }
+            } catch (error) {
+                console.error('Error checking account status:', error);
+            }
+        };
+
+        // Check immediately
+        checkAccountStatus();
+
+        // Check every 3 seconds
+        const interval = setInterval(checkAccountStatus, 3000);
+
+        return () => clearInterval(interval);
+    }, [user?.id]);
 
     const login = async (email, password) => {
         try {
@@ -326,6 +353,7 @@ export const AuthProvider = ({ children }) => {
     const value = {
         user,
         isLoading,
+        isDeactivated,
         login,
         logout,
         register,
@@ -342,6 +370,84 @@ export const AuthProvider = ({ children }) => {
     return (
         <AuthContext.Provider value={value}>
             {children}
+            {/* Deactivation Modal */}
+            {isDeactivated && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    backdropFilter: 'blur(5px)'
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '20px',
+                        padding: '40px',
+                        maxWidth: '450px',
+                        textAlign: 'center',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{
+                            width: '80px',
+                            height: '80px',
+                            borderRadius: '50%',
+                            backgroundColor: '#fee2e2',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 20px'
+                        }}>
+                            <i className="fas fa-user-lock" style={{ fontSize: '40px', color: '#dc2626' }}></i>
+                        </div>
+                        <h2 style={{ 
+                            fontSize: '24px', 
+                            fontWeight: 'bold', 
+                            marginBottom: '12px',
+                            color: '#1e293b'
+                        }}>
+                            Account Deactivated
+                        </h2>
+                        <p style={{ 
+                            fontSize: '16px', 
+                            color: '#64748b', 
+                            marginBottom: '30px',
+                            lineHeight: '1.6'
+                        }}>
+                            Your account has been deactivated by an administrator. 
+                            You no longer have access to this system.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setIsDeactivated(false);
+                                logout();
+                                window.location.href = '/login';
+                            }}
+                            style={{
+                                backgroundColor: '#dc2626',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                padding: '14px 32px',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                width: '100%',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#b91c1c'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#dc2626'}
+                        >
+                            Return to Login
+                        </button>
+                    </div>
+                </div>
+            )}
         </AuthContext.Provider>
     );
 };

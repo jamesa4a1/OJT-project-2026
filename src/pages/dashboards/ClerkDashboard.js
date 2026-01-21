@@ -78,17 +78,26 @@ const ClerkDashboard = () => {
             if (response.ok) {
                 const cases = await response.json();
                 
-                // Create CSV content
-                const headers = ['Docket No', 'Title', 'Status', 'Date Filed', 'Complainant', 'Respondent'];
+                // Create CSV content with correct column names matching database
+                const headers = ['Docket No', 'Date Filed', 'Complainant', 'Respondent', 'Address of Respondent', 'Offense', 'Date of Commission', 'Date Resolved', 'Resolving Prosecutor', 'Criminal Case No', 'Branch', 'Date Filed in Court', 'Remarks Decision', 'Penalty', 'Index Cards'];
                 const csvContent = [
                     headers.join(','),
                     ...cases.map(c => [
-                        c.docket_no || '',
-                        `"${(c.title || '').replace(/"/g, '""')}"`,
-                        c.status || '',
-                        c.date_filed || '',
-                        `"${(c.complainant || '').replace(/"/g, '""')}"`,
-                        `"${(c.respondent || '').replace(/"/g, '""')}"`
+                        c.DOCKET_NO || '',
+                        c.DATE_FILED || '',
+                        `"${(c.COMPLAINANT || '').replace(/"/g, '""')}"`,
+                        `"${(c.RESPONDENT || '').replace(/"/g, '""')}"`,
+                        `"${(c.ADDRESS_OF_RESPONDENT || '').replace(/"/g, '""')}"`,
+                        `"${(c.OFFENSE || '').replace(/"/g, '""')}"`,
+                        c.DATE_OF_COMMISSION || '',
+                        c.DATE_RESOLVED || '',
+                        `"${(c.RESOLVING_PROSECUTOR || '').replace(/"/g, '""')}"`,
+                        c.CRIM_CASE_NO || '',
+                        c.BRANCH || '',
+                        c.DATEFILED_IN_COURT || '',
+                        `"${(c.REMARKS_DECISION || '').replace(/"/g, '""')}"`,
+                        c.PENALTY || '',
+                        `"${(c.INDEX_CARDS || '').replace(/"/g, '""')}"`,
                     ].join(','))
                 ].join('\n');
 

@@ -121,7 +121,7 @@ const Newcase = () => {
                 <motion.button
                     whileHover={{ x: -5 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/admin-dashboard")}
                     className="flex items-center gap-2 px-4 py-2 mb-6 rounded-xl
                                bg-white border border-slate-200 text-slate-600
                                hover:bg-slate-50 hover:border-slate-300

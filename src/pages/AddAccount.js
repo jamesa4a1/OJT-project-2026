@@ -16,9 +16,16 @@ const AddAccount = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [users, setUsers] = useState([]);
+    const [roleFilter, setRoleFilter] = useState(null); // null means show all
+    const [showAllUsers, setShowAllUsers] = useState(false); // Toggle for See More / See Less
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editUser, setEditUser] = useState(null);
+    const [editRole, setEditRole] = useState('Clerk');
+    const [isEditing, setIsEditing] = useState(false);
+    const [togglingUser, setTogglingUser] = useState(null);
 
     useEffect(() => {
         fetchUsers();
@@ -38,8 +45,111 @@ const AddAccount = () => {
         }
     };
 
+    const handleToggleStatus = async (user) => {
+        setTogglingUser(user.id);
+        try {
+            const response = await fetch(`http://localhost:5000/api/user/${user.id}/toggle-status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                setStatus({ 
+                    type: 'success', 
+                    message: `${user.name}'s account has been ${data.isActive ? 'activated' : 'deactivated'}` 
+                });
+                fetchUsers();
+                setTimeout(() => setStatus({ type: '', message: '' }), 3000);
+            } else {
+                setStatus({ type: 'error', message: data.message || 'Failed to toggle status' });
+                setTimeout(() => setStatus({ type: '', message: '' }), 5000);
+            }
+        } catch (error) {
+            setStatus({ type: 'error', message: 'Server error. Please try again.' });
+        } finally {
+            setTogglingUser(null);
+        }
+    };
+
+    const getAdminCount = () => users.filter(u => u.role === 'Admin' && u.is_active === 1).length;
+    const getActiveAdminCount = () => users.filter(u => u.role === 'Admin' && u.is_active === 1).length;
+    
+    // Filter users based on selected role
+    const getFilteredUsers = () => {
+        let filtered = users;
+        if (roleFilter) {
+            filtered = users.filter(u => u.role === roleFilter);
+        }
+        // Apply pagination: show 5 by default, all if showAllUsers is true
+        if (!showAllUsers && filtered.length > 5) {
+            return filtered.slice(0, 5);
+        }
+        return filtered;
+    };
+
+    // Get total filtered count (for determining if we show See More button)
+    const getTotalFilteredCount = () => {
+        if (!roleFilter) return users.length;
+        return users.filter(u => u.role === roleFilter).length;
+    };
+
+    const canToggleAdmin = (user) => {
+        // Cannot deactivate if this is the last active admin
+        if (user.role === 'Admin' && user.is_active === 1 && getActiveAdminCount() <= 1) {
+            return false;
+        }
+        return true;
+    };
+
+    const canDeleteUser = (user) => {
+        // Cannot delete if this is the last admin
+        if (user.role === 'Admin' && getAdminCount() <= 1) {
+            return false;
+        }
+        return true;
+    };
+
+    const handleEditUser = (user) => {
+        setEditUser(user);
+        setEditRole(user.role);
+        setShowEditModal(true);
+    };
+
+    const handleUpdateRole = async () => {
+        if (!editUser) return;
+        setIsEditing(true);
+        try {
+            const response = await fetch(`http://localhost:5000/api/user/${editUser.id}/role`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: editRole })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setStatus({ type: 'success', message: `Role updated for ${editUser.name}` });
+                fetchUsers();
+                setShowEditModal(false);
+                setEditUser(null);
+            } else {
+                setStatus({ type: 'error', message: data.message || 'Failed to update role' });
+            }
+        } catch (error) {
+            setStatus({ type: 'error', message: 'Server error. Please try again.' });
+        } finally {
+            setIsEditing(false);
+        }
+    };
+
     const handleDeleteUser = async () => {
         if (!selectedUser) return;
+        
+        // Check if trying to delete the last admin
+        if (!canDeleteUser(selectedUser)) {
+            setStatus({ type: 'error', message: 'Cannot delete the last admin account!' });
+            setShowDeleteModal(false);
+            setSelectedUser(null);
+            return;
+        }
         
         setIsDeleting(true);
         try {
@@ -408,9 +518,62 @@ const AddAccount = () => {
                                         <p className="text-slate-500 text-sm m-0">Manage existing users</p>
                                     </div>
                                 </div>
-                                <span className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                                    {users.length} users
-                                </span>
+                                <div className="flex items-center gap-3">
+                                    {/* Role Filter Buttons */}
+                                    <div className="flex gap-2">
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setRoleFilter(null)}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                                roleFilter === null 
+                                                    ? 'bg-blue-600 text-white border-blue-600' 
+                                                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300'
+                                            }`}
+                                        >
+                                            All
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setRoleFilter('Admin')}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                                roleFilter === 'Admin' 
+                                                    ? 'bg-purple-600 text-white border-purple-600' 
+                                                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-purple-300'
+                                            }`}
+                                        >
+                                            Admin
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setRoleFilter('Clerk')}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                                roleFilter === 'Clerk' 
+                                                    ? 'bg-blue-600 text-white border-blue-600' 
+                                                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300'
+                                            }`}
+                                        >
+                                            Clerk
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setRoleFilter('Staff')}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                                roleFilter === 'Staff' 
+                                                    ? 'bg-teal-600 text-white border-teal-600' 
+                                                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-teal-300'
+                                            }`}
+                                        >
+                                            Staff
+                                        </motion.button>
+                                    </div>
+                                    <span className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                                        {getFilteredUsers().length}/{getTotalFilteredCount()} users
+                                    </span>
+                                </div>
                             </div>
                             
                             {users.length > 0 ? (
@@ -426,7 +589,7 @@ const AddAccount = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {users.map((user, index) => (
+                                            {getFilteredUsers().map((user, index) => (
                                                 <motion.tr
                                                     key={user.id}
                                                     initial={{ opacity: 0, y: 10 }}
@@ -435,14 +598,14 @@ const AddAccount = () => {
                                                     className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                                                 >
                                                     <td className="py-4 px-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                                        <div className="flex items-center gap-3 flex-nowrap">
+                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
                                                                 user.role === 'Admin' ? 'bg-purple-500' :
                                                                 user.role === 'Staff' ? 'bg-teal-500' : 'bg-blue-500'
                                                             }`}>
                                                                 {user.name?.charAt(0).toUpperCase() || 'U'}
                                                             </div>
-                                                            <span className="font-medium text-slate-700">{user.name}</span>
+                                                            <span className="font-medium text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">{user.name}</span>
                                                         </div>
                                                     </td>
                                                     <td className="py-4 px-4 text-slate-600 text-sm">{user.email}</td>
@@ -457,20 +620,76 @@ const AddAccount = () => {
                                                     <td className="py-4 px-4 text-slate-500 text-sm">
                                                         {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                                     </td>
-                                                    <td className="py-4 px-4 text-center">
-                                                        {user.role !== 'Admin' ? (
+                                                    <td className="py-4 px-4">
+                                                        <div className="flex gap-2 justify-center items-center">
+                                                            {/* Delete Button - shown for all users */}
                                                             <motion.button
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
-                                                                onClick={() => { setSelectedUser(user); setShowDeleteModal(true); }}
-                                                                className="w-9 h-9 rounded-lg bg-red-100 text-red-600 border-none cursor-pointer hover:bg-red-500 hover:text-white transition-all"
-                                                                title="Delete account"
+                                                                whileHover={{ scale: canDeleteUser(user) ? 1.1 : 1 }}
+                                                                whileTap={{ scale: canDeleteUser(user) ? 0.9 : 1 }}
+                                                                onClick={() => { 
+                                                                    if (canDeleteUser(user)) {
+                                                                        setSelectedUser(user); 
+                                                                        setShowDeleteModal(true); 
+                                                                    }
+                                                                }}
+                                                                className={`w-9 h-9 rounded-lg border-none transition-all ${
+                                                                    canDeleteUser(user) 
+                                                                        ? 'bg-red-100 text-red-600 cursor-pointer hover:bg-red-500 hover:text-white' 
+                                                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                                                }`}
+                                                                title={canDeleteUser(user) ? "Delete account" : "Cannot delete the last admin"}
+                                                                disabled={!canDeleteUser(user)}
                                                             >
                                                                 <i className="fas fa-trash-alt text-sm"></i>
                                                             </motion.button>
-                                                        ) : (
-                                                            <span className="text-slate-400 text-xs">Protected</span>
-                                                        )}
+                                                            
+                                                            {/* Toggle Switch for Admin users */}
+                                                            {user.role === 'Admin' ? (
+                                                                <motion.button
+                                                                    whileHover={{ scale: canToggleAdmin(user) ? 1.05 : 1 }}
+                                                                    whileTap={{ scale: canToggleAdmin(user) ? 0.95 : 1 }}
+                                                                    onClick={() => canToggleAdmin(user) && handleToggleStatus(user)}
+                                                                    disabled={togglingUser === user.id || !canToggleAdmin(user)}
+                                                                    className={`relative w-9 h-9 rounded-lg border-none flex items-center justify-center transition-colors duration-300 ${
+                                                                        canToggleAdmin(user) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                                                                    } ${
+                                                                        user.is_active !== 0 ? 'bg-cyan-100' : 'bg-red-100'
+                                                                    }`}
+                                                                    title={
+                                                                        !canToggleAdmin(user) 
+                                                                            ? "Cannot deactivate the last active admin" 
+                                                                            : (user.is_active !== 0 ? "Deactivate account" : "Activate account")
+                                                                    }
+                                                                >
+                                                                    <motion.div
+                                                                        className={`w-5 h-5 rounded-md shadow-sm transition-colors duration-300 ${
+                                                                            user.is_active !== 0 ? 'bg-cyan-500' : 'bg-red-500'
+                                                                        }`}
+                                                                        animate={{ 
+                                                                            y: user.is_active !== 0 ? -4 : 4,
+                                                                        }}
+                                                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                                                    />
+                                                                    
+                                                                    {togglingUser === user.id && (
+                                                                        <div className="absolute inset-0 flex items-center justify-center bg-white/30 rounded-lg z-10">
+                                                                            <i className="fas fa-spinner fa-spin text-slate-700 text-xs"></i>
+                                                                        </div>
+                                                                    )}
+                                                                </motion.button>
+                                                            ) : (
+                                                                /* Edit Button for non-Admin users */
+                                                                <motion.button
+                                                                    whileHover={{ scale: 1.1 }}
+                                                                    whileTap={{ scale: 0.9 }}
+                                                                    onClick={() => handleEditUser(user)}
+                                                                    className="w-9 h-9 rounded-lg bg-yellow-100 text-yellow-600 border-none cursor-pointer hover:bg-yellow-400 hover:text-white transition-all"
+                                                                    title="Edit role"
+                                                                >
+                                                                    <i className="fas fa-edit text-sm"></i>
+                                                                </motion.button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </motion.tr>
                                             ))}
@@ -482,6 +701,34 @@ const AddAccount = () => {
                                     <i className="fas fa-users text-5xl mb-3 opacity-50"></i>
                                     <p className="m-0">No accounts found</p>
                                 </div>
+                            )}
+                            
+                            {/* See More / See Less Button */}
+                            {getTotalFilteredCount() > 5 && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex justify-center mt-6 pt-4 border-t border-slate-200"
+                                >
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => setShowAllUsers(!showAllUsers)}
+                                        className="px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold border border-slate-200 transition-all flex items-center gap-2"
+                                    >
+                                        {showAllUsers ? (
+                                            <>
+                                                <i className="fas fa-chevron-up"></i>
+                                                See Less
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="fas fa-chevron-down"></i>
+                                                See More
+                                            </>
+                                        )}
+                                    </motion.button>
+                                </motion.div>
                             )}
                         </div>
                     </motion.div>
@@ -535,6 +782,68 @@ const AddAccount = () => {
                                             <><i className="fas fa-spinner fa-spin mr-2"></i>Deleting...</>
                                         ) : (
                                             <><i className="fas fa-trash-alt mr-2"></i>Delete</>
+                                        )}
+                                    </motion.button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+                {showEditModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        onClick={() => setShowEditModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="text-center">
+                                <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+                                    <i className="fas fa-edit text-2xl text-yellow-700"></i>
+                                </div>
+                                <h3 className="text-xl font-bold mb-2 text-slate-800">Edit User Role</h3>
+                                <p className="text-slate-600 mb-6">
+                                    Update role for <strong>{editUser?.name}</strong> ({editUser?.email})
+                                </p>
+                                <div className="mb-6">
+                                    <select
+                                        value={editRole}
+                                        onChange={e => setEditRole(e.target.value)}
+                                        className="w-full py-3 px-4 rounded-xl border border-slate-200 text-slate-700 font-semibold"
+                                    >
+                                        <option value="Clerk">Clerk</option>
+                                        <option value="Staff">Staff</option>
+                                        <option value="Admin">Admin</option>
+                                    </select>
+                                </div>
+                                <div className="flex gap-3">
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={() => setShowEditModal(false)}
+                                        disabled={isEditing}
+                                        className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-semibold border-none cursor-pointer hover:bg-slate-200 transition-colors"
+                                    >
+                                        Cancel
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={handleUpdateRole}
+                                        disabled={isEditing}
+                                        className="flex-1 py-3 rounded-xl bg-yellow-500 text-white font-semibold border-none cursor-pointer hover:bg-yellow-600 transition-colors disabled:opacity-50"
+                                    >
+                                        {isEditing ? (
+                                            <><i className="fas fa-spinner fa-spin mr-2"></i>Saving...</>
+                                        ) : (
+                                            <><i className="fas fa-save mr-2"></i>Save</>
                                         )}
                                     </motion.button>
                                 </div>

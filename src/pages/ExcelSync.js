@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import '../styles/button.css';
+import { ThemeContext } from '../App';
+import { motion } from 'framer-motion';
 
 const ExcelSync = () => {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
@@ -237,389 +239,243 @@ const ExcelSync = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Excel Import/Export</h1>
-        <p style={styles.subtitle}>Download or upload Excel files to sync with the database</p>
+    <div className={`min-h-screen p-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
+            <i className={`fas fa-file-excel text-3xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}></i>
+          </div>
+          <h1 className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            Excel Sync
+          </h1>
+          <p className={`text-base ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Import and export cases using Excel files
+          </p>
+        </motion.div>
 
         {/* Status Message */}
         {message && (
-          <div style={{
-            ...styles.message,
-            backgroundColor: messageType === 'success' ? '#d4edda' : 
-                           messageType === 'error' ? '#f8d7da' : '#d1ecf1',
-            color: messageType === 'success' ? '#155724' : 
-                   messageType === 'error' ? '#721c24' : '#0c5460',
-            borderColor: messageType === 'success' ? '#c3e6cb' : 
-                        messageType === 'error' ? '#f5c6cb' : '#bee5eb'
-          }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={`mb-6 p-4 rounded-xl text-center font-medium ${
+              messageType === 'success' 
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                : messageType === 'error'
+                ? 'bg-red-100 text-red-700 border border-red-200'
+                : 'bg-blue-100 text-blue-700 border border-blue-200'
+            }`}
+          >
             {message}
-          </div>
+          </motion.div>
         )}
 
         {/* Column Errors */}
         {columnErrors.length > 0 && (
-          <div style={styles.errorList}>
-            <h4 style={styles.errorTitle}>
-              <i className="fas fa-exclamation-triangle"></i> Column Errors Found:
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-6 p-5 rounded-xl bg-amber-50 border border-amber-200"
+          >
+            <h4 className="text-amber-700 font-bold mb-3 flex items-center gap-2">
+              <i className="fas fa-exclamation-triangle"></i>
+              Column Errors Found
             </h4>
-            <ul style={styles.errorItems}>
+            <ul className="space-y-2">
               {columnErrors.map((error, index) => (
-                <li key={index} style={styles.errorItem}>
-                  <i className="fas fa-times-circle" style={{color: '#dc3545', marginRight: '8px'}}></i>
+                <li key={index} className="text-amber-700 text-sm flex items-center gap-2">
+                  <i className="fas fa-times-circle text-red-500"></i>
                   {error}
                 </li>
               ))}
             </ul>
-            <div style={styles.errorHelp}>
-              <i className="fas fa-lightbulb" style={{marginRight: '8px'}}></i>
-              <strong>Tip:</strong> Download the template using "Download Cases Excel" button to see the correct column names.
+            <div className="mt-4 p-3 bg-white rounded-lg text-sm text-amber-700 flex items-center gap-2">
+              <i className="fas fa-lightbulb text-amber-500"></i>
+              <span><strong>Tip:</strong> Download the template to see correct column names.</span>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* Download Section */}
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>📥 Download Excel (Pull from Database)</h2>
-          <p style={styles.description}>
-            Download an Excel file with all current cases from the database. 
-            You can edit this file offline and upload it back to update the database.
-          </p>
-          <button onClick={handleDownload} style={styles.downloadButton}>
-            Download Cases Excel
-          </button>
-        </div>
+        {/* Main Cards Grid */}
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          {/* Download Card */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
+          >
+            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
+              <i className={`fas fa-download text-xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}></i>
+            </div>
+            <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              Download Cases
+            </h2>
+            <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Export all cases from the database as an Excel file for editing offline.
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleDownload}
+              className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <i className="fas fa-file-download"></i>
+              Download Excel
+            </motion.button>
+          </motion.div>
 
-        {/* Upload Section */}
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>📤 Upload Excel (Push to Database)</h2>
-          <p style={styles.description}>
-            Upload an Excel file to add new cases or update existing ones. 
-            Cases will be matched by ID or Docket Number.
-          </p>
-          
-          {!selectedFile ? (
-            <div style={styles.uploadContainer}>
-              <label htmlFor="excelUpload" style={{
-                ...styles.uploadButton,
-                cursor: validatingColumns ? 'not-allowed' : 'pointer',
-                opacity: validatingColumns ? 0.6 : 1
-              }}>
+          {/* Upload Card */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
+          >
+            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
+              <i className={`fas fa-upload text-xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
+            </div>
+            <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              Upload Cases
+            </h2>
+            <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Import cases from an Excel file to add or update records in the database.
+            </p>
+            
+            {!selectedFile ? (
+              <label 
+                htmlFor="excelUpload" 
+                className={`w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer ${validatingColumns ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
                 {validatingColumns ? (
                   <>
-                    <i className="fas fa-spinner fa-spin" style={{marginRight: '8px'}}></i>
+                    <i className="fas fa-spinner fa-spin"></i>
                     Validating...
                   </>
                 ) : (
-                  'Choose Excel File to Upload'
+                  <>
+                    <i className="fas fa-file-upload"></i>
+                    Choose File
+                  </>
                 )}
               </label>
-              <input
-                id="excelUpload"
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileSelect}
-                disabled={validatingColumns}
-                style={styles.fileInput}
-              />
-            </div>
-          ) : (
-            <div style={styles.filePreviewContainer}>
-              <div style={styles.filePreview}>
-                <div style={styles.fileInfo}>
-                  <i className="fas fa-file-excel" style={styles.fileIcon}></i>
-                  <div>
-                    <div style={styles.fileName}>{selectedFile.name}</div>
-                    <div style={styles.fileSize}>
-                      {(selectedFile.size / 1024).toFixed(2)} KB
+            ) : (
+              <div className="space-y-3">
+                <div className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <i className="fas fa-file-excel text-2xl text-emerald-500"></i>
+                    <div>
+                      <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>{selectedFile.name}</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {(selectedFile.size / 1024).toFixed(1)} KB
+                      </p>
                     </div>
                   </div>
+                  <button 
+                    onClick={handleCancelFile}
+                    disabled={uploading}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white text-sm transition-colors"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
                 </div>
-                <button 
-                  onClick={handleCancelFile}
-                  style={styles.cancelButton}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleUpload}
                   disabled={uploading}
-                  title="Remove file"
+                  className={`w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
-                  <i className="fas fa-times"></i>
-                </button>
+                  {uploading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-cloud-upload-alt"></i>
+                      Upload to Database
+                    </>
+                  )}
+                </motion.button>
               </div>
-              <button 
-                onClick={handleUpload}
-                disabled={uploading}
-                style={{
-                  ...styles.confirmUploadButton,
-                  opacity: uploading ? 0.6 : 1,
-                  cursor: uploading ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {uploading ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin" style={{marginRight: '8px'}}></i>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-cloud-upload-alt" style={{marginRight: '8px'}}></i>
-                    Upload to Database
-                  </>
-                )}
-              </button>
+            )}
+            <input
+              id="excelUpload"
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileSelect}
+              disabled={validatingColumns}
+              className="hidden"
+            />
+          </motion.div>
+        </div>
+
+        {/* Quick Tips */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
+        >
+          <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            <i className={`fas fa-info-circle ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
+            Quick Tips
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+              <div className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                  <i className="fas fa-plus text-sm"></i>
+                </div>
+                <div>
+                  <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>Add New Cases</p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Leave the "ID" column empty for new rows
+                  </p>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Instructions */}
-        <div style={styles.instructions}>
-          <h3 style={styles.instructionsTitle}>📋 Instructions:</h3>
-          <ol style={styles.list}>
-            <li><strong>Download:</strong> Click "Download Cases Excel" to get the latest data</li>
-            <li><strong>Edit:</strong> Open the downloaded Excel file and make your changes</li>
-            <li><strong>Upload:</strong> Click "Choose Excel File" and select your edited file</li>
-            <li><strong style={{color: '#d63031'}}>⚠️ To ADD NEW cases:</strong> Leave the "ID" column EMPTY for new rows</li>
-            <li><strong style={{color: '#0984e3'}}>To UPDATE existing cases:</strong> Keep the ID - it matches records in database</li>
-          </ol>
-        </div>
-
-        {/* Column Reference */}
-        <div style={styles.reference}>
-          <h3 style={styles.referenceTitle}>📊 Excel Columns:</h3>
-          <ul style={styles.columnList}>
-            <li>ID, Docket No, Date Filed, Complainant, Respondent</li>
-            <li>Address of Respondent, Offense, Date of Commission, Date Resolved, Resolving Prosecutor</li>
-            <li>Criminal Case No, Branch, Date Filed in Court</li>
-            <li>Remarks Decision, Penalty, Index Cards</li>
-          </ul>
-        </div>
+            <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+              <div className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+                  <i className="fas fa-sync text-sm"></i>
+                </div>
+                <div>
+                  <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>Update Existing</p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Keep the ID to match existing records
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Required Columns */}
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+            <h4 className={`font-bold text-sm mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              Required Columns
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {expectedColumns.map((col, idx) => (
+                <span 
+                  key={idx}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}
+                >
+                  {col}
+                </span>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '20px',
-    maxWidth: '900px',
-    margin: '0 auto',
-    fontFamily: 'Arial, sans-serif'
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '10px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    padding: '30px'
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: '10px',
-    textAlign: 'center'
-  },
-  subtitle: {
-    fontSize: '16px',
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: '30px'
-  },
-  message: {
-    padding: '15px',
-    borderRadius: '5px',
-    marginBottom: '20px',
-    border: '1px solid',
-    textAlign: 'center',
-    fontWeight: '500'
-  },
-  section: {
-    marginBottom: '30px',
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px'
-  },
-  sectionTitle: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#444',
-    marginBottom: '10px'
-  },
-  description: {
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '15px',
-    lineHeight: '1.5'
-  },
-  downloadButton: {
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    padding: '12px 30px',
-    fontSize: '16px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    transition: 'background-color 0.3s'
-  },
-  uploadContainer: {
-    display: 'flex',
-    justifyContent: 'center'
-  },
-  uploadButton: {
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    padding: '12px 30px',
-    fontSize: '16px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    transition: 'background-color 0.3s',
-    display: 'inline-block'
-  },
-  fileInput: {
-    display: 'none'
-  },
-  filePreviewContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-    alignItems: 'center'
-  },
-  filePreview: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    border: '2px solid #007bff',
-    borderRadius: '8px',
-    padding: '15px 20px',
-    width: '100%',
-    maxWidth: '500px',
-    boxShadow: '0 2px 8px rgba(0,123,255,0.1)'
-  },
-  fileInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '15px',
-    flex: 1
-  },
-  fileIcon: {
-    fontSize: '32px',
-    color: '#28a745'
-  },
-  fileName: {
-    fontWeight: '600',
-    color: '#333',
-    fontSize: '15px',
-    marginBottom: '4px'
-  },
-  fileSize: {
-    fontSize: '13px',
-    color: '#666'
-  },
-  cancelButton: {
-    backgroundColor: '#dc3545',
-    color: 'white',
-    border: 'none',
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    fontSize: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.3s',
-    flexShrink: 0
-  },
-  confirmUploadButton: {
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    padding: '12px 30px',
-    fontSize: '16px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    transition: 'background-color 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  instructions: {
-    backgroundColor: '#fff3cd',
-    border: '1px solid #ffc107',
-    borderRadius: '8px',
-    padding: '20px',
-    marginTop: '20px'
-  },
-  instructionsTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#856404',
-    marginBottom: '10px'
-  },
-  list: {
-    color: '#856404',
-    lineHeight: '1.8',
-    paddingLeft: '20px'
-  },
-  reference: {
-    backgroundColor: '#e7f3ff',
-    border: '1px solid #007bff',
-    borderRadius: '8px',
-    padding: '20px',
-    marginTop: '20px'
-  },
-  referenceTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#004085',
-    marginBottom: '10px'
-  },
-  columnList: {
-    color: '#004085',
-    lineHeight: '1.8',
-    paddingLeft: '20px',
-    listStyleType: 'circle'
-  },
-  errorList: {
-    backgroundColor: '#fff3cd',
-    border: '2px solid #ffc107',
-    borderRadius: '8px',
-    padding: '20px',
-    marginBottom: '20px'
-  },
-  errorTitle: {
-    color: '#856404',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    marginBottom: '15px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  },
-  errorItems: {
-    listStyle: 'none',
-    padding: 0,
-    margin: '0 0 15px 0'
-  },
-  errorItem: {
-    color: '#856404',
-    padding: '8px 0',
-    borderBottom: '1px solid #ffeeba',
-    fontSize: '14px',
-    display: 'flex',
-    alignItems: 'center'
-  },
-  errorHelp: {
-    backgroundColor: '#fff',
-    padding: '12px',
-    borderRadius: '6px',
-    fontSize: '14px',
-    color: '#856404',
-    display: 'flex',
-    alignItems: 'center'
-  }
 };
 
 export default ExcelSync;

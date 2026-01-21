@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import bgImage from '../assets/bg_image.jpg';
 
 const Homepage = () => {
     const navigate = useNavigate();
@@ -27,8 +28,19 @@ const Homepage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 
-                        relative overflow-hidden">
+        <div className="min-h-screen relative overflow-hidden">
+            
+            {/* Background Image with Opacity */}
+            <div 
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ 
+                    backgroundImage: `url(${bgImage})`,
+                    opacity: 0.5
+                }}
+            ></div>
+            
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-50/80 via-blue-50/50 to-slate-100/80"></div>
             
             {/* Background Decorations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -130,7 +142,7 @@ const Homepage = () => {
                     {[
                         { icon: 'fa-gavel', label: 'Digital Docketing', desc: 'Modern case tracking' },
                         { icon: 'fa-shield-halved', label: 'Secure System', desc: 'Protected data' },
-                        { icon: 'fa-clock', label: '24/7 Access', desc: 'Always available' },
+                        { icon: 'fa-clock', label: 'Real-time Access', desc: 'Access your case details in real-time' },
                     ].map((item, index) => (
                         <motion.div
                             key={index}
