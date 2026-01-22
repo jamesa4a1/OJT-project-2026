@@ -7,6 +7,10 @@ const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const XLSX = require("xlsx");
 const schedule = require("node-schedule");
+const { validateRequest } = require("./middleware/validateRequest");
+const { UserLoginSchema, UserRegisterSchema, UserUpdateSchema } = require("./schemas/users");
+const { CaseCreateSchema, CaseUpdateSchema, CaseSearchSchema } = require("./schemas/cases");
+const { ApiResponse } = require("./utils/apiResponse");
 
 const app = express();
 
@@ -344,23 +348,19 @@ db.connect((err) => {
 // ==================== USER AUTHENTICATION ROUTES ====================
 
 // Register new user
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", validateRequest(UserRegisterSchema), async (req, res) => {
   const { name, email, password, role } = req.body;
-  
-  if (!name || !email || !password) {
-    return res.status(400).json({ success: false, message: "All fields are required" });
-  }
   
   try {
     // Check if user already exists
     db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
       if (err) {
         console.error("Database error:", err);
-        return res.status(500).json({ success: false, message: "Database error" });
+        return res.status(500).json(ApiResponse.error("Database error", 500));
       }
       
       if (results.length > 0) {
-        return res.status(400).json({ success: false, message: "Email already registered" });
+        return res.status(400).json(ApiResponse.error("Email already registered", 400));
       }
       
       // Hash password
@@ -371,7 +371,7 @@ app.post("/api/auth/register", async (req, res) => {
       db.query(sql, [name, email, hashedPassword, role || 'Clerk'], (err, result) => {
         if (err) {
           console.error("Error registering user:", err);
-          return res.status(500).json({ success: false, message: "Failed to register user" });
+          return res.status(500).json(ApiResponse.error("Failed to register user", 500));
         }
         
         // Return user data (without password)
@@ -384,12 +384,12 @@ app.post("/api/auth/register", async (req, res) => {
           created_at: new Date().toISOString()
         };
         
-        res.status(201).json({ success: true, message: "Registration successful", user: userData });
+        res.status(201).json(ApiResponse.success("Registration successful", userData, 201));
       });
     });
   } catch (error) {
     console.error("Registration error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json(ApiResponse.error("Server error", 500));
   }
 });
 
@@ -540,21 +540,17 @@ app.put("/api/user/:id/role", (req, res) => {
 
 
 // Login user
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", validateRequest(UserLoginSchema), (req, res) => {
   const { email, password } = req.body;
-  
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: "Email and password are required" });
-  }
   
   db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
     if (err) {
       console.error("Database error:", err);
-      return res.status(500).json({ success: false, message: "Database error" });
+      return res.status(500).json(ApiResponse.error("Database error", 500));
     }
     
     if (results.length === 0) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json(ApiResponse.error("Invalid email or password", 401));
     }
     
     const user = results[0];
@@ -562,14 +558,14 @@ app.post("/api/auth/login", (req, res) => {
     // Check if account is active
     if (user.is_active === 0) {
       console.log(`❌ Login blocked: User ${email} account is deactivated (is_active = ${user.is_active})`);
-      return res.status(403).json({ success: false, message: "Your account has been deactivated. Please contact the administrator." });
+      return res.status(403).json(ApiResponse.error("Your account has been deactivated. Please contact the administrator.", 403));
     }
     
     // Compare passwords
     const isValidPassword = await bcrypt.compare(password, user.password);
     
     if (!isValidPassword) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json(ApiResponse.error("Invalid credentials", 401));
     }
     
     console.log(`✅ Login successful: ${email} (is_active = ${user.is_active})`);
@@ -588,7 +584,7 @@ app.post("/api/auth/login", (req, res) => {
       created_at: user.created_at
     };
     
-    res.json({ success: true, message: "Login successful", user: userData });
+    res.json(ApiResponse.success("Login successful", userData));
   });
 });
 
@@ -809,48 +805,68 @@ app.get("/cases", (req, res) => {
 });
 
 // Add a new case 
-app.post("/add-case", indexCardUpload.single('indexCardImage'), (req, res) => {
+app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res) => {
   console.log("Received Data:", req.body); // debug
   console.log("Received File:", req.file); // debug
-  const {
-      DOCKET_NO,
-      DATE_FILED,
-      COMPLAINANT,
-      RESPONDENT,
-      ADDRESS_OF_RESPONDENT,
-      OFFENSE,
-      DATE_OF_COMMISSION,
-      DATE_RESOLVED,
-      RESOLVING_PROSECUTOR, 
-      CRIM_CASE_NO,  
-      BRANCH,
-      DATEFILED_IN_COURT,
-      REMARKS_DECISION,
-      PENALTY
-  } = req.body;
+  
+  try {
+    // Validate the request body with Zod
+    const validatedData = await CaseCreateSchema.parseAsync(req.body);
+    
+    // Get the image path if uploaded
+    const INDEX_CARDS = req.file ? `/uploads/index_cards/${req.file.filename}` : 'N/A';
 
-  // Get the image path if uploaded
-  const INDEX_CARDS = req.file ? `/uploads/index_cards/${req.file.filename}` : 'N/A';
+    const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-  db.query(sql, [DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS], (err, result) => {
+    db.query(sql, [
+      validatedData.DOCKET_NO, 
+      validatedData.DATE_FILED, 
+      validatedData.COMPLAINANT, 
+      validatedData.RESPONDENT, 
+      validatedData.ADDRESS_OF_RESPONDENT, 
+      validatedData.OFFENSE, 
+      validatedData.DATE_OF_COMMISSION, 
+      validatedData.DATE_RESOLVED, 
+      validatedData.RESOLVING_PROSECUTOR, 
+      validatedData.CRIM_CASE_NO, 
+      validatedData.BRANCH, 
+      validatedData.DATEFILED_IN_COURT, 
+      validatedData.REMARKS_DECISION, 
+      validatedData.PENALTY, 
+      INDEX_CARDS
+    ], (err, result) => {
       if (err) {
-          console.error("Error inserting data:", err);
-          res.status(500).json({ message: "Failed to add case" });
-      } else {
-          // Sync Excel file after adding new case
-          exportCasesToExcel()
-            .then(() => {
-              console.log("Excel file synced after adding new case");
-            })
-            .catch(excelErr => {
-              console.error("Error syncing Excel file:", excelErr);
-            });
-          
-          res.status(200).json({ message: "Case added successfully", indexCardPath: INDEX_CARDS });
+        console.error("Error inserting data:", err);
+        return res.status(500).json(ApiResponse.error("Failed to add case", 500));
       }
-  });
+      
+      // Sync Excel file after adding new case
+      exportCasesToExcel()
+        .then(() => {
+          console.log("Excel file synced after adding new case");
+        })
+        .catch(excelErr => {
+          console.error("Error syncing Excel file:", excelErr);
+        });
+      
+      res.status(200).json(ApiResponse.success("Case added successfully", { 
+        id: result.insertId,
+        indexCardPath: INDEX_CARDS 
+      }));
+    });
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const errors = error.errors.map(err => ({
+        field: err.path.join('.'),
+        message: err.message,
+      }));
+      return res.status(400).json(ApiResponse.error("Validation failed", 400, { errors }));
+    }
+    
+    console.error("Error adding case:", error);
+    return res.status(500).json(ApiResponse.error("Internal server error", 500));
+  }
 });
 
 // search sa edit case
@@ -913,49 +929,65 @@ const { docket_no, respondent, resolving_prosecutor, remarks, start_date, end_da
 });
 
 // edit case
-app.post("/update-case", (req, res) => {
-  const { id, updated_fields } = req.body;
+app.post("/update-case", async (req, res) => {
+  try {
+    // Validate the request body with Zod
+    const validatedData = await CaseUpdateSchema.parseAsync(req.body);
+    const { id, updated_fields } = validatedData;
 
-  if (!id || !updated_fields || Object.keys(updated_fields).length === 0) {
-    return res.status(400).json({ message: "Missing or incomplete data." });
+    if (Object.keys(updated_fields).length === 0) {
+      return res.status(400).json(ApiResponse.error("No fields to update", 400));
+    }
+
+    let updateQuery = "UPDATE cases SET ";
+    const updateValues = [];
+
+    const fields = Object.keys(updated_fields);
+    fields.forEach((field, index) => {
+      updateQuery += `${field} = ?`;
+      if (index < fields.length - 1) updateQuery += ", ";
+      updateValues.push(updated_fields[field]);
+    });
+
+    updateQuery += " WHERE id = ?";
+    updateValues.push(id);
+
+    console.log("Executing Update:", updateQuery);
+    console.log("With values:", updateValues);
+
+    db.query(updateQuery, updateValues, (err, result) => {
+      if (err) {
+        console.error("Error updating case:", err);
+        return res.status(500).json(ApiResponse.error("Error updating case", 500));
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json(ApiResponse.error("No matching case found", 404));
+      }
+      
+      // Sync Excel file after successful update
+      exportCasesToExcel()
+        .then(() => {
+          console.log("Excel file synced after case update");
+        })
+        .catch(excelErr => {
+          console.error("Error syncing Excel file:", excelErr);
+        });
+      
+      return res.json(ApiResponse.success("Case updated successfully"));
+    });
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const errors = error.errors.map(err => ({
+        field: err.path.join('.'),
+        message: err.message,
+      }));
+      return res.status(400).json(ApiResponse.error("Validation failed", 400, { errors }));
+    }
+    
+    console.error("Error updating case:", error);
+    return res.status(500).json(ApiResponse.error("Internal server error", 500));
   }
-
-  let updateQuery = "UPDATE cases SET ";
-  const updateValues = [];
-
-  const fields = Object.keys(updated_fields);
-  fields.forEach((field, index) => {
-    updateQuery += `${field} = ?`;
-    if (index < fields.length - 1) updateQuery += ", ";
-    updateValues.push(updated_fields[field]);
-  });
-
-  updateQuery += " WHERE id = ?";
-  updateValues.push(id);
-
-  console.log("Executing Update:", updateQuery);
-  console.log("With values:", updateValues);
-
-  db.query(updateQuery, updateValues, (err, result) => {
-    if (err) {
-      console.error("Error updating case:", err);
-      return res.status(500).json({ message: "Error updating case." });
-    }
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "No matching case found." });
-    }
-    
-    // Sync Excel file after successful update
-    exportCasesToExcel()
-      .then(() => {
-        console.log("Excel file synced after case update");
-      })
-      .catch(excelErr => {
-        console.error("Error syncing Excel file:", excelErr);
-      });
-    
-    return res.json({ message: "Case updated successfully!" });
-  });
 });
 
 // Update case with image upload

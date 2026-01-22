@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ImageModal = ({ isOpen, onClose, imageUrl, imageName = 'Image' }) => {
-
   // Handle ESC key to close
   useEffect(() => {
     const handleEscape = (e) => {

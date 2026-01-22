@@ -257,3 +257,16 @@ Stop-Process -Id 16356 -Force
 
 node server.js
 >>>>>>> 2967cda7df6ae5c01e3fcc6937a7892a38fe9549
+
+
+## to push
+
+git add .; git commit -m "Update project"; git push
+
+
+## New commands Available 
+npm run lint         # Check code quality
+npm run lint:fix     # Fix issues automatically
+npm run format       # Format code
+npm test             # Run tests
+npm run build        # Build for production

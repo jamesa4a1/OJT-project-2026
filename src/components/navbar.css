@@ -29,7 +29,9 @@
 .navbar-nav .nav-link {
   color: white !important;
   margin-right: 20px;
-  transition: color 0.3s ease, transform 0.2s ease;
+  transition:
+    color 0.3s ease,
+    transform 0.2s ease;
 }
 
 .navbar-nav .nav-link:hover {

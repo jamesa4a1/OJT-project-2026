@@ -30,7 +30,7 @@ const ExcelSync = () => {
     'Date Filed in Court',
     'Remarks Decision',
     'Penalty',
-    'Index Cards'
+    'Index Cards',
   ];
 
   // Download Excel file with all current cases
@@ -40,7 +40,7 @@ const ExcelSync = () => {
       setMessageType('info');
 
       const response = await axios.get('http://localhost:5000/api/excel/download', {
-        responseType: 'blob'
+        responseType: 'blob',
       });
 
       // Create download link
@@ -87,19 +87,19 @@ const ExcelSync = () => {
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      
+
       // Get column headers (first row)
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       const headers = jsonData[0] || [];
 
       // Validate columns
       const errors = [];
-      const normalizedExpected = expectedColumns.map(col => col.toLowerCase().trim());
-      
+      const normalizedExpected = expectedColumns.map((col) => col.toLowerCase().trim());
+
       // Function to find the closest matching column name
       const findClosestMatch = (wrongName) => {
         const normalized = wrongName.toLowerCase().trim();
-        
+
         // Calculate Levenshtein distance to find closest match
         const calculateDistance = (a, b) => {
           const matrix = [];
@@ -124,29 +124,29 @@ const ExcelSync = () => {
           }
           return matrix[b.length][a.length];
         };
-        
+
         let closest = null;
         let minDistance = Infinity;
-        
-        expectedColumns.forEach(col => {
+
+        expectedColumns.forEach((col) => {
           const distance = calculateDistance(normalized, col.toLowerCase());
           if (distance < minDistance) {
             minDistance = distance;
             closest = col;
           }
         });
-        
+
         // Only suggest if it's reasonably close (distance <= 3)
         return minDistance <= 3 ? closest : null;
       };
-      
+
       headers.forEach((header, index) => {
         const normalizedHeader = String(header).toLowerCase().trim();
-        
+
         // Check if column exists in expected columns
         if (!normalizedExpected.includes(normalizedHeader)) {
           const closestMatch = findClosestMatch(normalizedHeader);
-          
+
           if (closestMatch) {
             errors.push(`Column "${header}" is wrong name, use "${closestMatch}" instead.`);
           } else {
@@ -157,9 +157,9 @@ const ExcelSync = () => {
 
       // Check for required columns
       const requiredColumns = ['Docket No', 'Complainant', 'Respondent'];
-      requiredColumns.forEach(required => {
-        const found = headers.some(h => 
-          String(h).toLowerCase().trim() === required.toLowerCase().trim()
+      requiredColumns.forEach((required) => {
+        const found = headers.some(
+          (h) => String(h).toLowerCase().trim() === required.toLowerCase().trim()
         );
         if (!found) {
           errors.push(`Required column "${required}" is missing.`);
@@ -200,25 +200,25 @@ const ExcelSync = () => {
     try {
       const response = await axios.post('http://localhost:5000/api/excel/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       setMessage(response.data.message);
       setMessageType('success');
-      
+
       if (response.data.warnings && response.data.warnings.length > 0) {
         const warningMessage = '\n\nWarnings:\n' + response.data.warnings.join('\n');
         setMessage(response.data.message + warningMessage);
       }
-      
+
       if (response.data.errors && response.data.errors.length > 0) {
         console.warn('Import errors:', response.data.errors);
       }
-      
+
       // Clear selection
       setSelectedFile(null);
-      
+
       setTimeout(() => setMessage(''), 5000);
     } catch (error) {
       console.error('Error uploading Excel:', error);
@@ -242,13 +242,17 @@ const ExcelSync = () => {
     <div className={`min-h-screen p-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
-            <i className={`fas fa-file-excel text-3xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}></i>
+          <div
+            className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}
+          >
+            <i
+              className={`fas fa-file-excel text-3xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
+            ></i>
           </div>
           <h1 className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
             Excel Sync
@@ -264,11 +268,11 @@ const ExcelSync = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className={`mb-6 p-4 rounded-xl text-center font-medium ${
-              messageType === 'success' 
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+              messageType === 'success'
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                 : messageType === 'error'
-                ? 'bg-red-100 text-red-700 border border-red-200'
-                : 'bg-blue-100 text-blue-700 border border-blue-200'
+                  ? 'bg-red-100 text-red-700 border border-red-200'
+                  : 'bg-blue-100 text-blue-700 border border-blue-200'
             }`}
           >
             {message}
@@ -296,7 +300,9 @@ const ExcelSync = () => {
             </ul>
             <div className="mt-4 p-3 bg-white rounded-lg text-sm text-amber-700 flex items-center gap-2">
               <i className="fas fa-lightbulb text-amber-500"></i>
-              <span><strong>Tip:</strong> Download the template to see correct column names.</span>
+              <span>
+                <strong>Tip:</strong> Download the template to see correct column names.
+              </span>
             </div>
           </motion.div>
         )}
@@ -310,8 +316,12 @@ const ExcelSync = () => {
             transition={{ delay: 0.1 }}
             className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
           >
-            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
-              <i className={`fas fa-download text-xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}></i>
+            <div
+              className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}
+            >
+              <i
+                className={`fas fa-download text-xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
+              ></i>
             </div>
             <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
               Download Cases
@@ -337,8 +347,12 @@ const ExcelSync = () => {
             transition={{ delay: 0.2 }}
             className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
           >
-            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-              <i className={`fas fa-upload text-xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
+            <div
+              className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'}`}
+            >
+              <i
+                className={`fas fa-upload text-xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
+              ></i>
             </div>
             <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
               Upload Cases
@@ -346,10 +360,10 @@ const ExcelSync = () => {
             <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               Import cases from an Excel file to add or update records in the database.
             </p>
-            
+
             {!selectedFile ? (
-              <label 
-                htmlFor="excelUpload" 
+              <label
+                htmlFor="excelUpload"
                 className={`w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer ${validatingColumns ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 {validatingColumns ? (
@@ -366,17 +380,23 @@ const ExcelSync = () => {
               </label>
             ) : (
               <div className="space-y-3">
-                <div className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                <div
+                  className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}
+                >
                   <div className="flex items-center gap-3">
                     <i className="fas fa-file-excel text-2xl text-emerald-500"></i>
                     <div>
-                      <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>{selectedFile.name}</p>
+                      <p
+                        className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
+                      >
+                        {selectedFile.name}
+                      </p>
                       <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                         {(selectedFile.size / 1024).toFixed(1)} KB
                       </p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={handleCancelFile}
                     disabled={uploading}
                     className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white text-sm transition-colors"
@@ -423,18 +443,26 @@ const ExcelSync = () => {
           transition={{ delay: 0.3 }}
           className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
         >
-          <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+          <h3
+            className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}
+          >
             <i className={`fas fa-info-circle ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
             Quick Tips
           </h3>
           <div className="grid md:grid-cols-2 gap-4">
             <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
               <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}
+                >
                   <i className="fas fa-plus text-sm"></i>
                 </div>
                 <div>
-                  <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>Add New Cases</p>
+                  <p
+                    className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
+                  >
+                    Add New Cases
+                  </p>
                   <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Leave the "ID" column empty for new rows
                   </p>
@@ -443,11 +471,17 @@ const ExcelSync = () => {
             </div>
             <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
               <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}
+                >
                   <i className="fas fa-sync text-sm"></i>
                 </div>
                 <div>
-                  <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>Update Existing</p>
+                  <p
+                    className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
+                  >
+                    Update Existing
+                  </p>
                   <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Keep the ID to match existing records
                   </p>
@@ -455,7 +489,7 @@ const ExcelSync = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Required Columns */}
           <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
             <h4 className={`font-bold text-sm mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>
@@ -463,7 +497,7 @@ const ExcelSync = () => {
             </h4>
             <div className="flex flex-wrap gap-2">
               {expectedColumns.map((col, idx) => (
-                <span 
+                <span
                   key={idx}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}
                 >

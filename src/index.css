@@ -5,7 +5,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -14,15 +18,15 @@ body {
   .btn-doj {
     @apply px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg;
   }
-  
+
   .btn-doj-primary {
     @apply bg-gradient-to-r from-doj-navy to-doj-blue text-white hover:shadow-xl hover:scale-105;
   }
-  
+
   .card-glass {
     @apply bg-white/80 backdrop-blur-lg border border-white/20 rounded-2xl shadow-xl;
   }
-  
+
   .input-modern {
     @apply w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-doj-blue focus:ring-4 focus:ring-doj-blue/20 transition-all duration-300 outline-none;
   }

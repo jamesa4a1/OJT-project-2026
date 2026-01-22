@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ImageModal from '../components/ImageModal';
+import { useValidation } from '../hooks/useValidation';
+import { CaseUpdateSchema } from '../schemas/cases';
+import Alert from '../components/ui/Alert';
 
 const Editcase = () => {
-  const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: "", RESPONDENT: "" });
+  const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: '', RESPONDENT: '' });
   const [caseData, setCaseData] = useState(null);
   const [allCases, setAllCases] = useState([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [editedCase, setEditedCase] = useState({}); // Store edited values directly
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [indexCardImage, setIndexCardImage] = useState(null); 
+  const [indexCardImage, setIndexCardImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullImage, setShowFullImage] = useState(null);
   const [currentImageError, setCurrentImageError] = useState(false);
   const navigate = useNavigate();
+  const { validate, errors: validationErrors } = useValidation(CaseUpdateSchema);
 
   // Helper function to get proper image URL
   const getImageUrl = (indexCardPath) => {
@@ -33,10 +38,10 @@ const Editcase = () => {
   useEffect(() => {
     const fetchAllCases = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/cases");
+        const response = await axios.get('http://localhost:5000/cases');
         setAllCases(response.data);
       } catch (err) {
-        console.error("Error fetching cases:", err);
+        console.error('Error fetching cases:', err);
       }
     };
     fetchAllCases();
@@ -49,18 +54,18 @@ const Editcase = () => {
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.DOCKET_NO && !searchQuery.RESPONDENT) {
-      setError("Please enter at least one search criteria.");
+      setError('Please enter at least one search criteria.');
       return;
     }
     setIsLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/get-case", {
+      const response = await axios.get('http://localhost:5000/get-case', {
         params: { docket_no: searchQuery.DOCKET_NO, respondent: searchQuery.RESPONDENT },
       });
       setCaseData(response.data);
-      setError("");
+      setError('');
     } catch (err) {
-      setError("No matching case found or an error occurred.");
+      setError('No matching case found or an error occurred.');
       setCaseData(null);
     }
     setSearchPerformed(true);
@@ -71,7 +76,7 @@ const Editcase = () => {
     setCaseData([selectedCase]);
     setEditedCase({}); // Start with empty object - only store actual changes
     setSearchPerformed(true);
-    setError("");
+    setError('');
     setIndexCardImage(null);
     setImagePreview(null);
     setCurrentImageError(false); // Reset image error for new case
@@ -80,7 +85,9 @@ const Editcase = () => {
   };
 
   const handleFieldChange = (field, value) => {
-    setEditedCase(prev => ({ ...prev, [field]: value }));
+    setEditedCase((prev) => ({ ...prev, [field]: value }));
+    setError('');
+    setSuccess('');
   };
 
   const handleImageChange = (e) => {
@@ -106,54 +113,76 @@ const Editcase = () => {
 
   const handleSave = async () => {
     if (!caseData || caseData.length === 0) {
-      alert("No case selected to update.");
+      setError('No case selected to update.');
       return;
     }
 
     const originalCase = caseData[0];
-    
+
     // Only send fields that were explicitly changed by the user
     const changedFields = { ...editedCase };
     delete changedFields.id;
     delete changedFields.INDEX_CARDS;
 
     if (Object.keys(changedFields).length === 0 && !indexCardImage) {
-      alert("No changes detected. Please modify at least one field.");
+      setError('No changes detected. Please modify at least one field.');
       return;
     }
-    
+
     setIsLoading(true);
-    
+    setError('');
+    setSuccess('');
+
     try {
+      // Validate with Zod
+      const validatedData = await validate({
+        id: originalCase.id,
+        updated_fields: changedFields,
+      });
+
+      if (!validatedData) {
+        setIsLoading(false);
+        return;
+      }
+
       const formData = new FormData();
-      formData.append('id', originalCase.id);
-      
+      formData.append('id', validatedData.id);
+
       if (indexCardImage) {
         formData.append('indexCardImage', indexCardImage);
       }
-      
-      // Add changed fields
-      Object.keys(changedFields).forEach(key => {
-        formData.append(key, changedFields[key]);
+
+      // Add validated changed fields
+      Object.keys(validatedData.updated_fields).forEach((key) => {
+        formData.append(key, validatedData.updated_fields[key]);
       });
 
-      console.log("Sending update with id:", originalCase.id);
-      console.log("Changed fields:", changedFields);
-      console.log("Has image:", !!indexCardImage);
-      
-      const response = await axios.post("http://localhost:5000/update-case-with-image", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      console.log('Sending update with id:', validatedData.id);
+      console.log('Changed fields:', validatedData.updated_fields);
+      console.log('Has image:', !!indexCardImage);
+
+      const response = await axios.post('http://localhost:5000/update-case-with-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
-      console.log("Response:", response.data);
-      alert("Case updated successfully!");
-      navigate(`/details/${originalCase.DOCKET_NO}`);
+
+      console.log('Response:', response.data);
+      setSuccess('Case updated successfully!');
+
+      // Navigate after short delay
+      setTimeout(() => {
+        navigate(`/details/${originalCase.DOCKET_NO}`);
+      }, 1500);
     } catch (error) {
-      console.error("Error updating case:", error);
-      console.error("Error response:", error.response?.data);
-      alert("Failed to update case: " + (error.response?.data?.message || error.message));
+      console.error('Error updating case:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to update case. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const inputClass = `w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white
@@ -167,7 +196,11 @@ const Editcase = () => {
         <div className="absolute bottom-20 left-20 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl"></div>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 max-w-4xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 max-w-4xl mx-auto"
+      >
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 border border-amber-200 mb-4">
@@ -179,14 +212,22 @@ const Editcase = () => {
         </div>
 
         {/* Back Button */}
-        <motion.button whileHover={{ x: -5 }} whileTap={{ scale: 0.95 }} onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 px-4 py-2 mb-6 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer">
-          <i className="fas fa-arrow-left"></i><span className="font-medium">Back to Menu</span>
+        <motion.button
+          whileHover={{ x: -5 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-2 px-4 py-2 mb-6 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer"
+        >
+          <i className="fas fa-arrow-left"></i>
+          <span className="font-medium">Back to Menu</span>
         </motion.button>
 
         {/* Search Form */}
-        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden mb-8"
+        >
           <div className="p-8">
             <form onSubmit={handleSearch} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -194,30 +235,60 @@ const Editcase = () => {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-hashtag text-amber-500 mr-2"></i>Docket Number
                   </label>
-                  <input type="text" name="DOCKET_NO" value={searchQuery.DOCKET_NO} onChange={handleChange}
-                         className={inputClass} placeholder="Enter docket number" />
+                  <input
+                    type="text"
+                    name="DOCKET_NO"
+                    value={searchQuery.DOCKET_NO}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Enter docket number"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-user-tag text-amber-500 mr-2"></i>Respondent
                   </label>
-                  <input type="text" name="RESPONDENT" value={searchQuery.RESPONDENT} onChange={handleChange}
-                         className={inputClass} placeholder="Enter respondent name" />
+                  <input
+                    type="text"
+                    name="RESPONDENT"
+                    value={searchQuery.RESPONDENT}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Enter respondent name"
+                  />
                 </div>
               </div>
 
               {error && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-3">
-                  <i className="fas fa-exclamation-circle"></i><span>{error}</span>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-3"
+                >
+                  <i className="fas fa-exclamation-circle"></i>
+                  <span>{error}</span>
                 </motion.div>
               )}
 
-              <motion.button type="submit" disabled={isLoading} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 className={`w-full py-4 rounded-xl font-semibold text-lg shadow-lg transition-all duration-300 border-none cursor-pointer flex items-center justify-center gap-3
-                  ${isLoading ? 'bg-slate-400' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-amber-500/30'}`}>
-                {isLoading ? <><div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div><span>Searching...</span></>
-                           : <><i className="fas fa-search"></i><span>Search Case</span></>}
+                  ${isLoading ? 'bg-slate-400' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-amber-500/30'}`}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-search"></i>
+                    <span>Search Case</span>
+                  </>
+                )}
               </motion.button>
             </form>
           </div>
@@ -225,17 +296,34 @@ const Editcase = () => {
 
         {/* Edit Form */}
         {searchPerformed && caseData && caseData.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl shadow-xl border border-amber-200 overflow-hidden mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-xl border border-amber-200 overflow-hidden mb-6"
+          >
             <div className="p-6 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-white">
               <h3 className="font-bold text-amber-800 flex items-center gap-2 text-xl">
                 <i className="fas fa-edit"></i>
                 Editing Case: {caseData[0].DOCKET_NO}
               </h3>
-              <p className="text-sm text-slate-600 mt-1">Modify any field and click save to update</p>
+              <p className="text-sm text-slate-600 mt-1">
+                Modify any field and click save to update
+              </p>
             </div>
-            
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="p-6">
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave();
+              }}
+              className="p-6"
+            >
+              {/* Success Alert */}
+              {success && <Alert type="success" message={success} className="mb-6" />}
+
+              {/* Error Alert */}
+              {error && <Alert type="error" message={error} className="mb-6" />}
+
               {/* Case Information Section */}
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
@@ -249,20 +337,28 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.DOCKET_NO !== undefined ? editedCase.DOCKET_NO : (caseData[0].DOCKET_NO || '')}
+                      value={
+                        editedCase.DOCKET_NO !== undefined
+                          ? editedCase.DOCKET_NO
+                          : caseData[0].DOCKET_NO || ''
+                      }
                       onChange={(e) => handleFieldChange('DOCKET_NO', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter docket number"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       <i className="fas fa-calendar text-amber-500 mr-2"></i>Date Filed
                     </label>
                     <input
                       type="date"
-                      value={editedCase.DATE_FILED !== undefined ? editedCase.DATE_FILED : (caseData[0].DATE_FILED?.split('T')[0] || '')}
+                      value={
+                        editedCase.DATE_FILED !== undefined
+                          ? editedCase.DATE_FILED
+                          : caseData[0].DATE_FILED?.split('T')[0] || ''
+                      }
                       onChange={(e) => handleFieldChange('DATE_FILED', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
@@ -274,7 +370,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.COMPLAINANT !== undefined ? editedCase.COMPLAINANT : (caseData[0].COMPLAINANT || '')}
+                      value={
+                        editedCase.COMPLAINANT !== undefined
+                          ? editedCase.COMPLAINANT
+                          : caseData[0].COMPLAINANT || ''
+                      }
                       onChange={(e) => handleFieldChange('COMPLAINANT', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter complainant name"
@@ -287,7 +387,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.RESPONDENT !== undefined ? editedCase.RESPONDENT : (caseData[0].RESPONDENT || '')}
+                      value={
+                        editedCase.RESPONDENT !== undefined
+                          ? editedCase.RESPONDENT
+                          : caseData[0].RESPONDENT || ''
+                      }
                       onChange={(e) => handleFieldChange('RESPONDENT', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter respondent name"
@@ -295,11 +399,16 @@ const Editcase = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-map-marker-alt text-amber-500 mr-2"></i>Address of Respondent
+                      <i className="fas fa-map-marker-alt text-amber-500 mr-2"></i>Address of
+                      Respondent
                     </label>
                     <input
                       type="text"
-                      value={editedCase.ADDRESS_OF_RESPONDENT !== undefined ? editedCase.ADDRESS_OF_RESPONDENT : (caseData[0].ADDRESS_OF_RESPONDENT || '')}
+                      value={
+                        editedCase.ADDRESS_OF_RESPONDENT !== undefined
+                          ? editedCase.ADDRESS_OF_RESPONDENT
+                          : caseData[0].ADDRESS_OF_RESPONDENT || ''
+                      }
                       onChange={(e) => handleFieldChange('ADDRESS_OF_RESPONDENT', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter respondent address"
@@ -311,7 +420,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.OFFENSE !== undefined ? editedCase.OFFENSE : (caseData[0].OFFENSE || '')}
+                      value={
+                        editedCase.OFFENSE !== undefined
+                          ? editedCase.OFFENSE
+                          : caseData[0].OFFENSE || ''
+                      }
                       onChange={(e) => handleFieldChange('OFFENSE', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter offense"
@@ -324,7 +437,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="date"
-                      value={editedCase.DATE_OF_COMMISSION !== undefined ? editedCase.DATE_OF_COMMISSION : (caseData[0].DATE_OF_COMMISSION?.split('T')[0] || '')}
+                      value={
+                        editedCase.DATE_OF_COMMISSION !== undefined
+                          ? editedCase.DATE_OF_COMMISSION
+                          : caseData[0].DATE_OF_COMMISSION?.split('T')[0] || ''
+                      }
                       onChange={(e) => handleFieldChange('DATE_OF_COMMISSION', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
@@ -345,7 +462,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="date"
-                      value={editedCase.DATE_RESOLVED !== undefined ? editedCase.DATE_RESOLVED : (caseData[0].DATE_RESOLVED?.split('T')[0] || '')}
+                      value={
+                        editedCase.DATE_RESOLVED !== undefined
+                          ? editedCase.DATE_RESOLVED
+                          : caseData[0].DATE_RESOLVED?.split('T')[0] || ''
+                      }
                       onChange={(e) => handleFieldChange('DATE_RESOLVED', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
@@ -357,7 +478,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.RESOLVING_PROSECUTOR !== undefined ? editedCase.RESOLVING_PROSECUTOR : (caseData[0].RESOLVING_PROSECUTOR || '')}
+                      value={
+                        editedCase.RESOLVING_PROSECUTOR !== undefined
+                          ? editedCase.RESOLVING_PROSECUTOR
+                          : caseData[0].RESOLVING_PROSECUTOR || ''
+                      }
                       onChange={(e) => handleFieldChange('RESOLVING_PROSECUTOR', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter prosecutor name"
@@ -372,7 +497,7 @@ const Editcase = () => {
                       value={
                         editedCase.REMARKS_DECISION !== undefined
                           ? editedCase.REMARKS_DECISION || 'Pending'
-                          : (caseData[0].REMARKS_DECISION || 'Pending')
+                          : caseData[0].REMARKS_DECISION || 'Pending'
                       }
                       onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -389,7 +514,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.PENALTY !== undefined ? editedCase.PENALTY : (caseData[0].PENALTY || '')}
+                      value={
+                        editedCase.PENALTY !== undefined
+                          ? editedCase.PENALTY
+                          : caseData[0].PENALTY || ''
+                      }
                       onChange={(e) => handleFieldChange('PENALTY', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter penalty"
@@ -411,7 +540,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.CRIM_CASE_NO !== undefined ? editedCase.CRIM_CASE_NO : (caseData[0].CRIM_CASE_NO || '')}
+                      value={
+                        editedCase.CRIM_CASE_NO !== undefined
+                          ? editedCase.CRIM_CASE_NO
+                          : caseData[0].CRIM_CASE_NO || ''
+                      }
                       onChange={(e) => handleFieldChange('CRIM_CASE_NO', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter criminal case number"
@@ -424,7 +557,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="text"
-                      value={editedCase.BRANCH !== undefined ? editedCase.BRANCH : (caseData[0].BRANCH || '')}
+                      value={
+                        editedCase.BRANCH !== undefined
+                          ? editedCase.BRANCH
+                          : caseData[0].BRANCH || ''
+                      }
                       onChange={(e) => handleFieldChange('BRANCH', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter court branch"
@@ -437,7 +574,11 @@ const Editcase = () => {
                     </label>
                     <input
                       type="date"
-                      value={editedCase.DATEFILED_IN_COURT !== undefined ? editedCase.DATEFILED_IN_COURT : (caseData[0].DATEFILED_IN_COURT?.split('T')[0] || '')}
+                      value={
+                        editedCase.DATEFILED_IN_COURT !== undefined
+                          ? editedCase.DATEFILED_IN_COURT
+                          : caseData[0].DATEFILED_IN_COURT?.split('T')[0] || ''
+                      }
                       onChange={(e) => handleFieldChange('DATEFILED_IN_COURT', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
@@ -451,7 +592,7 @@ const Editcase = () => {
                   <i className="fas fa-image text-blue-500"></i>
                   Index Card Image
                 </h4>
-                
+
                 {caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A' ? (
                   <div className="mb-4">
                     <p className="text-sm font-semibold text-slate-700 mb-2">
@@ -460,9 +601,9 @@ const Editcase = () => {
                     <div className="relative w-full min-h-[300px] rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex items-center justify-center">
                       {!currentImageError ? (
                         <>
-                          <img 
-                            src={getImageUrl(caseData[0].INDEX_CARDS)} 
-                            alt="Current Index Card" 
+                          <img
+                            src={getImageUrl(caseData[0].INDEX_CARDS)}
+                            alt="Current Index Card"
                             onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
                             className="max-w-full max-h-[400px] object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-lg rounded"
                             onError={() => setCurrentImageError(true)}
@@ -475,7 +616,11 @@ const Editcase = () => {
                         <div className="flex flex-col items-center justify-center p-8 text-slate-400">
                           <i className="fas fa-exclamation-triangle text-4xl mb-3 text-amber-400"></i>
                           <p className="font-semibold text-slate-600 mb-2">Image not loading</p>
-                          <p className="text-xs text-slate-500 text-center">The stored path may be invalid.<br/>Upload a new image to fix this.</p>
+                          <p className="text-xs text-slate-500 text-center">
+                            The stored path may be invalid.
+                            <br />
+                            Upload a new image to fix this.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -494,14 +639,14 @@ const Editcase = () => {
                     <p className="text-sm font-semibold text-slate-700 mb-2">
                       <i className="fas fa-image text-amber-500 mr-2"></i>New Image Preview:
                     </p>
-                    <img 
-                      src={imagePreview} 
-                      alt="Preview" 
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
                       onClick={() => setShowFullImage(imagePreview)}
-                      className="w-full max-h-60 object-contain rounded-xl border-2 border-amber-300 cursor-pointer hover:opacity-90 transition-opacity" 
+                      className="w-full max-h-60 object-contain rounded-xl border-2 border-amber-300 cursor-pointer hover:opacity-90 transition-opacity"
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={removeImage}
                       className="absolute top-2 right-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white 
                                rounded-lg shadow-lg transition-colors cursor-pointer font-medium z-10"
@@ -515,21 +660,27 @@ const Editcase = () => {
                 )}
 
                 <div>
-                  <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed 
+                  <label
+                    className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed 
                                    border-slate-300 rounded-xl hover:border-amber-500 hover:bg-amber-50/50 
-                                   transition-all duration-300 cursor-pointer group">
+                                   transition-all duration-300 cursor-pointer group"
+                  >
                     <div className="flex flex-col items-center justify-center">
                       <i className="fas fa-cloud-upload-alt text-4xl text-slate-400 group-hover:text-amber-500 mb-3 transition-colors"></i>
                       <p className="text-base text-slate-600 group-hover:text-amber-600 font-medium">
-                        {imagePreview ? 'Change Image' : (caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A' ? 'Upload New Image' : 'Upload Index Card Image')}
+                        {imagePreview
+                          ? 'Change Image'
+                          : caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A'
+                            ? 'Upload New Image'
+                            : 'Upload Index Card Image'}
                       </p>
                       <p className="text-sm text-slate-400 mt-1">PNG, JPG, JPEG (Max 5MB)</p>
                     </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      className="hidden"
                       accept="image/png,image/jpeg,image/jpg"
-                      onChange={handleImageChange} 
+                      onChange={handleImageChange}
                     />
                   </label>
                 </div>
@@ -582,8 +733,11 @@ const Editcase = () => {
         )}
 
         {searchPerformed && (!caseData || caseData.length === 0) && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="bg-white rounded-3xl shadow-xl border border-slate-200 p-12 text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-white rounded-3xl shadow-xl border border-slate-200 p-12 text-center"
+          >
             <i className="fas fa-folder-open text-4xl text-slate-300 mb-4"></i>
             <p className="text-slate-500">No cases found matching your search criteria.</p>
           </motion.div>
@@ -591,8 +745,11 @@ const Editcase = () => {
 
         {/* Display All Cases */}
         {!searchPerformed && allCases.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
+          >
             <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-slate-50">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <i className="fas fa-list text-amber-500"></i>
@@ -617,19 +774,25 @@ const Editcase = () => {
                         <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
                           <i className="fas fa-file-alt text-amber-600 text-sm"></i>
                         </div>
-                        <span className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Case #{idx + 1}</span>
+                        <span className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
+                          Case #{idx + 1}
+                        </span>
                       </div>
                       <i className="fas fa-chevron-right text-slate-400 text-sm"></i>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <div>
                         <p className="text-xs text-slate-500 font-medium">Docket Number</p>
-                        <p className="text-sm font-bold text-slate-800 truncate">{caseItem.DOCKET_NO}</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">
+                          {caseItem.DOCKET_NO}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 font-medium">Respondent</p>
-                        <p className="text-sm font-semibold text-slate-700 truncate">{caseItem.RESPONDENT || 'N/A'}</p>
+                        <p className="text-sm font-semibold text-slate-700 truncate">
+                          {caseItem.RESPONDENT || 'N/A'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 font-medium">Date Filed</p>
@@ -638,9 +801,11 @@ const Editcase = () => {
                     </div>
 
                     <div className="mt-3 pt-3 border-t border-slate-200">
-                      <button className="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 
+                      <button
+                        className="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 
                                        text-white font-medium text-sm transition-colors flex items-center 
-                                       justify-center gap-2">
+                                       justify-center gap-2"
+                      >
                         <i className="fas fa-edit"></i>
                         <span>Edit This Case</span>
                       </button>
@@ -657,8 +822,18 @@ const Editcase = () => {
       <ImageModal
         isOpen={showFullImage !== null}
         onClose={() => setShowFullImage(null)}
-        imageUrl={showFullImage ? (showFullImage.startsWith('data:') ? showFullImage : getImageUrl(showFullImage)) : ''}
-        imageName={caseData && caseData[0]?.DOCKET_NO ? `Index-Card-${caseData[0].DOCKET_NO}.jpg` : 'index-card.jpg'}
+        imageUrl={
+          showFullImage
+            ? showFullImage.startsWith('data:')
+              ? showFullImage
+              : getImageUrl(showFullImage)
+            : ''
+        }
+        imageName={
+          caseData && caseData[0]?.DOCKET_NO
+            ? `Index-Card-${caseData[0].DOCKET_NO}.jpg`
+            : 'index-card.jpg'
+        }
       />
     </div>
   );

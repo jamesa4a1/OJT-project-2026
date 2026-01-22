@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
 const Findcase = () => {
   const [searchQuery, setSearchQuery] = useState({
-    DOCKET_NO: "",
-    RESPONDENT: "",
-    RESOLVING_PROSECUTOR: "",
-    REMARKS: "",
-    start_date: "", 
-    end_date: ""
+    DOCKET_NO: '',
+    RESPONDENT: '',
+    RESOLVING_PROSECUTOR: '',
+    REMARKS: '',
+    start_date: '',
+    end_date: '',
   });
-  
+
   const [caseData, setCaseData] = useState([]);
   const [allCases, setAllCases] = useState([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -28,14 +28,14 @@ const Findcase = () => {
     console.log('Download button clicked!');
     console.log('Image URL:', imageUrl);
     console.log('File name:', fileName);
-    
+
     // Extract filename from the URL
     const urlParts = imageUrl.split('/');
     const originalFileName = urlParts[urlParts.length - 1];
-    
+
     // Create download URL using server endpoint
     const downloadUrl = `http://localhost:5000/download/index-card/${originalFileName}`;
-    
+
     // Create a temporary link and click it
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -44,7 +44,7 @@ const Findcase = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     console.log('Download initiated');
   };
 
@@ -61,14 +61,14 @@ const Findcase = () => {
   const fetchAllCases = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/cases");
+      const response = await axios.get('http://localhost:5000/cases');
       if (Array.isArray(response.data)) {
         setAllCases(response.data);
         setCaseData(response.data); // Display all cases initially
       }
     } catch (err) {
-      console.error("Error fetching all cases:", err);
-      setError("Failed to load cases from database.");
+      console.error('Error fetching all cases:', err);
+      setError('Failed to load cases from database.');
     }
     setIsLoading(false);
   };
@@ -78,7 +78,7 @@ const Findcase = () => {
   };
 
   const convertToYMD = (input) => {
-    if (!input || input.includes('-')) return input; 
+    if (!input || input.includes('-')) return input;
     const [day, month, year] = input.split('/');
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   };
@@ -91,17 +91,23 @@ const Findcase = () => {
     const formattedEndDate = convertToYMD(searchQuery.end_date);
 
     // If no search criteria, show all cases
-    if (!searchQuery.DOCKET_NO && !searchQuery.RESPONDENT && !searchQuery.RESOLVING_PROSECUTOR &&
-        !searchQuery.REMARKS && !formattedStartDate && !formattedEndDate) {
+    if (
+      !searchQuery.DOCKET_NO &&
+      !searchQuery.RESPONDENT &&
+      !searchQuery.RESOLVING_PROSECUTOR &&
+      !searchQuery.REMARKS &&
+      !formattedStartDate &&
+      !formattedEndDate
+    ) {
       setCaseData(allCases);
-      setError("");
+      setError('');
       setSearchPerformed(true);
       setIsLoading(false);
       return;
     }
 
     try {
-      const response = await axios.get("http://localhost:5000/get-case", {
+      const response = await axios.get('http://localhost:5000/get-case', {
         params: {
           docket_no: searchQuery.DOCKET_NO,
           respondent: searchQuery.RESPONDENT,
@@ -109,18 +115,18 @@ const Findcase = () => {
           remarks: searchQuery.REMARKS,
           start_date: formattedStartDate,
           end_date: formattedEndDate,
-        }        
+        },
       });
 
       if (Array.isArray(response.data) && response.data.length > 0) {
         setCaseData(response.data);
-        setError("");
+        setError('');
       } else {
         setCaseData([]);
-        setError("No matching case found.");
+        setError('No matching case found.');
       }
     } catch (err) {
-      setError("An error occurred while fetching cases.");
+      setError('An error occurred while fetching cases.');
       setCaseData([]);
     }
 
@@ -133,23 +139,26 @@ const Findcase = () => {
                       transition-all duration-300 outline-none text-slate-700`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 
-                    py-8 px-4 relative overflow-hidden">
-      
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 
+                    py-8 px-4 relative overflow-hidden"
+    >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 right-20 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 left-20 w-72 h-72 bg-violet-500/5 rounded-full blur-3xl"></div>
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 max-w-4xl mx-auto"
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full 
-                          bg-blue-100 border border-blue-200 mb-4">
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full 
+                          bg-blue-100 border border-blue-200 mb-4"
+          >
             <i className="fas fa-search text-blue-600"></i>
             <span className="text-blue-700 font-medium text-sm">Case Search</span>
           </div>
@@ -161,7 +170,7 @@ const Findcase = () => {
         <motion.button
           whileHover={{ x: -5 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 px-4 py-2 mb-6 rounded-xl
                      bg-white border border-slate-200 text-slate-600
                      hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer"
@@ -183,49 +192,86 @@ const Findcase = () => {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-hashtag text-blue-500 mr-2"></i>Docket Number
                   </label>
-                  <input type="text" name="DOCKET_NO" value={searchQuery.DOCKET_NO}
-                         onChange={handleChange} className={inputClass} placeholder="Enter docket number" />
+                  <input
+                    type="text"
+                    name="DOCKET_NO"
+                    value={searchQuery.DOCKET_NO}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Enter docket number"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-user-tag text-red-500 mr-2"></i>Respondent
                   </label>
-                  <input type="text" name="RESPONDENT" value={searchQuery.RESPONDENT}
-                         onChange={handleChange} className={inputClass} placeholder="Enter respondent name" />
+                  <input
+                    type="text"
+                    name="RESPONDENT"
+                    value={searchQuery.RESPONDENT}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Enter respondent name"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-user-tie text-violet-500 mr-2"></i>Resolving Prosecutor
                   </label>
-                  <input type="text" name="RESOLVING_PROSECUTOR" value={searchQuery.RESOLVING_PROSECUTOR}
-                         onChange={handleChange} className={inputClass} placeholder="Enter prosecutor name" />
+                  <input
+                    type="text"
+                    name="RESOLVING_PROSECUTOR"
+                    value={searchQuery.RESOLVING_PROSECUTOR}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Enter prosecutor name"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-comment text-amber-500 mr-2"></i>Remarks
                   </label>
-                  <input type="text" name="REMARKS" value={searchQuery.REMARKS}
-                         onChange={handleChange} className={inputClass} placeholder="Enter remarks" />
+                  <input
+                    type="text"
+                    name="REMARKS"
+                    value={searchQuery.REMARKS}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Enter remarks"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-calendar text-emerald-500 mr-2"></i>Start Date
                   </label>
-                  <input type="date" name="start_date" value={searchQuery.start_date}
-                         onChange={handleChange} className={inputClass} />
+                  <input
+                    type="date"
+                    name="start_date"
+                    value={searchQuery.start_date}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <i className="fas fa-calendar-check text-emerald-500 mr-2"></i>End Date
                   </label>
-                  <input type="date" name="end_date" value={searchQuery.end_date}
-                         onChange={handleChange} className={inputClass} />
+                  <input
+                    type="date"
+                    name="end_date"
+                    value={searchQuery.end_date}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
                 </div>
               </div>
 
               {error && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                            className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-3">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-3"
+                >
                   <i className="fas fa-exclamation-circle"></i>
                   <span>{error}</span>
                 </motion.div>
@@ -241,9 +287,15 @@ const Findcase = () => {
                            ${isLoading ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-500/30'}`}
               >
                 {isLoading ? (
-                  <><div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div><span>Searching...</span></>
+                  <>
+                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Searching...</span>
+                  </>
                 ) : (
-                  <><i className="fas fa-search"></i><span>Search Cases</span></>
+                  <>
+                    <i className="fas fa-search"></i>
+                    <span>Search Cases</span>
+                  </>
                 )}
               </motion.button>
             </form>
@@ -252,21 +304,30 @@ const Findcase = () => {
 
         {/* All Cases Display */}
         {!searchPerformed && caseData.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                      className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
+          >
             <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-violet-50">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <i className="fas fa-database text-blue-500"></i>
                 All Cases ({caseData.length})
               </h3>
-              <p className="text-sm text-slate-500 mt-1">Use the search form above to filter cases</p>
+              <p className="text-sm text-slate-500 mt-1">
+                Use the search form above to filter cases
+              </p>
             </div>
             <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
               {caseData.map((c, idx) => (
-                <motion.div key={idx} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.02 }}
-                            className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
-                            onClick={() => setSelectedCase(c)}>
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.02 }}
+                  className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedCase(c)}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <p className="font-mono font-bold text-slate-800 mb-1">{c.DOCKET_NO}</p>
@@ -279,8 +340,10 @@ const Findcase = () => {
                         Filed: {c.DATE_FILED || 'N/A'}
                       </p>
                     </div>
-                    <button className="px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-medium text-sm
-                                       hover:bg-blue-200 transition-colors border-none cursor-pointer">
+                    <button
+                      className="px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-medium text-sm
+                                       hover:bg-blue-200 transition-colors border-none cursor-pointer"
+                    >
                       <i className="fas fa-eye mr-2"></i>View
                     </button>
                   </div>
@@ -292,8 +355,11 @@ const Findcase = () => {
 
         {/* Results */}
         {searchPerformed && caseData.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                      className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
+          >
             <div className="p-6 border-b border-slate-200 bg-slate-50">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <i className="fas fa-check-circle text-emerald-500"></i>
@@ -302,17 +368,25 @@ const Findcase = () => {
             </div>
             <div className="divide-y divide-slate-100">
               {caseData.map((c, idx) => (
-                <motion.div key={idx} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
-                            onClick={() => setSelectedCase(c)}>
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedCase(c)}
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-mono font-bold text-slate-800">{c.DOCKET_NO}</p>
-                      <p className="text-sm text-slate-500">{c.COMPLAINANT} vs {c.RESPONDENT}</p>
+                      <p className="text-sm text-slate-500">
+                        {c.COMPLAINANT} vs {c.RESPONDENT}
+                      </p>
                     </div>
-                    <button className="px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-medium text-sm
-                                       hover:bg-blue-200 transition-colors border-none cursor-pointer">
+                    <button
+                      className="px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-medium text-sm
+                                       hover:bg-blue-200 transition-colors border-none cursor-pointer"
+                    >
                       <i className="fas fa-eye mr-2"></i>View
                     </button>
                   </div>
@@ -325,16 +399,27 @@ const Findcase = () => {
         {/* Detail Modal */}
         <AnimatePresence>
           {selectedCase && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-                        onClick={() => setSelectedCase(null)}>
-              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                          className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
-                          onClick={(e) => e.stopPropagation()}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setSelectedCase(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="p-8">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-slate-800">Case Details</h2>
-                    <button onClick={() => setSelectedCase(null)} className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 cursor-pointer border-none">
+                    <button
+                      onClick={() => setSelectedCase(null)}
+                      className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 cursor-pointer border-none"
+                    >
                       <i className="fas fa-times text-slate-600"></i>
                     </button>
                   </div>
@@ -345,7 +430,7 @@ const Findcase = () => {
                         // Determine if it's a Google Drive link or local path
                         let imageUrl;
                         let isGoogleDrive = false;
-                        
+
                         if (value.includes('drive.google.com')) {
                           isGoogleDrive = true;
                           // Extract file ID from Google Drive URL
@@ -362,25 +447,31 @@ const Findcase = () => {
                           // Local file path
                           imageUrl = `http://localhost:5000${value}`;
                         }
-                        
+
                         console.log('Image source:', isGoogleDrive ? 'Google Drive' : 'Local');
                         console.log('Loading image from:', imageUrl);
-                        
+
                         return (
-                          <div key={key} className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 border border-blue-100">
+                          <div
+                            key={key}
+                            className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 border border-blue-100"
+                          >
                             <div className="flex items-center gap-2 mb-3">
                               <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                                 <i className="fas fa-image text-blue-600 text-sm"></i>
                               </div>
                               <p className="text-sm text-slate-700 font-semibold uppercase">
-                                Index Card {isGoogleDrive && <span className="text-xs text-blue-500">(Google Drive)</span>}
+                                Index Card{' '}
+                                {isGoogleDrive && (
+                                  <span className="text-xs text-blue-500">(Google Drive)</span>
+                                )}
                               </p>
                             </div>
                             <div className="relative w-full min-h-[300px] rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex items-center justify-center">
                               {!imageError ? (
-                                <img 
-                                  src={imageUrl} 
-                                  alt="Index Card" 
+                                <img
+                                  src={imageUrl}
+                                  alt="Index Card"
                                   className="max-w-full max-h-[400px] object-contain shadow-lg rounded"
                                   crossOrigin="anonymous"
                                   onLoad={() => console.log('✓ Image loaded successfully')}
@@ -392,28 +483,40 @@ const Findcase = () => {
                               ) : (
                                 <div className="flex flex-col items-center justify-center p-8 text-slate-400">
                                   <i className="fas fa-exclamation-triangle text-4xl mb-3 text-amber-400"></i>
-                                  <p className="font-semibold text-slate-600 mb-2">Image not available</p>
+                                  <p className="font-semibold text-slate-600 mb-2">
+                                    Image not available
+                                  </p>
                                   {isGoogleDrive ? (
                                     <div className="text-xs text-center max-w-md">
-                                      <p className="text-amber-600 mb-2">Google Drive link format may be incorrect</p>
-                                      <p className="text-slate-500">Please ensure the file is publicly accessible or use local file upload instead</p>
+                                      <p className="text-amber-600 mb-2">
+                                        Google Drive link format may be incorrect
+                                      </p>
+                                      <p className="text-slate-500">
+                                        Please ensure the file is publicly accessible or use local
+                                        file upload instead
+                                      </p>
                                     </div>
                                   ) : (
                                     <div className="text-xs text-center max-w-md">
                                       <p className="text-slate-500 mb-1">Path: {value}</p>
-                                      <p className="text-slate-500">Make sure the file exists in the uploads folder</p>
+                                      <p className="text-slate-500">
+                                        Make sure the file exists in the uploads folder
+                                      </p>
                                     </div>
                                   )}
                                 </div>
                               )}
                             </div>
                             <div className="flex gap-3 mt-4">
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   console.log('Button clicked - imageUrl:', imageUrl);
-                                  handleDownloadImage(imageUrl, `index-card-${selectedCase.DOCKET_NO || 'case'}.png`);
+                                  handleDownloadImage(
+                                    imageUrl,
+                                    `index-card-${selectedCase.DOCKET_NO || 'case'}.png`
+                                  );
                                 }}
                                 disabled={isDownloading || imageError}
                                 type="button"
@@ -434,8 +537,8 @@ const Findcase = () => {
                                   </>
                                 )}
                               </button>
-                              <a 
-                                href={imageUrl} 
+                              <a
+                                href={imageUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
@@ -449,24 +552,29 @@ const Findcase = () => {
                           </div>
                         );
                       }
-                      
+
                       return (
-                        <div key={key} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
+                        <div
+                          key={key}
+                          className="flex items-start gap-3 p-3 rounded-xl bg-slate-50"
+                        >
                           <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                             <i className="fas fa-file text-blue-600 text-sm"></i>
                           </div>
                           <div>
-                            <p className="text-xs text-slate-500 font-medium uppercase">{key.replace(/_/g, ' ')}</p>
-                            <p className="text-slate-800 font-medium">{value || "N/A"}</p>
+                            <p className="text-xs text-slate-500 font-medium uppercase">
+                              {key.replace(/_/g, ' ')}
+                            </p>
+                            <p className="text-slate-800 font-medium">{value || 'N/A'}</p>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  
+
                   {/* Back Button */}
                   <div className="mt-6 pt-6 border-t border-slate-200">
-                    <button 
+                    <button
                       onClick={() => setSelectedCase(null)}
                       className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl 
                                bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold

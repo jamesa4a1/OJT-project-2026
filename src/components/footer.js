@@ -4,15 +4,15 @@ import { Link } from 'react-router-dom';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-  
+
   const quickLinks = [
     { path: '/homepage', label: 'Home' },
-    
+
     { path: '/aboutus', label: 'About' },
   ];
 
   return (
-    <motion.footer 
+    <motion.footer
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.5 }}
@@ -26,12 +26,13 @@ const Footer = () => {
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          
           {/* Brand Section */}
           <div className="text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 
-                              flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <div
+                className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 
+                              flex items-center justify-center shadow-lg shadow-blue-500/30"
+              >
                 <i className="fas fa-balance-scale text-white text-xl"></i>
               </div>
               <div>
@@ -40,8 +41,8 @@ const Footer = () => {
               </div>
             </div>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Streamlining legal case management for the Office of the City Prosecutor, 
-              Tagbilaran City Hall of Justice.
+              Streamlining legal case management for the Office of the City Prosecutor, Tagbilaran
+              City Hall of Justice.
             </p>
           </div>
 
@@ -54,7 +55,7 @@ const Footer = () => {
             <ul className="space-y-2">
               {quickLinks.map((link) => (
                 <li key={link.path}>
-                  <Link 
+                  <Link
                     to={link.path}
                     className="text-slate-400 hover:text-blue-400 transition-colors duration-300 
                                inline-flex items-center gap-2 no-underline"
@@ -80,11 +81,11 @@ const Footer = () => {
               </p>
               <p className="flex items-center justify-center md:justify-end gap-2 m-0">
                 <i className="fas fa-location-dot text-blue-400/70"></i>
-                 Hall of Justice New Capitol Site,  Lino Chatto Drive
+                Hall of Justice New Capitol Site, Lino Chatto Drive
               </p>
               <p className="flex items-center justify-center md:justify-end gap-2 m-0">
                 <i className="fas fa-city text-blue-400/70"></i>
-                Tagbilaran City,  Bohol
+                Tagbilaran City, Bohol
               </p>
             </address>
           </div>
@@ -93,7 +94,6 @@ const Footer = () => {
         {/* Divider */}
         <div className="border-t border-slate-700/50 pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            
             {/* Copyright */}
             <p className="text-slate-400 text-sm text-center md:text-left m-0">
               © {currentYear} Office of the City Prosecutor - Tagbilaran City
@@ -105,19 +105,19 @@ const Footer = () => {
             {/* Developer Credit */}
             <div className="flex items-center gap-2 text-sm">
               <span className="text-slate-500">Developed with</span>
-              
+
               <span className="text-slate-400">
                 by <span className="text-blue-400 font-medium">James.Jeff.Josh</span>
               </span>
             </div>
 
             {/* DOJ Badge */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full 
-                            bg-slate-800/50 border border-slate-700/50">
+            <div
+              className="flex items-center gap-2 px-4 py-2 rounded-full 
+                            bg-slate-800/50 border border-slate-700/50"
+            >
               <i className="fas fa-shield-halved text-blue-400"></i>
-              <span className="text-slate-400 text-xs font-medium">
-                Department of Justice • PH
-              </span>
+              <span className="text-slate-400 text-xs font-medium">Department of Justice • PH</span>
             </div>
           </div>
         </div>
