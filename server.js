@@ -24,7 +24,6 @@ const EXCEL_FILE_PATH = path.join(__dirname, 'uploads', 'cases.xlsx');
 const exportCasesToExcel = () => {
   return new Promise((resolve, reject) => {
     const query = `SELECT 
-      id AS ID,
       DOCKET_NO AS 'Docket No',
       DATE_FILED AS 'Date Filed',
       COMPLAINANT AS 'Complainant',
@@ -64,7 +63,6 @@ const exportCasesToExcel = () => {
       
       // Set column widths for better readability
       worksheet['!cols'] = [
-        { wch: 5 },   // ID
         { wch: 15 },  // Docket No
         { wch: 12 },  // Date Filed
         { wch: 20 },  // Complainant
@@ -97,7 +95,12 @@ const exportCasesToExcel = () => {
     });
   });
 };
-app.use(cors()); 
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -182,20 +185,37 @@ const indexCardUpload = multer({
   }
 });
 
-// Connection
-const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "", 
-  database: "ocp_docketing",
-});
+// Connection with automatic reconnection
+let db;
 
-db.connect((err) => {
-  if (err) {
-    console.error("Database connection failed: " + err.stack);
-    return;
-  }
-  console.log("Connected to MySQL database.");
+function handleDisconnect() {
+  db = mysql.createConnection({
+    host: "localhost",
+    user: "root",
+    password: "", 
+    database: "ocp_docketing",
+  });
+
+  db.connect((err) => {
+    if (err) {
+      console.error("❌ Database connection failed: " + err.message);
+      console.error("⚠️  Please make sure MySQL/XAMPP is running and the 'ocp_docketing' database exists.");
+      console.error("🔄 Will retry connection in 5 seconds...");
+      setTimeout(handleDisconnect, 5000);
+      return;
+    }
+    console.log("✅ Connected to MySQL database.");
+  });
+
+  db.on('error', (err) => {
+    console.error('❌ Database error:', err);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR') {
+      console.log('🔄 Reconnecting to database...');
+      handleDisconnect();
+    } else {
+      throw err;
+    }
+  });
 
   // Add new columns to cases table if they don't exist
   const addNewColumns = () => {
@@ -261,6 +281,16 @@ db.connect((err) => {
           db.query("ALTER TABLE users ADD COLUMN is_active TINYINT DEFAULT 1 AFTER profile_picture", (alterErr) => {
             if (alterErr) console.error("Error adding is_active column:", alterErr);
             else console.log("✅ Added is_active column to users table.");
+          });
+        }
+      });
+      
+      // Add is_online column if it doesn't exist (for real-time online status)
+      db.query("SHOW COLUMNS FROM users LIKE 'is_online'", (err, results) => {
+        if (!err && results.length === 0) {
+          db.query("ALTER TABLE users ADD COLUMN is_online TINYINT DEFAULT 0 AFTER is_active", (alterErr) => {
+            if (alterErr) console.error("Error adding is_online column:", alterErr);
+            else console.log("✅ Added is_online column to users table.");
           });
         }
       });
@@ -343,7 +373,10 @@ db.connect((err) => {
       setInterval(deleteInactiveAccounts, 24 * 60 * 60 * 1000);
     }
   });
-});
+}
+
+// Initialize database connection
+handleDisconnect();
 
 // ==================== USER AUTHENTICATION ROUTES ====================
 
@@ -395,7 +428,7 @@ app.post("/api/auth/register", validateRequest(UserRegisterSchema), async (req, 
 
 // Get all users (Admin only)
 app.get("/api/users", (req, res) => {
-  db.query("SELECT id, name, email, role, profile_picture, last_login, created_at, is_active FROM users ORDER BY created_at DESC", (err, results) => {
+  db.query("SELECT id, name, email, role, profile_picture, last_login, created_at, is_active, is_online FROM users ORDER BY created_at DESC", (err, results) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).json({ success: false, message: "Database error" });
@@ -570,8 +603,8 @@ app.post("/api/auth/login", validateRequest(UserLoginSchema), (req, res) => {
     
     console.log(`✅ Login successful: ${email} (is_active = ${user.is_active})`);
     
-    // Update last_login timestamp
-    db.query("UPDATE users SET last_login = NOW() WHERE id = ?", [user.id]);
+    // Update last_login timestamp and set is_online to 1
+    db.query("UPDATE users SET last_login = NOW(), is_online = 1 WHERE id = ?", [user.id]);
     
     // Return user data (without password)
     const userData = {
@@ -603,6 +636,29 @@ app.get("/api/user/:id", (req, res) => {
     }
     
     res.json({ success: true, user: results[0] });
+  });
+});
+
+// Logout endpoint - set user offline and update last_login to track when they were last active
+app.post("/api/auth/logout", (req, res) => {
+  const { userId } = req.body;
+  
+  console.log("🚪 Logout request received for userId:", userId);
+  
+  if (!userId) {
+    console.log("❌ No userId provided in logout request");
+    return res.status(400).json({ success: false, message: "User ID is required" });
+  }
+  
+  // Update is_online to 0 and set last_login to NOW() to track when user was last active
+  db.query("UPDATE users SET is_online = 0, last_login = NOW() WHERE id = ?", [userId], (err, result) => {
+    if (err) {
+      console.error("❌ Database error during logout:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    
+    console.log(`✅ User ${userId} logged out successfully. Rows affected:`, result.affectedRows);
+    res.json({ success: true, message: "Logged out successfully" });
   });
 });
 
@@ -793,14 +849,70 @@ app.delete("/api/user/:id/picture", (req, res) => {
 
 // Get all cases para sad makuha nag lin sa gdrive
 app.get("/cases", (req, res) => {
+  if (!db || db.state === 'disconnected') {
+    return res.status(503).json({
+      success: false,
+      message: "Database connection is not available. Please ensure MySQL/XAMPP is running.",
+      error: "SERVICE_UNAVAILABLE"
+    });
+  }
+  
   db.query("SELECT * FROM cases WHERE is_deleted = 0", (err, results) => {
     if (err) {
-      res.status(500).send(err);
-    } else {
-      // Return results as-is without modifying INDEX_CARDS
-      // INDEX_CARDS should contain local paths like /uploads/index_cards/filename.png
-      res.json(results);
+      console.error("Error fetching cases:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch cases from database",
+        error: err.message
+      });
     }
+    // Return results as-is without modifying INDEX_CARDS
+    // INDEX_CARDS should contain local paths like /uploads/index_cards/filename.png
+    console.log(`📊 /cases endpoint: Returning ${results.length} active cases`);
+    res.json(results);
+  });
+});
+
+// Diagnostic endpoint - Show all cases including deleted
+app.get("/admin/all-cases-diagnostic", (req, res) => {
+  if (!db || db.state === 'disconnected') {
+    return res.status(503).json({
+      success: false,
+      message: "Database connection is not available",
+      error: "SERVICE_UNAVAILABLE"
+    });
+  }
+  
+  // Get active cases count
+  db.query("SELECT COUNT(*) as active_count FROM cases WHERE is_deleted = 0", (err, activeResults) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Get deleted cases count
+    db.query("SELECT COUNT(*) as deleted_count FROM cases WHERE is_deleted = 1", (err, deletedResults) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      // Get all cases with their deletion status
+      db.query("SELECT id, DOCKET_NO, is_deleted FROM cases ORDER BY id", (err, allCases) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        
+        console.log(`🔍 Diagnostic Report: Active=${activeResults[0].active_count}, Deleted=${deletedResults[0].deleted_count}, Total=${allCases.length}`);
+        
+        res.json({
+          summary: {
+            active_count: activeResults[0].active_count,
+            deleted_count: deletedResults[0].deleted_count,
+            total_count: allCases.length
+          },
+          cases: allCases
+        });
+      });
+    });
   });
 });
 
@@ -930,10 +1042,22 @@ const { docket_no, respondent, resolving_prosecutor, remarks, start_date, end_da
 
 // edit case
 app.post("/update-case", async (req, res) => {
+  if (!db || db.state === 'disconnected') {
+    return res.status(503).json({
+      success: false,
+      message: "Database connection is not available. Please ensure MySQL/XAMPP is running.",
+      error: "SERVICE_UNAVAILABLE"
+    });
+  }
+  
+  console.log("📝 Update case request received:", JSON.stringify(req.body, null, 2));
+  
   try {
     // Validate the request body with Zod
     const validatedData = await CaseUpdateSchema.parseAsync(req.body);
     const { id, updated_fields } = validatedData;
+    
+    console.log("✅ Validation passed. ID:", id, "Fields:", Object.keys(updated_fields));
 
     if (Object.keys(updated_fields).length === 0) {
       return res.status(400).json(ApiResponse.error("No fields to update", 400));
@@ -992,6 +1116,14 @@ app.post("/update-case", async (req, res) => {
 
 // Update case with image upload
 app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (req, res) => {
+  if (!db || db.state === 'disconnected') {
+    return res.status(503).json({
+      success: false,
+      message: "Database connection is not available. Please ensure MySQL/XAMPP is running.",
+      error: "SERVICE_UNAVAILABLE"
+    });
+  }
+  
   console.log("Update request received");
   console.log("Request body:", req.body);
   console.log("Request file:", req.file);
@@ -1014,9 +1146,10 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
     console.log("Image uploaded:", req.file.filename);
   }
 
-  // Add other updated fields
+  // Add other updated fields (exclude audit fields that shouldn't be manually updated)
+  const excludedFields = ['id', 'indexCardImage', 'created_by', 'created_at', 'updated_by', 'updated_at'];
   Object.keys(req.body).forEach((key) => {
-    if (key !== 'id' && key !== 'indexCardImage') {
+    if (!excludedFields.includes(key)) {
       let value = req.body[key];
       // Normalize REMARKS_DECISION to uppercase first letter
       if (key === 'REMARKS_DECISION' && typeof value === 'string') {
@@ -1026,6 +1159,10 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
       updateValues.push(value);
     }
   });
+
+  // Automatically set updated_at to current timestamp
+  fields.push('updated_at');
+  updateValues.push(new Date());
 
   console.log("Fields to update:", fields);
   console.log("Values:", updateValues);

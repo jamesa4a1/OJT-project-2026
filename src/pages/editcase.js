@@ -166,12 +166,16 @@ const Editcase = () => {
       });
 
       console.log('Response:', response.data);
-      setSuccess('Case updated successfully!');
+      setSuccess('✅ Case updated successfully!');
+      setError(''); // Clear any previous errors
 
-      // Navigate after short delay
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Navigate after delay to show success message
       setTimeout(() => {
         navigate(`/details/${originalCase.DOCKET_NO}`);
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error('Error updating case:', error);
       console.error('Error response:', error.response?.data);
@@ -319,7 +323,33 @@ const Editcase = () => {
               className="p-6"
             >
               {/* Success Alert */}
-              {success && <Alert type="success" message={success} className="mb-6" />}
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="mb-6 p-5 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 shadow-lg"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
+                        <i className="fas fa-check text-white text-xl"></i>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold text-green-800 mb-1">Success!</h4>
+                      <p className="text-green-700 font-medium">{success}</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <i className="fas fa-sync-alt text-green-600"></i>
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Error Alert */}
               {error && <Alert type="error" message={error} className="mb-6" />}

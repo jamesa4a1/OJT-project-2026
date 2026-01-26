@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ThemeContext } from '../App';
 
 const Caselist = () => {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
   const [cases, setCases] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -16,12 +18,63 @@ const Caselist = () => {
   const [isRestoring, setIsRestoring] = useState(null); // Track which case is being restored
   const [notification, setNotification] = useState(null); // Track notification state
   const [showAutoDeleteModal, setShowAutoDeleteModal] = useState(false); // Track auto-delete modal state
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(null); // Track delete confirmation modal
+  const [isDeleting, setIsDeleting] = useState(null); // Track which case is being deleted
   const [autoDeleteConfig, setAutoDeleteConfig] = useState({
     scheduleType: 'weekly', // 'daily', 'weekly', 'monthly'
     dayOfWeek: 'Monday', // For weekly
     dayOfMonth: '1', // For monthly
     time: '00:00', // HH:MM format
   });
+
+  // Function to delete a case permanently
+  const handleDeleteCase = async (docketNo) => {
+    setIsDeleting(docketNo);
+    console.log('Attempting to delete case:', docketNo);
+    try {
+      const response = await axios.delete('http://localhost:5000/delete-case', {
+        data: { docket_no: docketNo },
+      });
+
+      console.log('Delete response received:', response.data);
+      if (response.data) {
+        // Remove the deleted case from the current list
+        setCases((prevCases) => prevCases.filter((c) => c.DOCKET_NO !== docketNo));
+        console.log('Case removed from list, showing success alert');
+
+        // Show success notification
+        setNotification({
+          type: 'success',
+          title: 'Case Permanently Deleted!',
+          message: `Case ${docketNo} has been permanently deleted.`,
+          icon: 'fa-trash-alt',
+        });
+
+        // Auto-dismiss after 4 seconds
+        setTimeout(() => setNotification(null), 4000);
+        setDeleteConfirmModal(null);
+      }
+    } catch (error) {
+      console.error('Full error object:', error);
+      console.error('Error response status:', error.response?.status);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error message:', error.message);
+
+      // Show error notification
+      setNotification({
+        type: 'error',
+        title: 'Deletion Failed',
+        message: error.response?.data?.message || 'Failed to delete case. Please try again.',
+        icon: 'fa-exclamation-circle',
+      });
+
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+      setDeleteConfirmModal(null);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
 
   // Function to restore a deleted case
   const handleRestoreCase = async (docketNo) => {
@@ -166,8 +219,11 @@ const Caselist = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 
-                    py-8 px-4 relative overflow-hidden"
+      className={`min-h-screen py-8 px-4 relative overflow-hidden transition-colors duration-300 ${
+        isDark 
+          ? 'bg-slate-900' 
+          : 'bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100'
+      }`}
     >
       {/* Notification Toast */}
       <AnimatePresence>
@@ -210,9 +266,9 @@ const Caselist = () => {
         )}
       </AnimatePresence>
 
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-72 h-72 bg-violet-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-20 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl"></div>
+      <div className={`absolute inset-0 overflow-hidden pointer-events-none ${isDark ? 'opacity-50' : 'opacity-100'}`}>
+        <div className={`absolute top-20 right-20 w-72 h-72 ${isDark ? 'bg-violet-500/10' : 'bg-violet-500/5'} rounded-full blur-3xl`}></div>
+        <div className={`absolute bottom-20 left-20 w-72 h-72 ${isDark ? 'bg-blue-500/10' : 'bg-blue-500/5'} rounded-full blur-3xl`}></div>
       </div>
 
       <motion.div
@@ -220,30 +276,42 @@ const Caselist = () => {
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 max-w-7xl mx-auto"
       >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">Deleted Cases</h1>
-          <p className="text-slate-500">Browse all deleted cases by the administrator</p>
+        {/* Header with HeroUI Design */}
+        <div className="text-center mb-6">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 200 }}
+            className="inline-flex items-center justify-center w-14 h-14 rounded-xl mb-3
+                       bg-gradient-to-br from-red-500 via-red-600 to-red-700 shadow-lg shadow-red-500/30"
+          >
+            <i className="fas fa-trash-alt text-xl text-white"></i>
+          </motion.div>
+          <h1 className={`text-2xl md:text-3xl font-bold mb-2 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Terminated Cases</h1>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Browse all Terminated cases by the administrator</p>
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
+        <div className="flex flex-col md:flex-row gap-3 mb-5 items-center justify-between">
           <motion.button
             whileHover={{ x: -5 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate('/admin-dashboard')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl
-                       bg-white border border-slate-200 text-slate-600
-                       hover:bg-slate-50 transition-all duration-300 shadow-sm cursor-pointer"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium
+                       transition-all duration-300 shadow-sm cursor-pointer border-none ${
+                         isDark 
+                           ? 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700' 
+                           : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                       }`}
           >
             <i className="fas fa-arrow-left"></i>
-            <span className="font-medium">Back to Dashboard</span>
+            <span>Back to Dashboard</span>
           </motion.button>
 
           <div className="flex flex-wrap gap-4 items-center">
             {/* Search by Docket/IS Case Number */}
             <div className="relative">
-              <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <i className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
               <input
                 type="text"
                 placeholder="Search by Docket/IS Case No..."
@@ -296,27 +364,27 @@ const Caselist = () => {
               className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
             >
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-red-700 to-red-800 text-white">
+                <thead className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white">
                   <tr>
-                    <th className="px-4 py-4 text-left font-semibold text-sm uppercase tracking-wider whitespace-nowrap">
-                      <i className="fas fa-hashtag mr-1"></i>Docket
+                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                      <i className="fas fa-hashtag mr-1.5 text-xs"></i>Docket
                     </th>
-                    <th className="px-4 py-4 text-left font-semibold text-sm uppercase tracking-wider">
-                      <i className="fas fa-user mr-1"></i>Complainant
+                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide">
+                      <i className="fas fa-user mr-1.5 text-xs"></i>Complainant
                     </th>
-                    <th className="px-4 py-4 text-left font-semibold text-sm uppercase tracking-wider">
-                      <i className="fas fa-user-tag mr-1"></i>Respondent
+                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide">
+                      <i className="fas fa-user-tag mr-1.5 text-xs"></i>Respondent
                     </th>
-                    <th className="px-4 py-4 text-left font-semibold text-sm uppercase tracking-wider whitespace-nowrap">
-                      <i className="fas fa-gavel mr-1"></i>Offense
+                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                      <i className="fas fa-gavel mr-1.5 text-xs"></i>Offense
                     </th>
-                    <th className="px-4 py-4 text-left font-semibold text-sm uppercase tracking-wider whitespace-nowrap">
-                      <i className="fas fa-calendar mr-1"></i>Filed
+                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                      <i className="fas fa-calendar mr-1.5 text-xs"></i>Filed
                     </th>
-                    <th className="px-4 py-4 text-left font-semibold text-sm uppercase tracking-wider whitespace-nowrap">
-                      <i className="fas fa-user-tie mr-1"></i>Prosecutor
+                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                      <i className="fas fa-user-tie mr-1.5 text-xs"></i>Prosecutor
                     </th>
-                    <th className="px-4 py-4 text-center font-semibold text-sm uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-3 py-3 text-center font-bold text-xs uppercase tracking-wide whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
@@ -328,31 +396,31 @@ const Caselist = () => {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="border-b border-slate-100 hover:bg-red-50/50 transition-colors"
+                      className="border-b border-slate-100 hover:bg-red-50/30 transition-colors"
                     >
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <span className="font-mono font-bold text-red-700 text-sm">
+                      <td className="px-3 py-3 align-middle whitespace-nowrap">
+                        <span className="font-mono font-bold text-red-700 text-xs">
                           {caseItem.DOCKET_NO || caseItem.IS_CASE_NO}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5">
-                        <span className="font-medium text-slate-800 text-sm line-clamp-1">
+                      <td className="px-3 py-3 align-middle">
+                        <span className="font-medium text-slate-800 text-xs line-clamp-1">
                           {caseItem.COMPLAINANT}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5">
-                        <span className="font-medium text-slate-800 text-sm line-clamp-1">
+                      <td className="px-3 py-3 align-middle">
+                        <span className="font-medium text-slate-800 text-xs line-clamp-1">
                           {caseItem.RESPONDENT}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5">
-                        <span className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded-md bg-orange-100 text-orange-800 text-xs font-medium whitespace-nowrap">
+                      <td className="px-3 py-3 align-middle">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-100 text-orange-800 text-xs font-semibold whitespace-nowrap">
                           <i className="fas fa-exclamation-triangle text-xs flex-shrink-0"></i>
                           <span className="truncate max-w-xs">{caseItem.OFFENSE || 'N/A'}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <span className="font-medium text-slate-700 text-sm">
+                      <td className="px-3 py-3 align-middle whitespace-nowrap">
+                        <span className="font-medium text-slate-700 text-xs">
                           {caseItem.DATE_FILED
                             ? new Date(caseItem.DATE_FILED).toLocaleDateString('en-US', {
                                 month: 'short',
@@ -362,48 +430,72 @@ const Caselist = () => {
                             : 'N/A'}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                      <td className="px-3 py-3 align-middle whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
                           <i className="fas fa-user-tie text-xs flex-shrink-0"></i>
                           {caseItem.RESOLVING_PROSECUTOR || 'N/A'}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-3 py-3 align-middle">
                         <div className="flex items-center justify-center gap-1">
                           <motion.button
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={{ scale: 1.08 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleRestoreCase(caseItem.DOCKET_NO)}
                             disabled={isRestoring === caseItem.DOCKET_NO}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md
-                                         bg-gradient-to-r from-green-500 to-green-600 text-white
-                                         font-medium text-xs shadow-lg shadow-green-500/30
-                                         hover:shadow-xl transition-all duration-300 border-none cursor-pointer
+                            className="inline-flex items-center justify-center gap-1 w-20 h-8 rounded-lg
+                                         bg-gradient-to-r from-green-600 to-green-700 text-white
+                                         font-semibold text-xs shadow-md shadow-green-500/30
+                                         hover:shadow-green-500/40 transition-all duration-300 border-none cursor-pointer
                                          disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            title="Restore this case"
                           >
                             {isRestoring === caseItem.DOCKET_NO ? (
                               <>
-                                <i className="fas fa-spinner fa-spin"></i>
-                                <span>Restoring</span>
+                                <i className="fas fa-spinner fa-spin text-xs"></i>
                               </>
                             ) : (
                               <>
-                                <i className="fas fa-undo"></i>
+                                <i className="fas fa-undo text-xs"></i>
                                 <span>Restore</span>
                               </>
                             )}
                           </motion.button>
                           <motion.button
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={{ scale: 1.08 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedCase(caseItem)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md
-                                         bg-gradient-to-r from-red-500 to-red-600 text-white
-                                         font-medium text-xs shadow-lg shadow-red-500/30
-                                         hover:shadow-xl transition-all duration-300 border-none cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center justify-center gap-1 w-16 h-8 rounded-lg
+                                         bg-gradient-to-r from-blue-600 to-blue-700 text-white
+                                         font-semibold text-xs shadow-md shadow-blue-500/30
+                                         hover:shadow-blue-500/40 transition-all duration-300 border-none cursor-pointer whitespace-nowrap"
+                            title="View case details"
                           >
                             <i className="fas fa-eye text-xs"></i>
                             <span>View</span>
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.08 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setDeleteConfirmModal(caseItem)}
+                            disabled={isDeleting === caseItem.DOCKET_NO}
+                            className="inline-flex items-center justify-center gap-1 w-20 h-8 rounded-lg
+                                         bg-gradient-to-r from-orange-600 to-orange-700 text-white
+                                         font-semibold text-xs shadow-md shadow-orange-500/30
+                                         hover:shadow-orange-500/40 transition-all duration-300 border-none cursor-pointer
+                                         disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            title="Permanently delete this case"
+                          >
+                            {isDeleting === caseItem.DOCKET_NO ? (
+                              <>
+                                <i className="fas fa-spinner fa-spin text-xs"></i>
+                              </>
+                            ) : (
+                              <>
+                                <i className="fas fa-trash text-xs"></i>
+                                <span>Delete</span>
+                              </>
+                            )}
                           </motion.button>
                         </div>
                       </td>
@@ -753,6 +845,93 @@ const Caselist = () => {
                   >
                     <i className="fas fa-check mr-2"></i>
                     Proceed
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Delete Confirmation Modal */}
+        <AnimatePresence>
+          {deleteConfirmModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setDeleteConfirmModal(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mx-auto mb-4">
+                  <i className="fas fa-exclamation-triangle text-3xl text-orange-600"></i>
+                </div>
+
+                <h2 className="text-2xl font-bold text-slate-800 text-center mb-2">
+                  Permanently Delete Case?
+                </h2>
+                <p className="text-slate-600 text-center mb-2">
+                  Case: <span className="font-bold text-orange-600">{deleteConfirmModal.DOCKET_NO}</span>
+                </p>
+
+                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg mb-6">
+                  <p className="text-sm text-orange-700 m-0">
+                    <i className="fas fa-info-circle mr-2"></i>
+                    This action cannot be undone. The case will be permanently deleted from the system.
+                  </p>
+                </div>
+
+                <div className="space-y-2 mb-6">
+                  <div className="flex items-start gap-2 text-sm text-slate-600">
+                    <i className="fas fa-user mt-0.5 flex-shrink-0 text-slate-400"></i>
+                    <span><strong>Complainant:</strong> {deleteConfirmModal.COMPLAINANT}</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-slate-600">
+                    <i className="fas fa-user-tag mt-0.5 flex-shrink-0 text-slate-400"></i>
+                    <span><strong>Respondent:</strong> {deleteConfirmModal.RESPONDENT}</span>
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setDeleteConfirmModal(null)}
+                    className="flex-1 py-2.5 rounded-xl font-semibold border-none cursor-pointer
+                               bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleDeleteCase(deleteConfirmModal.DOCKET_NO)}
+                    disabled={isDeleting === deleteConfirmModal.DOCKET_NO}
+                    className="flex-1 py-2.5 rounded-xl font-semibold border-none cursor-pointer
+                               bg-gradient-to-r from-orange-600 to-orange-700 text-white
+                               hover:from-orange-700 hover:to-orange-800 transition-all shadow-lg
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting === deleteConfirmModal.DOCKET_NO ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-trash mr-2"></i>
+                        Delete Permanently
+                      </>
+                    )}
                   </motion.button>
                 </div>
               </motion.div>

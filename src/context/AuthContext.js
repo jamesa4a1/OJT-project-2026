@@ -62,13 +62,16 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
-      if (data.success) {
+      // Handle both data.data (new API) and data.user (legacy) response formats
+      const userInfo = data.data || data.user;
+
+      if (data.success && userInfo) {
         const userData = {
-          ...data.user,
-          profilePicture: data.user.profile_picture
-            ? `http://localhost:5000${data.user.profile_picture}`
+          ...userInfo,
+          profilePicture: userInfo.profile_picture
+            ? `http://localhost:5000${userInfo.profile_picture}`
             : null,
-          registeredAt: data.user.created_at,
+          registeredAt: userInfo.created_at,
         };
         setUser(userData);
         localStorage.setItem('ocpUser', JSON.stringify(userData));
@@ -78,11 +81,18 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Login error:', error);
-      // Server is down - show appropriate message
+      // Check if it's a network error (server not reachable)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          success: false,
+          message:
+            'Cannot connect to server. Please ensure the backend server is running (node server.js).',
+        };
+      }
+      // For other errors, provide a generic message
       return {
         success: false,
-        message:
-          'Cannot connect to server. Please ensure the backend server is running (node server.js).',
+        message: 'An unexpected error occurred during login.',
       };
     }
   };

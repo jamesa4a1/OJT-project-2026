@@ -270,3 +270,7 @@ npm run lint:fix     # Fix issues automatically
 npm run format       # Format code
 npm test             # Run tests
 npm run build        # Build for production
+
+## run XAMP manually
+
+C:\xampp\xampp_start.exe

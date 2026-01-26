@@ -15,7 +15,6 @@ const ExcelSync = () => {
 
   // Expected column names
   const expectedColumns = [
-    'ID',
     'Docket No',
     'Date Filed',
     'Complainant',
@@ -248,16 +247,16 @@ const ExcelSync = () => {
           className="text-center mb-8"
         >
           <div
-            className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}
+            className={`inline-flex items-center justify-center w-20 h-20 rounded-3xl mb-4 bg-gradient-to-br ${isDark ? 'from-emerald-500/30 to-teal-500/30' : 'from-emerald-100 to-teal-100'}`}
           >
             <i
-              className={`fas fa-file-excel text-3xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
+              className={`fas fa-file-excel text-4xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
             ></i>
           </div>
-          <h1 className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+          <h1 className={`text-4xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Excel Sync
           </h1>
-          <p className={`text-base ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-lg ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
             Import and export cases using Excel files
           </p>
         </motion.div>
@@ -265,16 +264,18 @@ const ExcelSync = () => {
         {/* Status Message */}
         {message && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={`mb-6 p-4 rounded-xl text-center font-medium ${
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={`mb-6 p-4 rounded-2xl font-medium flex items-center gap-3 border-2 ${
               messageType === 'success'
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : messageType === 'error'
-                  ? 'bg-red-100 text-red-700 border border-red-200'
-                  : 'bg-blue-100 text-blue-700 border border-blue-200'
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-blue-50 text-blue-700 border-blue-200'
             }`}
           >
+            <i className={`fas ${messageType === 'success' ? 'fa-check-circle' : messageType === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}`}></i>
             {message}
           </motion.div>
         )}
@@ -282,24 +283,24 @@ const ExcelSync = () => {
         {/* Column Errors */}
         {columnErrors.length > 0 && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-6 p-5 rounded-xl bg-amber-50 border border-amber-200"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mb-6 p-6 rounded-2xl border-2 ${isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}
           >
-            <h4 className="text-amber-700 font-bold mb-3 flex items-center gap-2">
+            <h4 className={`${isDark ? 'text-amber-400' : 'text-amber-700'} font-bold mb-4 flex items-center gap-2 text-lg`}>
               <i className="fas fa-exclamation-triangle"></i>
               Column Errors Found
             </h4>
             <ul className="space-y-2">
               {columnErrors.map((error, index) => (
-                <li key={index} className="text-amber-700 text-sm flex items-center gap-2">
+                <li key={index} className={`${isDark ? 'text-amber-300' : 'text-amber-700'} text-sm flex items-center gap-2`}>
                   <i className="fas fa-times-circle text-red-500"></i>
                   {error}
                 </li>
               ))}
             </ul>
-            <div className="mt-4 p-3 bg-white rounded-lg text-sm text-amber-700 flex items-center gap-2">
-              <i className="fas fa-lightbulb text-amber-500"></i>
+            <div className={`mt-4 p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-white'} border ${isDark ? 'border-slate-700' : 'border-amber-100'} text-sm ${isDark ? 'text-amber-300' : 'text-amber-700'} flex items-center gap-2`}>
+              <i className="fas fa-lightbulb text-amber-500 text-lg"></i>
               <span>
                 <strong>Tip:</strong> Download the template to see correct column names.
               </span>
@@ -308,36 +309,42 @@ const ExcelSync = () => {
         )}
 
         {/* Main Cards Grid */}
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Download Card */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
+            whileHover={{ y: -4, shadow: 'shadow-xl' }}
+            className={`relative p-8 rounded-3xl border-2 overflow-hidden transition-all duration-300 ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border-emerald-500/30' : 'bg-gradient-to-br from-white to-slate-50 border-emerald-200'} shadow-lg`}
           >
-            <div
-              className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}
-            >
-              <i
-                className={`fas fa-download text-xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
-              ></i>
+            {/* Background accent */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full -mr-16 -mt-16" />
+            
+            <div className="relative">
+              <div
+                className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5 bg-gradient-to-br ${isDark ? 'from-emerald-500/30 to-teal-500/30' : 'from-emerald-100 to-teal-100'} shadow-md`}
+              >
+                <i
+                  className={`fas fa-download text-2xl ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
+                ></i>
+              </div>
+              <h2 className={`text-2xl font-bold mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Download Cases
+              </h2>
+              <p className={`text-base mb-6 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                Export all cases from the database as an Excel file for editing offline.
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDownload}
+                className="w-full py-3 px-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/40"
+              >
+                <i className="fas fa-file-download text-lg"></i>
+                Download Excel
+              </motion.button>
             </div>
-            <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              Download Cases
-            </h2>
-            <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Export all cases from the database as an Excel file for editing offline.
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleDownload}
-              className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <i className="fas fa-file-download"></i>
-              Download Excel
-            </motion.button>
           </motion.div>
 
           {/* Upload Card */}
@@ -345,94 +352,104 @@ const ExcelSync = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
+            whileHover={{ y: -4, shadow: 'shadow-xl' }}
+            className={`relative p-8 rounded-3xl border-2 overflow-hidden transition-all duration-300 ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border-blue-500/30' : 'bg-gradient-to-br from-white to-slate-50 border-blue-200'} shadow-lg`}
           >
-            <div
-              className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'}`}
-            >
-              <i
-                className={`fas fa-upload text-xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
-              ></i>
-            </div>
-            <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              Upload Cases
-            </h2>
-            <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Import cases from an Excel file to add or update records in the database.
-            </p>
-
-            {!selectedFile ? (
-              <label
-                htmlFor="excelUpload"
-                className={`w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer ${validatingColumns ? 'opacity-60 cursor-not-allowed' : ''}`}
+            {/* Background accent */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -mr-16 -mt-16" />
+            
+            <div className="relative">
+              <div
+                className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5 bg-gradient-to-br ${isDark ? 'from-blue-500/30 to-indigo-500/30' : 'from-blue-100 to-indigo-100'} shadow-md`}
               >
-                {validatingColumns ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin"></i>
-                    Validating...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-file-upload"></i>
-                    Choose File
-                  </>
-                )}
-              </label>
-            ) : (
-              <div className="space-y-3">
-                <div
-                  className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}
+                <i
+                  className={`fas fa-upload text-2xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
+                ></i>
+              </div>
+              <h2 className={`text-2xl font-bold mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Upload Cases
+              </h2>
+              <p className={`text-base mb-6 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                Import cases from an Excel file to add or update records in the database.
+              </p>
+
+              {!selectedFile ? (
+                <label
+                  htmlFor="excelUpload"
+                  className={`w-full block py-3 px-5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-blue-500/40 ${validatingColumns ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <i className="fas fa-file-excel text-2xl text-emerald-500"></i>
-                    <div>
-                      <p
-                        className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
-                      >
-                        {selectedFile.name}
-                      </p>
-                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {(selectedFile.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleCancelFile}
-                    disabled={uploading}
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white text-sm transition-colors"
-                  >
-                    <i className="fas fa-times"></i>
-                  </button>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleUpload}
-                  disabled={uploading}
-                  className={`w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                >
-                  {uploading ? (
+                  {validatingColumns ? (
                     <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      Uploading...
+                      <i className="fas fa-spinner fa-spin text-lg"></i>
+                      Validating...
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-cloud-upload-alt"></i>
-                      Upload to Database
+                      <i className="fas fa-file-upload text-lg"></i>
+                      Choose File
                     </>
                   )}
-                </motion.button>
-              </div>
-            )}
-            <input
-              id="excelUpload"
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileSelect}
-              disabled={validatingColumns}
-              className="hidden"
-            />
+                </label>
+              ) : (
+                <div className="space-y-3">
+                  <div
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-100 border-slate-300'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
+                        <i className="fas fa-file-excel text-2xl text-emerald-600"></i>
+                      </div>
+                      <div>
+                        <p
+                          className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}
+                        >
+                          {selectedFile.name}
+                        </p>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {(selectedFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleCancelFile}
+                      disabled={uploading}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white transition-all duration-300 shadow-lg"
+                    >
+                      <i className="fas fa-times text-lg"></i>
+                    </motion.button>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className={`w-full py-3 px-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/40 ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    {uploading ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin text-lg"></i>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-cloud-upload-alt text-lg"></i>
+                        Upload to Database
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              )}
+              <input
+                id="excelUpload"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileSelect}
+                disabled={validatingColumns}
+                className="hidden"
+              />
+            </div>
           </motion.div>
         </div>
 
@@ -441,69 +458,76 @@ const ExcelSync = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}
+          className={`relative p-8 rounded-3xl border-2 overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border-blue-500/30' : 'bg-gradient-to-br from-white to-slate-50 border-blue-200'} shadow-lg`}
         >
-          <h3
-            className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}
-          >
-            <i className={`fas fa-info-circle ${isDark ? 'text-blue-400' : 'text-blue-500'}`}></i>
-            Quick Tips
-          </h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-              <div className="flex items-start gap-3">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}
-                >
-                  <i className="fas fa-plus text-sm"></i>
-                </div>
-                <div>
-                  <p
-                    className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
+          {/* Background accent */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -mr-20 -mt-20" />
+          
+          <div className="relative">
+            <h3
+              className={`text-2xl font-bold mb-6 flex items-center gap-3 ${isDark ? 'text-white' : 'text-slate-900'}`}
+            >
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
+                <i className={`fas fa-lightbulb ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
+              </div>
+              Features
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}
                   >
-                    Add New Cases
-                  </p>
-                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Leave the "ID" column empty for new rows
-                  </p>
+                    <i className="fas fa-plus text-sm"></i>
+                  </div>
+                  <div>
+                    <p
+                      className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
+                    >
+                      Download Reports
+                    </p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Export case data to Excel for reporting, analysis, or record-keeping
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}
+                  >
+                    <i className="fas fa-sync text-sm"></i>
+                  </div>
+                  <div>
+                    <p
+                      className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
+                    >
+                      Manage Case Status
+                    </p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Mark cases as Pending, Dismissed, or Convicted to track case progress
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-              <div className="flex items-start gap-3">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}
-                >
-                  <i className="fas fa-sync text-sm"></i>
-                </div>
-                <div>
-                  <p
-                    className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}
-                  >
-                    Update Existing
-                  </p>
-                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Keep the ID to match existing records
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Required Columns */}
-          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-            <h4 className={`font-bold text-sm mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              Required Columns
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {expectedColumns.map((col, idx) => (
-                <span
-                  key={idx}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}
-                >
-                  {col}
-                </span>
-              ))}
+            {/* Required Columns */}
+            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+              <h4 className={`font-bold text-sm mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                Required Columns
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {expectedColumns.map((col, idx) => (
+                  <span
+                    key={idx}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                    {col}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </motion.div>

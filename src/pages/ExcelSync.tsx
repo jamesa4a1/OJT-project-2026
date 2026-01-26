@@ -514,11 +514,11 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isDark
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-emerald-100 text-emerald-600'
+                        ? 'bg-sky-500/20 text-sky-400'
+                        : 'bg-sky-100 text-sky-600'
                     }`}
                   >
-                    <i className="fas fa-plus text-sm"></i>
+                    <i className="fas fa-download text-sm"></i>
                   </div>
                   <div>
                     <p
@@ -526,10 +526,10 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
                         isDark ? 'text-white' : 'text-slate-700'
                       }`}
                     >
-                      Add New Cases
+                      Download Reports
                     </p>
                     <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Leave the "ID" column empty for new rows
+                      Export case data to Excel for reporting, analysis, or record-keeping
                     </p>
                   </div>
                 </div>
@@ -539,10 +539,10 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
                 <div className="flex items-start gap-3">
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
+                      isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'
                     }`}
                   >
-                    <i className="fas fa-sync text-sm"></i>
+                    <i className="fas fa-tasks text-sm"></i>
                   </div>
                   <div>
                     <p
@@ -550,10 +550,10 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
                         isDark ? 'text-white' : 'text-slate-700'
                       }`}
                     >
-                      Update Existing
+                      Manage Case Status
                     </p>
                     <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Keep the ID to match existing records
+                      Mark cases as Pending, Dismissed, or Convicted to track case progress
                     </p>
                   </div>
                 </div>

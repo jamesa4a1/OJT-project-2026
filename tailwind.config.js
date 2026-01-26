@@ -1,8 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+const { heroui } = require("@heroui/react");
+
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
     "./public/index.html",
+    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: 'class',
   theme: {
@@ -40,33 +43,58 @@ module.exports = {
       },
     },
   },
-  plugins: [require('daisyui')],
-  daisyui: {
-    themes: [
-      {
-        dojlight: {
-          "primary": "#1E3A8A",
-          "secondary": "#0EA5E9",
-          "accent": "#06B6D4",
-          "neutral": "#1e293b",
-          "base-100": "#ffffff",
-          "info": "#3ABFF8",
-          "success": "#36D399",
-          "warning": "#FBBD23",
-          "error": "#F87272",
+  plugins: [
+    heroui({
+      themes: {
+        light: {
+          colors: {
+            primary: {
+              DEFAULT: "#1E3A8A",
+              foreground: "#ffffff",
+            },
+            secondary: {
+              DEFAULT: "#0EA5E9",
+              foreground: "#ffffff",
+            },
+            success: {
+              DEFAULT: "#36D399",
+              foreground: "#ffffff",
+            },
+            warning: {
+              DEFAULT: "#FBBD23",
+              foreground: "#000000",
+            },
+            danger: {
+              DEFAULT: "#F87272",
+              foreground: "#ffffff",
+            },
+          },
         },
-        dojdark: {
-          "primary": "#3B82F6",
-          "secondary": "#38BDF8",
-          "accent": "#22D3EE",
-          "neutral": "#1e293b",
-          "base-100": "#0f172a",
-          "info": "#3ABFF8",
-          "success": "#36D399",
-          "warning": "#FBBD23",
-          "error": "#F87272",
+        dark: {
+          colors: {
+            primary: {
+              DEFAULT: "#3B82F6",
+              foreground: "#ffffff",
+            },
+            secondary: {
+              DEFAULT: "#38BDF8",
+              foreground: "#ffffff",
+            },
+            success: {
+              DEFAULT: "#36D399",
+              foreground: "#ffffff",
+            },
+            warning: {
+              DEFAULT: "#FBBD23",
+              foreground: "#000000",
+            },
+            danger: {
+              DEFAULT: "#F87272",
+              foreground: "#ffffff",
+            },
+          },
         },
       },
-    ],
-  },
+    }),
+  ],
 }

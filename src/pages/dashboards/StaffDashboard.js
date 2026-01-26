@@ -107,28 +107,44 @@ const StaffDashboard = () => {
     const decision = (caseItem.REMARKS_DECISION || caseItem.remarks_decision || '').toLowerCase();
     if (decision === 'pending') {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          isDark 
+            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+            : 'bg-amber-100 text-amber-700'
+        }`}>
           <i className="fas fa-clock mr-1"></i>
           Pending
         </span>
       );
     } else if (decision === 'dismissed') {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          isDark 
+            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
+            : 'bg-blue-100 text-blue-700'
+        }`}>
           <i className="fas fa-times-circle mr-1"></i>
           Dismissed
         </span>
       );
     } else if (decision === 'convicted') {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          isDark 
+            ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+            : 'bg-green-100 text-green-700'
+        }`}>
           <i className="fas fa-gavel mr-1"></i>
           Convicted
         </span>
       );
     }
     return (
-      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+        isDark 
+          ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' 
+          : 'bg-slate-100 text-slate-700'
+      }`}>
         <i className="fas fa-question-circle mr-1"></i>
         N/A
       </span>
@@ -149,46 +165,82 @@ const StaffDashboard = () => {
   const currentRole = roleConfig.Staff;
 
   return (
-    <div>
+    <div className={`${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-white to-blue-50'} min-h-screen transition-colors duration-300`}>
       {/* Welcome Banner */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`bg-gradient-to-r ${currentRole.gradient} rounded-2xl p-6 mb-8 shadow-xl relative overflow-hidden`}
+        className={`rounded-3xl mb-8 shadow-2xl relative overflow-hidden p-8 ${
+          isDark
+            ? 'bg-gradient-to-br from-teal-900/40 via-slate-800 to-slate-900 border border-teal-500/20'
+            : `bg-gradient-to-r ${currentRole.gradient}`
+        }`}
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24"></div>
+        <div className={`absolute top-0 right-0 w-64 h-64 ${isDark ? 'bg-teal-500/5' : 'bg-white/10'} rounded-full -mr-32 -mt-32`}></div>
+        <div className={`absolute bottom-0 left-0 w-48 h-48 ${isDark ? 'bg-teal-500/5' : 'bg-white/5'} rounded-full -ml-24 -mb-24`}></div>
+        {isDark && (
+          <>
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ duration: 50, repeat: Infinity, ease: 'linear' }}
+              className="absolute -top-24 -right-24 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl"
+            />
+            <motion.div 
+              animate={{ rotate: -360 }}
+              transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
+              className="absolute -bottom-32 -left-32 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl"
+            />
+          </>
+        )}
 
         <div className="relative flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <div
-              className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm 
-                                        flex items-center justify-center shadow-inner"
+            <motion.div
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              className={`w-20 h-20 rounded-2xl ${
+                isDark ? 'bg-teal-500/20 border border-teal-500/40' : 'bg-white/20'
+              } backdrop-blur-sm flex items-center justify-center shadow-lg overflow-hidden`}
             >
-              <i className={`fas ${currentRole.icon} text-white text-2xl`}></i>
-            </div>
+              {user?.profilePicture ? (
+                <img 
+                  src={user.profilePicture} 
+                  alt={user?.name || 'User'} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <i className={`fas ${currentRole.icon} ${isDark ? 'text-teal-300' : 'text-white'} text-2xl`}></i>
+              )}
+            </motion.div>
             <div>
-              <p className="text-white/80 text-sm m-0">Welcome back,</p>
-              <h2 className="text-2xl font-bold text-white m-0">{user?.name || 'Staff'}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold">
+              <p className={`${isDark ? 'text-teal-200/60' : 'text-white/80'} text-sm m-0`}>Welcome back,</p>
+              <h2 className={`text-3xl font-bold m-0 tracking-tight ${isDark ? 'text-teal-100' : 'text-white'}`}>{user?.name || 'Staff'}</h2>
+              <div className="flex items-center gap-2 mt-2">
+                <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  isDark 
+                    ? 'bg-teal-500/30 text-teal-200 border border-teal-500/50' 
+                    : 'bg-white/20 text-white border border-white/30'
+                }`}>
+                  <i className="fas fa-user-tie mr-1.5"></i>
                   Staff
                 </span>
-                <span className="text-white/70 text-xs">• {currentRole.access}</span>
+                <span className={`${isDark ? 'text-teal-200/70' : 'text-white/70'} text-xs font-medium`}>• {currentRole.access}</span>
               </div>
             </div>
           </div>
 
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={fetchAllCases}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl
-                                   bg-white/20 text-white font-semibold text-sm
-                                   hover:bg-white/30 transition-colors border-none cursor-pointer"
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm
+                        transition-all border-none cursor-pointer shadow-lg ${
+                          isDark
+                            ? 'bg-teal-500 text-slate-900 hover:bg-teal-400'
+                            : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                        }`}
           >
             <i className="fas fa-sync-alt"></i>
-            Refresh
+            Refresh Cases
           </motion.button>
         </div>
       </motion.div>
@@ -334,14 +386,14 @@ const StaffDashboard = () => {
           </div>
 
           {/* Filter Buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setStatusFilter('all')}
               className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
                                       ${
                                         statusFilter === 'all'
-                                          ? 'bg-teal-500 text-white shadow-lg'
-                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                          ? isDark ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'bg-teal-500 text-white shadow-lg'
+                                          : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                       }`}
             >
               <i className="fas fa-list mr-2"></i>
@@ -352,36 +404,36 @@ const StaffDashboard = () => {
               className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
                                       ${
                                         statusFilter === 'pending'
-                                          ? 'bg-amber-500 text-white shadow-lg'
-                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                          ? isDark ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-amber-500 text-white shadow-lg'
+                                          : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                       }`}
             >
               <i className="fas fa-clock mr-2"></i>
-              Pending Cases
+              Pending
             </button>
             <button
               onClick={() => setStatusFilter('dismissed')}
               className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
                                       ${
                                         statusFilter === 'dismissed'
-                                          ? 'bg-blue-500 text-white shadow-lg'
-                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                          ? isDark ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-blue-500 text-white shadow-lg'
+                                          : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                       }`}
             >
               <i className="fas fa-times-circle mr-2"></i>
-              Dismissed Cases
+              Dismissed
             </button>
             <button
               onClick={() => setStatusFilter('convicted')}
               className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
                                       ${
                                         statusFilter === 'convicted'
-                                          ? 'bg-green-500 text-white shadow-lg'
-                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                          ? isDark ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-green-500 text-white shadow-lg'
+                                          : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                       }`}
             >
               <i className="fas fa-gavel mr-2"></i>
-              Convicted Cases
+              Convicted
             </button>
           </div>
         </div>

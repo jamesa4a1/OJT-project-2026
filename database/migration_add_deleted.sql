@@ -18,9 +18,3 @@ ADD INDEX IF NOT EXISTS idx_is_deleted (is_deleted);
 -- Create an index on deleted_at for sorting deleted cases
 ALTER TABLE cases 
 ADD INDEX IF NOT EXISTS idx_deleted_at (deleted_at);
-
--- Verify the migration
-SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'cases' AND TABLE_SCHEMA = 'ocp_docketing'
-ORDER BY ORDINAL_POSITION;

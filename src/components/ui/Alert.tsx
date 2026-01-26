@@ -11,8 +11,8 @@ interface AlertProps {
 }
 
 /**
- * Alert/Message Component
- * Displays notifications with animation
+ * Alert/Message Component with HeroUI-inspired design
+ * Displays notifications with smooth animations
  * @example
  * <Alert type="success" message="Operation completed!" autoClose={3000} />
  */
@@ -33,28 +33,32 @@ const Alert: React.FC<AlertProps> = ({
 
   const typeConfig = {
     success: {
-      bg: 'bg-emerald-100',
+      bg: 'bg-gradient-to-r from-emerald-50 to-green-50',
       text: 'text-emerald-700',
-      border: 'border-emerald-200',
+      border: 'border-emerald-300/60',
       icon: 'fas fa-check-circle',
+      glow: 'shadow-emerald-100',
     },
     error: {
-      bg: 'bg-red-100',
+      bg: 'bg-gradient-to-r from-red-50 to-rose-50',
       text: 'text-red-700',
-      border: 'border-red-200',
+      border: 'border-red-300/60',
       icon: 'fas fa-times-circle',
+      glow: 'shadow-red-100',
     },
     info: {
-      bg: 'bg-blue-100',
+      bg: 'bg-gradient-to-r from-blue-50 to-sky-50',
       text: 'text-blue-700',
-      border: 'border-blue-200',
+      border: 'border-blue-300/60',
       icon: 'fas fa-info-circle',
+      glow: 'shadow-blue-100',
     },
     warning: {
-      bg: 'bg-amber-100',
+      bg: 'bg-gradient-to-r from-amber-50 to-yellow-50',
       text: 'text-amber-700',
-      border: 'border-amber-200',
+      border: 'border-amber-300/60',
       icon: 'fas fa-exclamation-triangle',
+      glow: 'shadow-amber-100',
     },
   };
 
@@ -65,16 +69,17 @@ const Alert: React.FC<AlertProps> = ({
       initial={{ opacity: 0, scale: 0.95, y: -10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -10 }}
-      className={`${config.bg} ${config.text} border ${config.border} p-4 rounded-lg flex items-center justify-between ${className}`}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      className={`${config.bg} ${config.text} border-2 ${config.border} px-5 py-4 rounded-2xl flex items-center justify-between shadow-lg ${config.glow} backdrop-blur-sm ${className}`}
     >
-      <div className="flex items-center gap-3">
-        {icon ? icon : <i className={`${config.icon} text-lg`}></i>}
-        <span className="font-medium">{message}</span>
+      <div className="flex items-center gap-4">
+        {icon ? icon : <i className={`${config.icon} text-xl drop-shadow-sm`}></i>}
+        <span className="font-semibold tracking-tight">{message}</span>
       </div>
       {onClose && (
         <button
           onClick={onClose}
-          className="text-lg hover:opacity-60 transition-opacity"
+          className="text-lg hover:opacity-60 transition-all duration-200 hover:scale-110 ml-4"
           aria-label="Close alert"
         >
           <i className="fas fa-times"></i>

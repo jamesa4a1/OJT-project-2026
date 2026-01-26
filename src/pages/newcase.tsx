@@ -141,61 +141,88 @@ const Newcase: React.FC = () => {
     }
   };
 
-  const inputClass: string = `w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white
-                        focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
-                        transition-all duration-300 outline-none text-slate-700
-                        placeholder:text-slate-400`;
+  const inputClass: string = `w-full px-4 py-2.5 rounded-xl border-2 bg-white/80 backdrop-blur-sm
+                        border-slate-200/60 hover:border-slate-300 hover:bg-white
+                        focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:bg-white
+                        transition-all duration-300 outline-none text-slate-700 font-medium
+                        placeholder:text-slate-400 shadow-sm hover:shadow-md`;
 
-  const labelClass: string = `block text-sm font-semibold text-slate-700 mb-2`;
+  const labelClass: string = `block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2`;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full"
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 p-6"
     >
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">Add New Case</h1>
-        <p className="text-slate-500">Fill in the details below to register a new case</p>
-      </div>
+      <div className="max-w-5xl mx-auto">
+        {/* Enhanced Header with Gradient Badge */}
+        <div className="text-center mb-4">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, type: "spring" }}
+            className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-2.5
+                       bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/20"
+          >
+            <i className="fas fa-folder-plus text-xl text-white"></i>
+          </motion.div>
+          <h1 className="text-3xl md:text-4xl font-black bg-clip-text text-transparent 
+                         bg-gradient-to-r from-slate-800 via-blue-900 to-slate-800 mb-2">
+            Add New Case
+          </h1>
+          <p className="text-sm font-medium text-slate-500 max-w-2xl mx-auto">
+            Fill in the details below to register a new case in the system
+          </p>
+        </div>
 
-      {/* Back Button */}
-      <motion.button
-        whileHover={{ x: -5 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => navigate('/admin-dashboard')}
-        className="flex items-center gap-2 px-4 py-2 mb-6 rounded-xl
-                               bg-white border border-slate-200 text-slate-600
-                               hover:bg-slate-50 hover:border-slate-300
-                               transition-all duration-300 shadow-sm cursor-pointer"
-      >
-        <i className="fas fa-arrow-left"></i>
-        <span className="font-medium">Back to Menu</span>
-      </motion.button>
+        {/* Enhanced Back Button */}
+        <motion.button
+          whileHover={{ x: -5, scale: 1.02 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/admin-dashboard')}
+          className="flex items-center gap-3 px-5 py-2.5 mb-6 rounded-2xl border-2
+                     bg-white/80 backdrop-blur-sm border-slate-200/60 text-slate-700
+                     hover:bg-gradient-to-r hover:from-blue-500 hover:to-blue-600 hover:border-blue-500
+                     hover:text-white transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer font-bold"
+        >
+          <i className="fas fa-arrow-left text-lg"></i>
+          <span>Back to Menu</span>
+        </motion.button>
 
-      {/* Form Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
-      >
-        <div className="p-8">
-          {/* Success Alert */}
-          {success && <Alert type="success" message={success} className="mb-6" />}
+        {/* Enhanced Form Card with Gradient Top Border */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="relative rounded-3xl shadow-2xl border-2 border-slate-200/40 overflow-hidden 
+                     backdrop-blur-sm bg-gradient-to-br from-white via-white to-slate-50/30"
+        >
+          {/* Gradient Top Accent */}
+          <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600"></div>
+          
+          {/* Decorative Background Elements */}
+          <div className="absolute top-20 right-0 w-96 h-96 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-full blur-3xl -mr-48"></div>
+          <div className="absolute bottom-20 left-0 w-96 h-96 bg-gradient-to-tr from-emerald-500/5 to-teal-500/5 rounded-full blur-3xl -ml-48"></div>
+          
+          <div className="relative p-8">
+            {/* Success Alert */}
+            {success && <Alert type="success" message={success} className="mb-6" />}
 
-          {/* Error Alert */}
-          {error && <Alert type="error" message={error} className="mb-6" />}
+            {/* Error Alert */}
+            {error && <Alert type="error" message={error} className="mb-6" />}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            \n{' '}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
-                <i className="fas fa-file-alt text-blue-500"></i>
-                Basic Information
-              </h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Section: Basic Information - Enhanced */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 pb-3 border-b-2 border-gradient-to-r from-blue-500/30 via-blue-500/20 to-transparent">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg
+                                  bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-blue-500/30">
+                    <i className="fas fa-file-alt text-white"></i>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 m-0">Basic Information</h3>
+                </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -228,12 +255,15 @@ const Newcase: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Section: Parties Involved */}
+            {/* Section: Parties Involved - Enhanced */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
-                <i className="fas fa-users text-violet-500"></i>
-                Parties Involved
-              </h3>
+              <div className="flex items-center gap-4 pb-3 border-b-2 border-violet-200">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg
+                                bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600 shadow-purple-500/30">
+                  <i className="fas fa-users text-white"></i>
+                </div>
+                <h3 className="text-xl font-black text-slate-800 m-0">Parties Involved</h3>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -282,12 +312,15 @@ const Newcase: React.FC = () => {
                 />
               </div>
             </div>
-            {/* Section: Case Details */}
+            {/* Section: Case Details - Enhanced */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
-                <i className="fas fa-gavel text-amber-500"></i>
-                Case Details
-              </h3>
+              <div className="flex items-center gap-4 pb-3 border-b-2 border-amber-200">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg
+                                bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-amber-500/30">
+                  <i className="fas fa-gavel text-white"></i>
+                </div>
+                <h3 className="text-xl font-black text-slate-800 m-0">Case Details</h3>
+              </div>
 
               <div>
                 <label className={labelClass}>
@@ -349,12 +382,15 @@ const Newcase: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Section: Court Information */}
+            {/* Section: Court Information - Enhanced */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
-                <i className="fas fa-landmark text-slate-500"></i>
-                Court Information
-              </h3>
+              <div className="flex items-center gap-4 pb-3 border-b-2 border-slate-300">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg
+                                bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800 shadow-slate-500/30">
+                  <i className="fas fa-landmark text-white"></i>
+                </div>
+                <h3 className="text-xl font-black text-slate-800 m-0">Court Information</h3>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -391,12 +427,15 @@ const Newcase: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Section: Resolution */}
+            {/* Section: Resolution - Enhanced */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-200">
-                <i className="fas fa-clipboard-check text-emerald-500"></i>
-                Resolution & Remarks
-              </h3>
+              <div className="flex items-center gap-4 pb-3 border-b-2 border-emerald-200">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg
+                                bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 shadow-emerald-500/30">
+                  <i className="fas fa-clipboard-check text-white"></i>
+                </div>
+                <h3 className="text-xl font-black text-slate-800 m-0">Resolution & Remarks</h3>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -405,7 +444,7 @@ const Newcase: React.FC = () => {
                     name="REMARKS_DECISION"
                     value={formData.REMARKS_DECISION || 'Pending'}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={`${inputClass} cursor-pointer font-bold`}
                     required
                   >
                     <option value="Pending">Pending</option>
@@ -542,6 +581,7 @@ const Newcase: React.FC = () => {
           />
         </motion.div>
       )}
+      </div>
     </motion.div>
   );
 };

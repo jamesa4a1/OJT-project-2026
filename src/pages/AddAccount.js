@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { ThemeContext } from '../App';
 
 const AddAccount = () => {
   const navigate = useNavigate();
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -263,26 +265,34 @@ const AddAccount = () => {
   };
 
   return (
-    <div className="min-vh-100 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
+    <div className={`min-h-screen p-3 transition-colors duration-300 ${
+      isDark
+        ? 'bg-slate-900'
+        : 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
+    }`}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6"
+          className="flex items-center justify-between mb-3"
         >
           <div className="flex items-center gap-4">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleCancel}
-              className="w-10 h-10 rounded-xl bg-white shadow-md flex items-center justify-center border-none cursor-pointer hover:bg-slate-50 transition-colors"
+              className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center border-none cursor-pointer transition-colors ${
+                isDark
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  : 'bg-white text-slate-700 hover:bg-slate-50'
+              }`}
             >
-              <i className="fas fa-arrow-left text-slate-700"></i>
+              <i className="fas fa-arrow-left"></i>
             </motion.button>
             <div>
-              <h1 className="text-3xl font-bold text-slate-800 m-0">Account Management</h1>
-              <p className="text-slate-500 m-0">Create new accounts and manage existing users</p>
+              <h1 className={`text-2xl font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>Account Management</h1>
+              <p className={`text-xs m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Create new accounts and manage existing users</p>
             </div>
           </div>
         </motion.div>
@@ -294,15 +304,25 @@ const AddAccount = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`mb-6 p-4 rounded-xl flex items-center gap-3 shadow-lg ${
+              className={`mb-3 p-3 rounded-xl flex items-center gap-3 shadow-lg ${
                 status.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
+                  ? isDark
+                    ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                    : 'bg-green-50 border border-green-200 text-green-700'
+                  : isDark
+                    ? 'bg-red-500/20 border border-red-500/30 text-red-300'
+                    : 'bg-red-50 border border-red-200 text-red-700'
               }`}
             >
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  status.type === 'success' ? 'bg-green-200' : 'bg-red-200'
+                  status.type === 'success'
+                    ? isDark
+                      ? 'bg-green-500/30 text-green-400'
+                      : 'bg-green-200 text-green-600'
+                    : isDark
+                      ? 'bg-red-500/30 text-red-400'
+                      : 'bg-red-200 text-red-600'
                 }`}
               >
                 <i
@@ -314,59 +334,75 @@ const AddAccount = () => {
           )}
         </AnimatePresence>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-3">
           {/* Left Column - Create Form */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="lg:col-span-1"
+            className="md:col-span-1"
           >
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 sticky top-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                  <i className="fas fa-user-plus text-blue-600 text-xl"></i>
+            <div className={`rounded-2xl shadow-lg border p-4 sticky top-3 transition-colors duration-300 ${
+              isDark
+                ? 'bg-slate-800 border-slate-700'
+                : 'bg-white border-slate-100'
+            }`}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  isDark
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <i className="fas fa-user-plus text-lg"></i>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800 m-0">Create Account</h2>
-                  <p className="text-slate-500 text-sm m-0">Add new user</p>
+                  <h2 className={`text-lg font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>Create Account</h2>
+                  <p className={`text-xs m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Add new user</p>
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <i className="fas fa-user text-slate-400 mr-2"></i>Full Name
+                  <label className={`block text-xs font-semibold mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <i className={`fas fa-user mr-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>Full Name
                   </label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm"
+                    className={`w-full px-3 py-2 rounded-xl border outline-none transition-all text-xs ${
+                      isDark
+                        ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        : 'border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                    }`}
                     placeholder="Enter full name"
                     disabled={isSubmitting}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <i className="fas fa-envelope text-slate-400 mr-2"></i>Email
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <i className={`fas fa-envelope mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>Email
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm"
+                    className={`w-full px-4 py-2.5 rounded-xl border outline-none transition-all text-sm ${
+                      isDark
+                        ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        : 'border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                    }`}
                     placeholder="Enter email"
                     disabled={isSubmitting}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <i className="fas fa-lock text-slate-400 mr-2"></i>Password
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <i className={`fas fa-lock mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>Password
                   </label>
                   <div className="relative">
                     <input
@@ -374,23 +410,31 @@ const AddAccount = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all pr-10 text-sm"
+                      className={`w-full px-4 py-2.5 rounded-xl border outline-none transition-all pr-10 text-sm ${
+                        isDark
+                          ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                          : 'border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                      }`}
                       placeholder="Min. 6 characters"
                       disabled={isSubmitting}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer"
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-sm ${
+                        isDark
+                          ? 'text-slate-500 hover:text-slate-400'
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
                     >
-                      <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
+                      <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <i className="fas fa-lock text-slate-400 mr-2"></i>Confirm Password
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <i className={`fas fa-lock mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>Confirm Password
                   </label>
                   <div className="relative">
                     <input
@@ -398,31 +442,43 @@ const AddAccount = () => {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all pr-10 text-sm"
+                      className={`w-full px-4 py-2.5 rounded-xl border outline-none transition-all pr-10 text-sm ${
+                        isDark
+                          ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                          : 'border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                      }`}
                       placeholder="Re-enter password"
                       disabled={isSubmitting}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer"
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer text-sm ${
+                        isDark
+                          ? 'text-slate-500 hover:text-slate-400'
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
                     >
                       <i
-                        className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`}
+                        className={`fas ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`}
                       ></i>
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    <i className="fas fa-user-tag text-slate-400 mr-2"></i>Role
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <i className={`fas fa-user-tag mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>Role
                   </label>
                   <select
                     name="role"
                     value={formData.role}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-white text-sm"
+                    className={`w-full px-4 py-2.5 rounded-xl border outline-none transition-all text-sm ${
+                      isDark
+                        ? 'bg-slate-700 text-slate-100 border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                        : 'bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+                    }`}
                     disabled={isSubmitting}
                   >
                     <option value="Clerk">Clerk - Can manage cases</option>
@@ -436,7 +492,11 @@ const AddAccount = () => {
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold border-none cursor-pointer shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                  className={`w-full py-3 rounded-xl text-white font-semibold border-none cursor-pointer shadow-lg hover:shadow-xl transition-all disabled:opacity-50 ${
+                    isDark
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600'
+                      : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                  }`}
                 >
                   {isSubmitting ? (
                     <>
@@ -463,49 +523,73 @@ const AddAccount = () => {
             <div className="grid grid-cols-4 gap-4">
               <motion.div
                 whileHover={{ y: -4 }}
-                className="bg-white rounded-xl shadow-md p-4 border border-slate-100"
+                className={`rounded-xl shadow-md p-4 border transition-colors duration-300 ${
+                  isDark
+                    ? 'bg-slate-800 border-slate-700'
+                    : 'bg-white border-slate-100'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-3xl font-bold text-slate-800 m-0">{users.length}</p>
-                    <p className="text-slate-500 text-sm m-0 mt-1">Total Users</p>
+                    <p className={`text-2xl font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{users.length}</p>
+                    <p className={`text-xs m-0 mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total Users</p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                    <i className="fas fa-users text-blue-600 text-xl"></i>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    isDark
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'bg-blue-100 text-blue-600'
+                  }`}>
+                    <i className="fas fa-users text-xl"></i>
                   </div>
                 </div>
               </motion.div>
 
               <motion.div
                 whileHover={{ y: -4 }}
-                className="bg-white rounded-xl shadow-md p-4 border border-slate-100"
+                className={`rounded-xl shadow-md p-4 border transition-colors duration-300 ${
+                  isDark
+                    ? 'bg-slate-800 border-slate-700'
+                    : 'bg-white border-slate-100'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-3xl font-bold text-slate-800 m-0">
+                    <p className={`text-2xl font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                       {users.filter((u) => u.role === 'Admin').length}
                     </p>
-                    <p className="text-slate-500 text-sm m-0 mt-1">Admins</p>
+                    <p className={`text-xs m-0 mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Admins</p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                    <i className="fas fa-shield-halved text-purple-600 text-xl"></i>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    isDark
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'bg-purple-100 text-purple-600'
+                  }`}>
+                    <i className="fas fa-shield-halved text-xl"></i>
                   </div>
                 </div>
               </motion.div>
 
               <motion.div
                 whileHover={{ y: -4 }}
-                className="bg-white rounded-xl shadow-md p-4 border border-slate-100"
+                className={`rounded-xl shadow-md p-4 border transition-colors duration-300 ${
+                  isDark
+                    ? 'bg-slate-800 border-slate-700'
+                    : 'bg-white border-slate-100'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-3xl font-bold text-slate-800 m-0">
+                    <p className={`text-2xl font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                       {users.filter((u) => u.role === 'Clerk').length}
                     </p>
-                    <p className="text-slate-500 text-sm m-0 mt-1">Clerks</p>
+                    <p className={`text-xs m-0 mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Clerks</p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
-                    <i className="fas fa-user-pen text-teal-600 text-xl"></i>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    isDark
+                      ? 'bg-teal-500/20 text-teal-400'
+                      : 'bg-teal-100 text-teal-600'
+                  }`}>
+                    <i className="fas fa-user-pen text-xl"></i>
                   </div>
                 </div>
               </motion.div>
@@ -513,32 +597,48 @@ const AddAccount = () => {
               {/* Staff Card */}
               <motion.div
                 whileHover={{ y: -4 }}
-                className="bg-white rounded-xl shadow-md p-4 border border-slate-100"
+                className={`rounded-xl shadow-md p-4 border transition-colors duration-300 ${
+                  isDark
+                    ? 'bg-slate-800 border-slate-700'
+                    : 'bg-white border-slate-100'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-3xl font-bold text-slate-800 m-0">
+                    <p className={`text-2xl font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                       {users.filter((u) => u.role === 'Staff').length}
                     </p>
-                    <p className="text-slate-500 text-sm m-0 mt-1">Staff</p>
+                    <p className={`text-xs m-0 mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Staff</p>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                    <i className="fas fa-user-group text-green-600 text-xl"></i>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    isDark
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-green-100 text-green-600'
+                  }`}>
+                    <i className="fas fa-user-group text-xl"></i>
                   </div>
                 </div>
               </motion.div>
             </div>
 
             {/* Users List */}
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6">
+            <div className={`rounded-2xl shadow-lg border p-6 transition-colors duration-300 ${
+              isDark
+                ? 'bg-slate-800 border-slate-700'
+                : 'bg-white border-slate-100'
+            }`}>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <i className="fas fa-users text-blue-600"></i>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    isDark
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'bg-blue-100 text-blue-600'
+                  }`}>
+                    <i className="fas fa-users"></i>
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-slate-800 m-0">All Accounts</h3>
-                    <p className="text-slate-500 text-sm m-0">Manage existing users</p>
+                    <h3 className={`text-lg font-bold m-0 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>All Accounts</h3>
+                    <p className={`text-sm m-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Manage existing users</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -550,8 +650,12 @@ const AddAccount = () => {
                       onClick={() => setRoleFilter(null)}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                         roleFilter === null
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300'
+                          ? isDark
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-blue-600 text-white border-blue-600'
+                          : isDark
+                            ? 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300'
                       }`}
                     >
                       All
@@ -562,8 +666,12 @@ const AddAccount = () => {
                       onClick={() => setRoleFilter('Admin')}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                         roleFilter === 'Admin'
-                          ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-purple-300'
+                          ? isDark
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-purple-600 text-white border-purple-600'
+                          : isDark
+                            ? 'bg-slate-700 text-slate-300 border-slate-600 hover:border-purple-400'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-purple-300'
                       }`}
                     >
                       Admin
@@ -574,8 +682,12 @@ const AddAccount = () => {
                       onClick={() => setRoleFilter('Clerk')}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                         roleFilter === 'Clerk'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300'
+                          ? isDark
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-blue-600 text-white border-blue-600'
+                          : isDark
+                            ? 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300'
                       }`}
                     >
                       Clerk
@@ -586,37 +698,45 @@ const AddAccount = () => {
                       onClick={() => setRoleFilter('Staff')}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                         roleFilter === 'Staff'
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-teal-300'
+                          ? isDark
+                            ? 'bg-teal-600 text-white border-teal-600'
+                            : 'bg-teal-600 text-white border-teal-600'
+                          : isDark
+                            ? 'bg-slate-700 text-slate-300 border-slate-600 hover:border-teal-400'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-teal-300'
                       }`}
                     >
                       Staff
                     </motion.button>
                   </div>
-                  <span className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    isDark
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'bg-blue-100 text-blue-700 border border-blue-200'
+                  }`}>
                     {getFilteredUsers().length}/{getTotalFilteredCount()} users
                   </span>
                 </div>
               </div>
 
               {users.length > 0 ? (
-                <div className="overflow-x-auto -mx-6 px-6">
-                  <table className="w-full">
+                <div className="w-full overflow-hidden">
+                  <table className="w-full min-w-full table-fixed">
                     <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
+                      <tr className={`border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                        <th className={`text-left py-2.5 px-3 text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           User
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
+                        <th className={`text-left py-2.5 px-3 text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           Email
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
+                        <th className={`text-left py-2.5 px-3 text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           Role
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
+                        <th className={`text-left py-2.5 px-3 text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           Created
                         </th>
-                        <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
+                        <th className={`text-center py-2.5 px-3 text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           Actions
                         </th>
                       </tr>
@@ -628,12 +748,16 @@ const AddAccount = () => {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                          className={`border-b transition-colors ${
+                            isDark
+                              ? 'border-slate-700 hover:bg-slate-700/50'
+                              : 'border-slate-100 hover:bg-slate-50'
+                          }`}
                         >
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3 flex-nowrap">
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2.5 flex-nowrap">
                               <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
+                                className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
                                   user.role === 'Admin'
                                     ? 'bg-purple-500'
                                     : user.role === 'Staff'
@@ -643,32 +767,38 @@ const AddAccount = () => {
                               >
                                 {user.name?.charAt(0).toUpperCase() || 'U'}
                               </div>
-                              <span className="font-medium text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                              <span className={`font-medium whitespace-nowrap overflow-hidden text-ellipsis text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                                 {user.name}
                               </span>
                             </div>
                           </td>
-                          <td className="py-4 px-4 text-slate-600 text-sm">{user.email}</td>
-                          <td className="py-4 px-4">
+                          <td className={`py-2.5 px-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{user.email}</td>
+                          <td className="py-2.5 px-3">
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 user.role === 'Admin'
-                                  ? 'bg-purple-100 text-purple-700'
+                                  ? isDark
+                                    ? 'bg-purple-500/20 text-purple-300'
+                                    : 'bg-purple-100 text-purple-700'
                                   : user.role === 'Staff'
-                                    ? 'bg-teal-100 text-teal-700'
-                                    : 'bg-blue-100 text-blue-700'
+                                    ? isDark
+                                      ? 'bg-teal-500/20 text-teal-300'
+                                      : 'bg-teal-100 text-teal-700'
+                                    : isDark
+                                      ? 'bg-blue-500/20 text-blue-300'
+                                      : 'bg-blue-100 text-blue-700'
                               }`}
                             >
                               {user.role}
                             </span>
                           </td>
-                          <td className="py-4 px-4 text-slate-500 text-sm">
+                          <td className={`py-2.5 px-3 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                             {user.created_at
                               ? new Date(user.created_at).toLocaleDateString()
                               : 'N/A'}
                           </td>
-                          <td className="py-4 px-4">
-                            <div className="flex gap-2 justify-center items-center">
+                          <td className="py-2.5 px-3">
+                            <div className="flex gap-1.5 justify-center items-center">
                               {/* Delete Button - shown for all users */}
                               <motion.button
                                 whileHover={{ scale: canDeleteUser(user) ? 1.1 : 1 }}
@@ -679,7 +809,7 @@ const AddAccount = () => {
                                     setShowDeleteModal(true);
                                   }
                                 }}
-                                className={`w-9 h-9 rounded-lg border-none transition-all ${
+                                className={`w-8 h-8 rounded-lg border-none transition-all flex items-center justify-center ${
                                   canDeleteUser(user)
                                     ? 'bg-red-100 text-red-600 cursor-pointer hover:bg-red-500 hover:text-white'
                                     : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
@@ -691,7 +821,7 @@ const AddAccount = () => {
                                 }
                                 disabled={!canDeleteUser(user)}
                               >
-                                <i className="fas fa-trash-alt text-sm"></i>
+                                <i className="fas fa-trash-alt text-xs"></i>
                               </motion.button>
 
                               {/* Toggle Switch for Admin users */}
@@ -701,7 +831,7 @@ const AddAccount = () => {
                                   whileTap={{ scale: canToggleAdmin(user) ? 0.95 : 1 }}
                                   onClick={() => canToggleAdmin(user) && handleToggleStatus(user)}
                                   disabled={togglingUser === user.id || !canToggleAdmin(user)}
-                                  className={`relative w-9 h-9 rounded-lg border-none flex items-center justify-center transition-colors duration-300 ${
+                                  className={`relative w-8 h-8 rounded-lg border-none flex items-center justify-center transition-colors duration-300 ${
                                     canToggleAdmin(user)
                                       ? 'cursor-pointer'
                                       : 'cursor-not-allowed opacity-50'
@@ -736,10 +866,10 @@ const AddAccount = () => {
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.9 }}
                                   onClick={() => handleEditUser(user)}
-                                  className="w-9 h-9 rounded-lg bg-yellow-100 text-yellow-600 border-none cursor-pointer hover:bg-yellow-400 hover:text-white transition-all"
+                                  className="w-8 h-8 rounded-lg bg-yellow-100 text-yellow-600 border-none cursor-pointer hover:bg-yellow-400 hover:text-white transition-all flex items-center justify-center"
                                   title="Edit role"
                                 >
-                                  <i className="fas fa-edit text-sm"></i>
+                                  <i className="fas fa-edit text-xs"></i>
                                 </motion.button>
                               )}
                             </div>

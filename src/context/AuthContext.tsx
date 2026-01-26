@@ -60,7 +60,7 @@ export interface AuthContextType {
   isDeactivated: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
-  logout: () => void;
+  logout: () => Promise<void>;
   register: (userData: UserData) => Promise<RegisterResult>;
   updateUserInfo: (updateData: UpdateData) => Promise<UpdateResult>;
   uploadProfilePicture: (file: File) => Promise<UploadResult>;
@@ -135,13 +135,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const data = await response.json();
 
-      if (data.success) {
+      // Handle both data.data (new API) and data.user (legacy) response formats
+      const userInfo = data.data || data.user;
+
+      if (data.success && userInfo) {
         const userData: User = {
-          ...data.user,
-          profilePicture: data.user.profile_picture
-            ? `http://localhost:5000${data.user.profile_picture}`
+          ...userInfo,
+          profilePicture: userInfo.profile_picture
+            ? `http://localhost:5000${userInfo.profile_picture}`
             : null,
-          registeredAt: data.user.created_at,
+          registeredAt: userInfo.created_at,
         };
         setUser(userData);
         localStorage.setItem('ocpUser', JSON.stringify(userData));
@@ -149,13 +152,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         return { success: false, message: data.message || 'Invalid email or password.' };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      // Server is down - show appropriate message
+      // Check if it's a network error (server not reachable)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          success: false,
+          message:
+            'Cannot connect to server. Please ensure the backend server is running (node server.js).',
+        };
+      }
+      // For other errors, provide a generic message
       return {
         success: false,
-        message:
-          'Cannot connect to server. Please ensure the backend server is running (node server.js).',
+        message: error instanceof Error ? error.message : 'An unexpected error occurred during login.',
       };
     }
   };
@@ -183,7 +193,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { success: false, message: 'Invalid email or password.' };
   };
 
-  const logout = (): void => {
+  const logout = async (): Promise<void> => {
+    // Call logout API to set user offline
+    if (user?.id) {
+      try {
+        await fetch(`${API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        });
+      } catch (error) {
+        console.error('Logout API error:', error);
+      }
+    }
     setUser(null);
     localStorage.removeItem('ocpUser');
   };

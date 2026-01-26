@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { ThemeContext } from '../App';
 
 const Settings = () => {
   const { user, updateUserInfo, uploadProfilePicture, removeProfilePicture } = useAuth();
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
   const fileInputRef = useRef(null);
   const cameraMenuRef = useRef(null);
 
@@ -197,7 +199,11 @@ const Settings = () => {
   const getInitials = () => user?.name?.charAt(0).toUpperCase() || 'U';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8 px-4 lg:px-8">
+    <div className={`min-h-screen py-8 px-4 lg:px-8 transition-colors duration-300 ${
+      isDark 
+        ? 'bg-slate-900' 
+        : 'bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20'
+    }`}>
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -231,9 +237,13 @@ const Settings = () => {
               />
               <button
                 onClick={() => setShowPhotoViewer(false)}
-                className="absolute -top-4 -right-4 w-12 h-12 bg-white rounded-full shadow-xl flex items-center justify-center text-slate-600 hover:text-slate-800 hover:scale-110 transition-all border-none cursor-pointer"
+                className={`absolute -top-4 -right-4 w-12 h-12 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-all border-none cursor-pointer text-xl ${
+                  isDark
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    : 'bg-white text-slate-600 hover:text-slate-800'
+                }`}
               >
-                <i className="fas fa-times text-xl"></i>
+                <i className="fas fa-times"></i>
               </button>
             </motion.div>
           </motion.div>
@@ -245,57 +255,112 @@ const Settings = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-6xl mx-auto"
       >
-        {/* Profile Header Card */}
+        {/* Profile Header Card - Enhanced */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8"
+          className={`rounded-3xl shadow-2xl overflow-hidden mb-8 border-2 transition-colors duration-300 ${
+            isDark
+              ? 'bg-slate-800 border-slate-700'
+              : 'bg-white border-slate-100'
+          }`}
         >
-          {/* Header Background */}
-          <div className="h-32 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 relative">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yLjIxLTEuNzktNC00LTRzLTQgMS43OS00IDQgMS43OSA0IDQgNCA0LTEuNzkgNC00eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"></div>
+          {/* Header Background - Enhanced Gradient */}
+          <div className={`h-40 relative overflow-hidden ${
+            isDark
+              ? 'bg-gradient-to-br from-slate-700 via-slate-600 to-slate-700'
+              : 'bg-gradient-to-br from-doj-navy via-doj-blue to-blue-600'
+          }`}>
+            <div className="absolute inset-0">
+              <motion.div
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.3, 0.2, 0.3],
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                className={`absolute -top-20 -right-20 w-60 h-60 rounded-full blur-3xl ${
+                  isDark ? 'bg-slate-500/20' : 'bg-blue-400/20'
+                }`}
+              />
+              <motion.div
+                animate={{
+                  scale: [1.2, 1, 1.2],
+                  opacity: [0.2, 0.3, 0.2],
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                  delay: 1,
+                }}
+                className={`absolute -bottom-20 -left-20 w-60 h-60 rounded-full blur-3xl ${
+                  isDark ? 'bg-slate-400/20' : 'bg-indigo-400/20'
+                }`}
+              />
+            </div>
           </div>
 
-          {/* Profile Info */}
+          {/* Profile Info - Enhanced */}
           <div className="relative px-8 pb-8">
-            {/* Avatar */}
-            <div className="absolute -top-16 left-8">
+            {/* Avatar - Enhanced with better ring */}
+            <div className="absolute -top-20 left-8">
               <div className="relative" ref={cameraMenuRef}>
                 {uploadingPicture ? (
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center ring-4 ring-white shadow-xl">
-                    <i className="fas fa-spinner fa-spin text-white text-3xl"></i>
+                  <div className={`w-40 h-40 rounded-2xl flex items-center justify-center ring-4 shadow-2xl ${
+                    isDark
+                      ? 'bg-gradient-to-br from-slate-600 via-slate-500 to-slate-600 ring-slate-700'
+                      : 'bg-gradient-to-br from-doj-blue via-blue-500 to-indigo-600 ring-white'
+                  }`}>
+                    <i className="fas fa-spinner fa-spin text-4xl" style={{ color: isDark ? '#e2e8f0' : 'white' }}></i>
                   </div>
                 ) : user?.profilePicture ? (
                   <img
                     src={user.profilePicture}
                     alt={user?.name}
-                    className="w-32 h-32 rounded-full object-cover ring-4 ring-white shadow-xl"
+                    className={`w-40 h-40 rounded-2xl object-cover ring-4 shadow-2xl ${
+                      isDark ? 'ring-slate-700' : 'ring-white'
+                    }`}
                   />
                 ) : (
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-5xl font-bold ring-4 ring-white shadow-xl">
+                  <div className={`w-40 h-40 rounded-2xl flex items-center justify-center text-6xl font-bold ring-4 shadow-2xl ${
+                    isDark
+                      ? 'bg-gradient-to-br from-slate-600 via-slate-500 to-slate-600 text-slate-200 ring-slate-700'
+                      : 'bg-gradient-to-br from-doj-blue via-blue-500 to-indigo-600 text-white ring-white'
+                  }`}>
                     {getInitials()}
                   </div>
                 )}
 
-                {/* Camera Button */}
+                {/* Camera Button - Enhanced */}
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowCameraMenu(!showCameraMenu)}
-                  className="absolute bottom-0 right-0 w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center border-3 border-white transition-colors cursor-pointer"
-                  style={{ borderWidth: '3px' }}
+                  className={`absolute bottom-2 right-2 w-12 h-12 rounded-xl shadow-xl flex items-center justify-center border-4 transition-all cursor-pointer ${
+                    isDark
+                      ? 'bg-gradient-to-br from-slate-600 to-slate-500 hover:from-slate-500 hover:to-slate-400 text-white border-slate-700'
+                      : 'bg-gradient-to-br from-doj-blue to-blue-600 hover:from-blue-600 hover:to-indigo-600 text-white border-white'
+                  }`}
                 >
-                  <i className="fas fa-camera"></i>
+                  <i className="fas fa-camera text-lg"></i>
                 </motion.button>
 
-                {/* Camera Dropdown Menu */}
+                {/* Camera Dropdown Menu - Enhanced */}
                 <AnimatePresence>
                   {showCameraMenu && (
                     <motion.div
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden min-w-[180px] z-50"
+                      className={`absolute top-full left-0 mt-2 rounded-2xl shadow-2xl border-2 overflow-hidden min-w-[200px] z-50 ${
+                        isDark
+                          ? 'bg-slate-800 border-slate-700'
+                          : 'bg-white border-slate-100'
+                      }`}
                     >
                       {user?.profilePicture && (
                         <button
@@ -303,10 +368,20 @@ const Settings = () => {
                             setShowPhotoViewer(true);
                             setShowCameraMenu(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors text-left border-none bg-transparent cursor-pointer"
+                          className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all text-left border-none bg-transparent cursor-pointer font-medium ${
+                            isDark
+                              ? 'text-slate-300 hover:bg-slate-700'
+                              : 'text-slate-700 hover:bg-blue-50'
+                          }`}
                         >
-                          <i className="fas fa-eye text-blue-500 w-5"></i>
-                          <span className="font-medium">View Photo</span>
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                            isDark
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            <i className="fas fa-eye"></i>
+                          </div>
+                          <span>View Photo</span>
                         </button>
                       )}
                       <button
@@ -314,18 +389,38 @@ const Settings = () => {
                           fileInputRef.current?.click();
                           setShowCameraMenu(false);
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition-colors text-left border-none bg-transparent cursor-pointer"
+                        className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all text-left border-none bg-transparent cursor-pointer font-medium ${
+                          isDark
+                            ? 'text-slate-300 hover:bg-slate-700'
+                            : 'text-slate-700 hover:bg-emerald-50'
+                        }`}
                       >
-                        <i className="fas fa-upload text-green-500 w-5"></i>
-                        <span className="font-medium">Change Photo</span>
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          isDark
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-emerald-100 text-emerald-600'
+                        }`}>
+                          <i className="fas fa-upload"></i>
+                        </div>
+                        <span>Change Photo</span>
                       </button>
                       {user?.profilePicture && (
                         <button
                           onClick={handleRemovePicture}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors text-left border-none bg-transparent cursor-pointer"
+                          className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all text-left border-none bg-transparent cursor-pointer font-medium ${
+                            isDark
+                              ? 'text-red-400 hover:bg-slate-700'
+                              : 'text-red-600 hover:bg-red-50'
+                          }`}
                         >
-                          <i className="fas fa-trash-alt w-5"></i>
-                          <span className="font-medium">Remove Photo</span>
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                            isDark
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'bg-red-100 text-red-600'
+                          }`}>
+                            <i className="fas fa-trash-alt"></i>
+                          </div>
+                          <span>Remove Photo</span>
                         </button>
                       )}
                     </motion.div>
@@ -334,19 +429,19 @@ const Settings = () => {
               </div>
             </div>
 
-            {/* User Info */}
-            <div className="pt-20 flex flex-col md:flex-row md:items-end md:justify-between">
+            {/* User Info - Enhanced */}
+            <div className="pt-24 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-slate-800">{user?.name}</h1>
-                <p className="text-slate-500 mt-1">{user?.email}</p>
-                <div className="flex items-center gap-3 mt-3">
+                <h1 className={`text-4xl font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{user?.name}</h1>
+                <p className={`mt-2 text-lg ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{user?.email}</p>
+                <div className="flex items-center gap-3 mt-4 flex-wrap">
                   <span
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
+                    className={`px-5 py-2 rounded-xl text-sm font-bold shadow-lg ${
                       user?.role === 'Admin'
-                        ? 'bg-purple-100 text-purple-700'
+                        ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white'
                         : user?.role === 'Staff'
-                          ? 'bg-teal-100 text-teal-700'
-                          : 'bg-blue-100 text-blue-700'
+                          ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white'
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                     }`}
                   >
                     <i
@@ -354,8 +449,12 @@ const Settings = () => {
                     ></i>
                     {user?.role}
                   </span>
-                  <span className="text-slate-400 text-sm">
-                    <i className="fas fa-calendar-alt mr-1"></i>
+                  <span className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 ${
+                    isDark
+                      ? 'bg-slate-700 text-slate-300'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <i className="fas fa-calendar-alt"></i>
                     Joined{' '}
                     {user?.registeredAt
                       ? new Date(user.registeredAt).toLocaleDateString('en-US', {
@@ -368,85 +467,152 @@ const Settings = () => {
               </div>
 
               {user?.id && (
-                <div className="mt-4 md:mt-0 flex items-center gap-2 text-sm text-slate-400">
-                  <i className="fas fa-database"></i>
-                  <span>Connected to Database</span>
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border-2 ${
+                  isDark
+                    ? 'bg-emerald-500/20 border-emerald-500/30'
+                    : 'bg-emerald-50 border-emerald-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isDark
+                      ? 'bg-emerald-500/30 text-emerald-400'
+                      : 'bg-emerald-200 text-emerald-600'
+                  }`}>
+                    <i className="fas fa-database"></i>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold m-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Connected to Database</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'}`}></span>
+                      <span className={`text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Active Connection</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </motion.div>
 
-        {/* Message Alert */}
+        {/* Message Alert - Enhanced */}
         <AnimatePresence>
           {message.text && (
             <motion.div
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              className={`mb-6 p-4 rounded-xl flex items-center gap-3 shadow-lg ${
+              className={`mb-6 p-5 rounded-2xl flex items-center gap-4 shadow-xl border-2 ${
                 message.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
+                  ? isDark
+                    ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300'
+                    : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-800'
+                  : isDark
+                    ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-500/30 text-red-300'
+                    : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300 text-red-800'
               }`}
             >
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  message.type === 'success' ? 'bg-green-200' : 'bg-red-200'
+                className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
+                  message.type === 'success' 
+                    ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white' 
+                    : 'bg-gradient-to-br from-red-400 to-rose-500 text-white'
                 }`}
               >
                 <i
-                  className={`fas ${message.type === 'success' ? 'fa-check' : 'fa-exclamation'} text-lg`}
+                  className={`fas ${message.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} text-xl`}
                 ></i>
               </div>
-              <span className="font-medium">{message.text}</span>
+              <span className="font-bold text-lg">{message.text}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Main Content */}
         <div className="grid lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
+          {/* Sidebar - Enhanced */}
           <motion.div
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
             className="lg:col-span-1"
           >
-            <div className="bg-white rounded-2xl shadow-lg p-4 sticky top-24">
-              <nav className="space-y-1">
+            <div className={`rounded-2xl shadow-xl p-6 sticky top-24 border-2 transition-colors duration-300 ${
+              isDark
+                ? 'bg-slate-800 border-slate-700'
+                : 'bg-white border-slate-100'
+            }`}>
+              <h3 className={`text-xs font-bold uppercase tracking-widest mb-5 px-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Settings Menu</h3>
+              <nav className="space-y-3">
                 <button
                   onClick={() => setActiveTab('profile')}
-                  className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 border-none cursor-pointer ${
+                  className={`w-full text-left px-4 py-4 rounded-xl font-semibold transition-all flex items-center gap-3 border-none cursor-pointer ${
                     activeTab === 'profile'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-slate-600 hover:bg-slate-100 bg-transparent'
+                      ? isDark
+                        ? 'bg-gradient-to-r from-blue-500/30 to-blue-500/20 text-blue-300 border-2 border-blue-500/50 shadow-md'
+                        : 'bg-gradient-to-r from-blue-100 to-blue-50 text-blue-900 border-2 border-blue-300 shadow-md'
+                      : isDark
+                        ? 'text-slate-400 hover:bg-slate-700 bg-transparent border border-slate-700 hover:border-blue-500/30'
+                        : 'text-slate-600 hover:bg-slate-50 bg-transparent border border-slate-200 hover:border-blue-200'
                   }`}
                 >
-                  <i className="fas fa-user-circle"></i>
-                  Profile Info
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    activeTab === 'profile'
+                      ? isDark
+                        ? 'bg-blue-500/30 text-blue-300'
+                        : 'bg-blue-500/20 text-blue-600'
+                      : isDark
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-blue-100 text-blue-600'
+                  }`}>
+                    <i className="fas fa-user-circle text-lg"></i>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold leading-tight">Profile</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Info</p>
+                  </div>
                 </button>
                 <button
                   onClick={() => setActiveTab('security')}
-                  className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 border-none cursor-pointer ${
+                  className={`w-full text-left px-4 py-4 rounded-xl font-semibold transition-all flex items-center gap-3 border-none cursor-pointer ${
                     activeTab === 'security'
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/30'
-                      : 'text-slate-600 hover:bg-slate-100 bg-transparent'
+                      ? isDark
+                        ? 'bg-gradient-to-r from-emerald-500/40 to-teal-600/40 text-emerald-200 shadow-xl shadow-emerald-500/20'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/30'
+                      : isDark
+                        ? 'text-slate-400 hover:bg-slate-700 bg-transparent border border-slate-700 hover:border-emerald-500/30'
+                        : 'text-slate-600 hover:bg-slate-50 bg-transparent border border-slate-200 hover:border-emerald-200'
                   }`}
                 >
-                  <i className="fas fa-shield-alt"></i>
-                  Security
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    activeTab === 'security'
+                      ? isDark
+                        ? 'bg-white/20 text-emerald-300'
+                        : 'bg-white/20 text-white'
+                      : isDark
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-emerald-100 text-emerald-600'
+                  }`}>
+                    <i className="fas fa-shield-alt text-lg"></i>
+                  </div>
+                  <p className="text-sm font-bold">Security</p>
                 </button>
               </nav>
 
-              {/* Info Box */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              {/* Info Box - Enhanced */}
+              <div className={`mt-6 p-4 rounded-2xl border-2 ${
+                isDark
+                  ? 'bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border-blue-500/30'
+                  : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+              }`}>
                 <div className="flex items-start gap-3">
-                  <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    isDark
+                      ? 'bg-blue-500/30 text-blue-400'
+                      : 'bg-blue-500/20 text-blue-600'
+                  }`}>
+                    <i className="fas fa-lightbulb text-base"></i>
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-blue-900 text-sm">Pro Tip</h4>
-                    <p className="text-xs text-blue-700 mt-1">
+                    <h4 className={`font-bold text-sm mb-1 ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>Pro Tip</h4>
+                    <p className={`text-xs leading-relaxed ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
                       Keep your profile updated to ensure seamless access to the system.
                     </p>
                   </div>
@@ -464,25 +630,33 @@ const Settings = () => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-2xl shadow-lg p-6 lg:p-8"
+                  className={`rounded-2xl shadow-xl p-6 lg:p-8 border-2 transition-colors duration-300 ${
+                    isDark
+                      ? 'bg-slate-800 border-slate-700'
+                      : 'bg-white border-slate-100'
+                  }`}
                 >
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-8">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                          <i className="fas fa-user text-blue-600"></i>
+                      <h2 className={`text-3xl font-bold flex items-center gap-4 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${
+                          isDark
+                            ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-blue-200'
+                            : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white'
+                        }`}>
+                          <i className="fas fa-user text-xl"></i>
                         </div>
                         Profile Information
                       </h2>
-                      <p className="text-slate-500 mt-1 ml-13">Update your personal details</p>
+                      <p className={`mt-2 ml-[4.5rem] text-base ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Update your personal details</p>
                     </div>
                   </div>
 
                   <form onSubmit={handleProfileSubmit}>
                     <div className="grid md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                          <i className="fas fa-user mr-2 text-slate-400"></i>
+                        <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className={`fas fa-user mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                           Full Name
                         </label>
                         {isEditing ? (
@@ -491,14 +665,22 @@ const Settings = () => {
                             name="name"
                             value={formData.name}
                             onChange={handleInputChange}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-slate-800 font-medium outline-none"
+                            className={`w-full px-4 py-3 rounded-xl border-2 focus:ring-4 transition-all outline-none font-medium ${
+                              isDark
+                                ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-blue-500/20'
+                                : 'border-slate-200 bg-white text-slate-800 focus:border-blue-500 focus:ring-blue-500/20'
+                            }`}
                             placeholder="Enter your full name"
                             autoFocus
                           />
                         ) : (
                           <div
                             onClick={() => setIsEditing(true)}
-                            className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium cursor-pointer hover:bg-slate-100 hover:border-blue-300 transition-all"
+                            className={`w-full px-4 py-3 rounded-xl border-2 font-medium cursor-pointer transition-all ${
+                              isDark
+                                ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:border-blue-500/30'
+                                : 'bg-slate-50 border-slate-100 text-slate-700 hover:bg-slate-100 hover:border-blue-300'
+                            }`}
                           >
                             {formData.name || 'Not set'}
                           </div>
@@ -506,8 +688,8 @@ const Settings = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                          <i className="fas fa-envelope mr-2 text-slate-400"></i>
+                        <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className={`fas fa-envelope mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                           Email Address
                         </label>
                         {isEditing ? (
@@ -516,13 +698,21 @@ const Settings = () => {
                             name="email"
                             value={formData.email}
                             onChange={handleInputChange}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-slate-800 outline-none"
+                            className={`w-full px-4 py-3 rounded-xl border-2 focus:ring-4 transition-all outline-none ${
+                              isDark
+                                ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-blue-500/20'
+                                : 'border-slate-200 bg-white text-slate-800 focus:border-blue-500 focus:ring-blue-500/20'
+                            }`}
                             placeholder="your@email.com"
                           />
                         ) : (
                           <div
                             onClick={() => setIsEditing(true)}
-                            className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium cursor-pointer hover:bg-slate-100 hover:border-blue-300 transition-all"
+                            className={`w-full px-4 py-3 rounded-xl border-2 font-medium cursor-pointer transition-all ${
+                              isDark
+                                ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:border-blue-500/30'
+                                : 'bg-slate-50 border-slate-100 text-slate-700 hover:bg-slate-100 hover:border-blue-300'
+                            }`}
                           >
                             {formData.email || 'Not set'}
                           </div>
@@ -530,18 +720,22 @@ const Settings = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                          <i className="fas fa-briefcase mr-2 text-slate-400"></i>
+                        <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className={`fas fa-briefcase mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                           Role
                         </label>
-                        <div className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium flex items-center gap-2">
+                        <div className={`w-full px-4 py-3 rounded-xl border-2 font-medium flex items-center gap-2 ${
+                          isDark
+                            ? 'bg-slate-700 border-slate-600 text-slate-300'
+                            : 'bg-slate-50 border-slate-100 text-slate-700'
+                        }`}>
                           <span
                             className={`w-2 h-2 rounded-full ${
                               user?.role === 'Admin'
-                                ? 'bg-purple-500'
+                                ? isDark ? 'bg-purple-400' : 'bg-purple-500'
                                 : user?.role === 'Staff'
-                                  ? 'bg-teal-500'
-                                  : 'bg-blue-500'
+                                  ? isDark ? 'bg-teal-400' : 'bg-teal-500'
+                                  : isDark ? 'bg-blue-400' : 'bg-blue-500'
                             }`}
                           ></span>
                           {user?.role || 'Not assigned'}
@@ -549,11 +743,15 @@ const Settings = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                          <i className="fas fa-calendar mr-2 text-slate-400"></i>
+                        <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className={`fas fa-calendar mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                           Member Since
                         </label>
-                        <div className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 text-slate-700 font-medium">
+                        <div className={`w-full px-4 py-3 rounded-xl border-2 font-medium ${
+                          isDark
+                            ? 'bg-slate-700 border-slate-600 text-slate-300'
+                            : 'bg-slate-50 border-slate-100 text-slate-700'
+                        }`}>
                           {user?.registeredAt
                             ? new Date(user.registeredAt).toLocaleDateString('en-US', {
                                 year: 'numeric',
@@ -565,14 +763,18 @@ const Settings = () => {
                       </div>
                     </div>
 
-                    <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+                    <div className={`mt-8 pt-6 flex flex-col sm:flex-row gap-3 ${isDark ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
                       {!isEditing ? (
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           type="button"
                           onClick={() => setIsEditing(true)}
-                          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg transition-all border-none cursor-pointer"
+                          className={`px-6 py-3 font-semibold rounded-xl shadow-lg transition-all border-none cursor-pointer ${
+                            isDark
+                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white'
+                              : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                          }`}
                         >
                           <i className="fas fa-edit mr-2"></i>
                           Edit Profile
@@ -584,7 +786,11 @@ const Settings = () => {
                             whileTap={{ scale: 0.98 }}
                             type="submit"
                             disabled={isLoading}
-                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg disabled:opacity-50 transition-all border-none cursor-pointer"
+                            className={`px-6 py-3 font-semibold rounded-xl shadow-lg disabled:opacity-50 transition-all border-none cursor-pointer ${
+                              isDark
+                                ? 'bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-500 hover:to-emerald-600 text-white'
+                                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+                            }`}
                           >
                             {isLoading ? (
                               <>
@@ -602,7 +808,11 @@ const Settings = () => {
                             type="button"
                             onClick={handleCancel}
                             disabled={isLoading}
-                            className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl transition-all border-none cursor-pointer"
+                            className={`px-6 py-3 font-semibold rounded-xl transition-all border-none cursor-pointer ${
+                              isDark
+                                ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                                : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                            }`}
                           >
                             <i className="fas fa-times mr-2"></i>
                             Cancel
@@ -620,36 +830,48 @@ const Settings = () => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-2xl shadow-lg p-6 lg:p-8"
+                  className={`rounded-2xl shadow-lg p-6 lg:p-8 border-2 transition-colors duration-300 ${
+                    isDark
+                      ? 'bg-slate-800 border-slate-700'
+                      : 'bg-white border-slate-100'
+                  }`}
                 >
                   <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                        <i className="fas fa-lock text-green-600"></i>
+                    <h2 className={`text-2xl font-bold flex items-center gap-3 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        isDark
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-green-100 text-green-600'
+                      }`}>
+                        <i className="fas fa-lock"></i>
                       </div>
                       Security Settings
                     </h2>
-                    <p className="text-slate-500 mt-1 ml-13">
+                    <p className={`mt-1 ml-13 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                       Update your password to keep your account secure
                     </p>
                   </div>
 
                   {/* Security Info Box */}
-                  <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
-                    <i className="fas fa-shield-halved text-amber-500 text-lg mt-0.5"></i>
+                  <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${
+                    isDark
+                      ? 'bg-amber-500/20 border-amber-500/30'
+                      : 'bg-amber-50 border-amber-200'
+                  }`}>
+                    <i className={`fas fa-shield-halved text-lg mt-0.5 ${isDark ? 'text-amber-400' : 'text-amber-500'}`}></i>
                     <div>
-                      <h4 className="font-semibold text-amber-900">Password Requirements</h4>
-                      <ul className="text-sm text-amber-700 mt-2 space-y-1">
+                      <h4 className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>Password Requirements</h4>
+                      <ul className={`text-sm mt-2 space-y-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
                         <li>
-                          <i className="fas fa-check-circle mr-2 text-amber-500"></i>Minimum 6
+                          <i className={`fas fa-check-circle mr-2 ${isDark ? 'text-amber-400' : 'text-amber-500'}`}></i>Minimum 6
                           characters
                         </li>
                         <li>
-                          <i className="fas fa-check-circle mr-2 text-amber-500"></i>Confirmation
+                          <i className={`fas fa-check-circle mr-2 ${isDark ? 'text-amber-400' : 'text-amber-500'}`}></i>Confirmation
                           must match
                         </li>
                         <li>
-                          <i className="fas fa-check-circle mr-2 text-amber-500"></i>Current
+                          <i className={`fas fa-check-circle mr-2 ${isDark ? 'text-amber-400' : 'text-amber-500'}`}></i>Current
                           password required for verification
                         </li>
                       </ul>
@@ -658,8 +880,8 @@ const Settings = () => {
 
                   <form onSubmit={handlePasswordSubmit} className="space-y-5">
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        <i className="fas fa-key mr-2 text-slate-400"></i>
+                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        <i className={`fas fa-key mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                         Current Password
                       </label>
                       <div className="relative">
@@ -668,13 +890,21 @@ const Settings = () => {
                           name="currentPassword"
                           value={formData.currentPassword}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-500/20 transition-all outline-none"
+                          className={`w-full px-4 py-3 pr-12 rounded-xl border-2 focus:ring-4 transition-all outline-none ${
+                            isDark
+                              ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-green-500/20'
+                              : 'border-slate-200 bg-white text-slate-800 focus:border-green-500 focus:ring-green-500/20'
+                          }`}
                           placeholder="Enter your current password"
                         />
                         <button
                           type="button"
                           onClick={() => togglePasswordVisibility('current')}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer"
+                          className={`absolute right-4 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer ${
+                            isDark
+                              ? 'text-slate-500 hover:text-slate-400'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
                         >
                           <i
                             className={`fas ${showPasswords.current ? 'fa-eye-slash' : 'fa-eye'}`}
@@ -684,8 +914,8 @@ const Settings = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        <i className="fas fa-lock mr-2 text-slate-400"></i>
+                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        <i className={`fas fa-lock mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                         New Password
                       </label>
                       <div className="relative">
@@ -694,13 +924,21 @@ const Settings = () => {
                           name="newPassword"
                           value={formData.newPassword}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-500/20 transition-all outline-none"
+                          className={`w-full px-4 py-3 pr-12 rounded-xl border-2 focus:ring-4 transition-all outline-none ${
+                            isDark
+                              ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-green-500/20'
+                              : 'border-slate-200 bg-white text-slate-800 focus:border-green-500 focus:ring-green-500/20'
+                          }`}
                           placeholder="Enter new password (min. 6 characters)"
                         />
                         <button
                           type="button"
                           onClick={() => togglePasswordVisibility('new')}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer"
+                          className={`absolute right-4 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer ${
+                            isDark
+                              ? 'text-slate-500 hover:text-slate-400'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
                         >
                           <i className={`fas ${showPasswords.new ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                         </button>
@@ -708,8 +946,8 @@ const Settings = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        <i className="fas fa-lock mr-2 text-slate-400"></i>
+                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        <i className={`fas fa-lock mr-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}></i>
                         Confirm New Password
                       </label>
                       <div className="relative">
@@ -718,13 +956,21 @@ const Settings = () => {
                           name="confirmPassword"
                           value={formData.confirmPassword}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-500/20 transition-all outline-none"
+                          className={`w-full px-4 py-3 pr-12 rounded-xl border-2 focus:ring-4 transition-all outline-none ${
+                            isDark
+                              ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-green-500/20'
+                              : 'border-slate-200 bg-white text-slate-800 focus:border-green-500 focus:ring-green-500/20'
+                          }`}
                           placeholder="Confirm your new password"
                         />
                         <button
                           type="button"
                           onClick={() => togglePasswordVisibility('confirm')}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer"
+                          className={`absolute right-4 top-1/2 -translate-y-1/2 border-none bg-transparent cursor-pointer ${
+                            isDark
+                              ? 'text-slate-500 hover:text-slate-400'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
                         >
                           <i
                             className={`fas ${showPasswords.confirm ? 'fa-eye-slash' : 'fa-eye'}`}
@@ -735,8 +981,8 @@ const Settings = () => {
                         <p
                           className={`mt-2 text-sm font-medium flex items-center gap-2 ${
                             formData.newPassword === formData.confirmPassword
-                              ? 'text-green-600'
-                              : 'text-red-500'
+                              ? isDark ? 'text-green-400' : 'text-green-600'
+                              : isDark ? 'text-red-400' : 'text-red-500'
                           }`}
                         >
                           <i
@@ -749,13 +995,17 @@ const Settings = () => {
                       )}
                     </div>
 
-                    <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+                    <div className={`pt-6 flex flex-col sm:flex-row gap-3 ${isDark ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         type="submit"
                         disabled={isLoading}
-                        className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg disabled:opacity-50 transition-all border-none cursor-pointer"
+                        className={`px-6 py-3 font-semibold rounded-xl shadow-lg disabled:opacity-50 transition-all border-none cursor-pointer ${
+                          isDark
+                            ? 'bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-500 hover:to-emerald-600 text-white'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+                        }`}
                       >
                         {isLoading ? (
                           <>
@@ -779,7 +1029,11 @@ const Settings = () => {
                             confirmPassword: '',
                           }))
                         }
-                        className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl transition-all border-none cursor-pointer"
+                        className={`px-6 py-3 font-semibold rounded-xl transition-all border-none cursor-pointer ${
+                          isDark
+                            ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                            : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                        }`}
                       >
                         <i className="fas fa-eraser mr-2"></i>
                         Clear Fields
