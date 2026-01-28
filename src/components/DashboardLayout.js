@@ -38,6 +38,7 @@ const DashboardLayout = ({ children }) => {
     { id: 'excelsync', label: 'Excel Sync', icon: 'fa-file-excel', path: '/excel-sync' },
     { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
     { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
+    { id: 'clearance', label: 'Issue Clearance', icon: 'fa-certificate', path: '/clearances' },
     { id: 'addaccount', label: 'Add Account', icon: 'fa-user-plus', path: '/add-account' },
     { id: 'caselist', label: 'Terminated Cases', icon: 'fa-archive', path: '/caselist' },
     { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
@@ -47,6 +48,7 @@ const DashboardLayout = ({ children }) => {
     { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', path: '/dashboard' },
     { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
     { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
+    { id: 'clearance', label: 'Issue Clearance', icon: 'fa-certificate', path: '/clearances' },
     { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
   ];
 
