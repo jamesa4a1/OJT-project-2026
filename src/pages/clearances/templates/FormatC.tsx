@@ -313,9 +313,7 @@ export const getFormatCHtml = (formData: FormData, fullName: string, generatedOR
   return `
     <div class="certification-body" style="color: #000080;">
       <!-- Note -->
-      <p style="font-size: 9pt; font-style: italic; margin-bottom: 8pt; margin-top: 0; color: #000080;">
-        Note: Valid until 6 months from the date issued.
-      </p>
+      
 
       <!-- Main certification paragraph -->
       <p style="text-indent: 0.5in; text-align: justify; margin-bottom: 10pt; font-size: 12pt; line-height: 1.6; margin-top: 0; color: #000080;">
@@ -354,7 +352,7 @@ export const getFormatCHtml = (formData: FormData, fullName: string, generatedOR
 
         <!-- Right side - Thumbmark -->
         <div style="text-align: center;">
-          <div style="width: 1.0in; height: 1.0in; border: 2px solid #000080; background-color: #fff; margin-bottom: 2pt;"></div>
+          <div style="width: 1.3in; height: 1.0in; border: 3px solid #000080; background-color: #fff; margin-bottom: 2pt;"></div>
           <p style="font-size: 8pt; color: #000080; margin-top: 0; margin-bottom: 0;">
             RIGHT THUMBMARK
           </p>
