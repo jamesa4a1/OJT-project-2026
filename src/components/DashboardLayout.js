@@ -38,7 +38,7 @@ const DashboardLayout = ({ children }) => {
     { id: 'excelsync', label: 'Excel Sync', icon: 'fa-file-excel', path: '/excel-sync' },
     { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
     { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
-    { id: 'clearance', label: 'Issue Clearance', icon: 'fa-certificate', path: '/clearances' },
+    { id: 'clearance', label: 'Issue Clearance', icon: 'fa-clipboard-check', path: '/clearances' },
     { id: 'addaccount', label: 'Add Account', icon: 'fa-user-plus', path: '/add-account' },
     { id: 'caselist', label: 'Terminated Cases', icon: 'fa-archive', path: '/caselist' },
     { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
@@ -48,7 +48,7 @@ const DashboardLayout = ({ children }) => {
     { id: 'dashboard', label: 'Dashboard', icon: 'fa-th-large', path: '/dashboard' },
     { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
     { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
-    { id: 'clearance', label: 'Issue Clearance', icon: 'fa-certificate', path: '/clearances' },
+    { id: 'clearance', label: 'Issue Clearance', icon: 'fa-clipboard-check', path: '/clearances' },
     { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },
   ];
 
@@ -145,29 +145,29 @@ const DashboardLayout = ({ children }) => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className={`absolute right-0 mt-3 w-72 rounded-2xl shadow-2xl overflow-hidden transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}
+                  className={`absolute right-0 mt-3 w-64 rounded-xl shadow-lg overflow-hidden transition-colors duration-300 ${isDark ? 'bg-slate-800 border border-slate-700/50' : 'bg-white border border-slate-200'}`}
                   style={{ zIndex: 9999 }}
                 >
                   <div
-                    className={`p-4 border-b transition-colors duration-300 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50'}`}
+                    className={`p-3 border-b transition-colors duration-300 ${isDark ? 'border-slate-700/50 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}
                   >
                     <p
-                      className={`text-base font-bold truncate mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}
+                      className={`text-sm font-bold truncate mb-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}
                     >
                       {user?.name}
                     </p>
                     <p
-                      className={`text-sm truncate mb-3 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}
+                      className={`text-xs truncate mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}
                     >
                       {user?.email}
                     </p>
                     <span
-                      className={`inline-block px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${
+                      className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold shadow-sm ${
                         user?.role === 'Admin'
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-purple-500 text-white'
                           : user?.role === 'Staff'
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-blue-600 text-white'
+                            ? 'bg-teal-500 text-white'
+                            : 'bg-blue-500 text-white'
                       }`}
                     >
                       {user?.role}
@@ -176,42 +176,42 @@ const DashboardLayout = ({ children }) => {
 
                   {/* Dark Mode Toggle */}
                   <motion.button
-                    whileHover={{ backgroundColor: isDark ? '#334155' : '#f1f5f9' }}
+                    whileHover={{ backgroundColor: isDark ? '#334155' : '#f8fafc' }}
                     whileTap={{ scale: 0.98 }}
                     onClick={toggleTheme}
-                    className={`w-full flex items-center justify-between px-4 py-3.5 transition-all text-left border-none cursor-pointer font-medium ${isDark ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-white text-slate-700 hover:bg-slate-100'}`}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 transition-all text-left border-none cursor-pointer font-medium ${isDark ? 'bg-slate-800 text-slate-200 hover:bg-slate-700/50' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-500'}`}
+                        className={`w-7 h-7 rounded-md flex items-center justify-center transition-all duration-300 text-sm ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-500'}`}
                       >
-                        <i className={`fas ${isDark ? 'fa-moon' : 'fa-sun'} text-lg`}></i>
+                        <i className={`fas ${isDark ? 'fa-moon' : 'fa-sun'}`}></i>
                       </div>
-                      <span className="font-semibold text-base">
+                      <span className="font-medium text-sm">
                         {isDark ? 'Dark Mode' : 'Light Mode'}
                       </span>
                     </div>
                     <div
-                      className={`w-12 h-6 rounded-full p-1 transition-all duration-300 ${isDark ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-all duration-300 ${isDark ? 'bg-indigo-600' : 'bg-slate-300'}`}
                     >
                       <motion.div
                         layout
-                        className="w-4 h-4 rounded-full bg-white shadow-md"
-                        animate={{ x: isDark ? 24 : 0 }}
+                        className="w-3.5 h-3.5 rounded-full bg-white shadow-md"
+                        animate={{ x: isDark ? 20 : 0 }}
                         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                       />
                     </div>
                   </motion.button>
 
-                  <div className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                  <div className={`border-t ${isDark ? 'border-slate-700/50' : 'border-slate-100'}`}>
                     <motion.button
                       whileHover={{ backgroundColor: isDark ? '#7f1d1d' : '#fef2f2' }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleLogout}
-                      className={`w-full flex items-center gap-3 px-4 py-3.5 text-red-500 transition-all text-left border-none cursor-pointer font-medium ${isDark ? 'bg-slate-800 hover:bg-red-900/30' : 'bg-white hover:bg-red-50'}`}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-red-500 transition-all text-left border-none cursor-pointer font-medium ${isDark ? 'bg-slate-800 hover:bg-red-900/20' : 'bg-white hover:bg-red-50'}`}
                     >
-                      <i className="fas fa-sign-out-alt w-5 text-lg"></i>
-                      <span className="font-semibold text-base">Sign Out</span>
+                      <i className="fas fa-sign-out-alt text-sm"></i>
+                      <span className="font-medium text-sm">Sign Out</span>
                     </motion.button>
                   </div>
                 </motion.div>

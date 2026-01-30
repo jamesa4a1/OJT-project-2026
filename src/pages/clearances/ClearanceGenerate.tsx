@@ -6,27 +6,26 @@ import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import config from '../../config';
 
-// Import templates from separate files
+// Import from unified template
 import { 
-  FORMAT_TYPES, 
   CIVIL_STATUS_OPTIONS, 
-  CASE_STATUS_OPTIONS, 
   PURPOSE_OPTIONS,
+  FORMAT_OPTIONS,
+  FORMAT_FIELDS,
+  SEX_OPTIONS,
+  BLOOD_TYPE_OPTIONS,
   getOrdinalSuffix,
-  getPrintTemplateByFormat,
-  FormatAPreview,
-  FormatBPreview,
-  FormatCPreview,
-  FormatDPreview,
-  FormatEPreview,
-  FormatFPreview,
+  ClearancePreview,
+  getPrintTemplate,
 } from './templates';
-import type { CriminalCase, FormData } from './templates/types';
 
+// Used in handlePrint function
+void getOrdinalSuffix;
+import type { CriminalCase, FormData } from './templates';
 
-// Official DOJ and Bagong Pilipinas logos - Replace these paths with actual logo files
-const DOJ_SEAL = '/images/logos/doj-seal.png';
-const BAGONG_PILIPINAS_SEAL = '/images/logos/bagong-pilipinas.png';
+// Official DOJ and Bagong Pilipinas logos
+const DOJ_SEAL = `${process.env.PUBLIC_URL || ''}/images/logos/doj-seal.png`;
+const BAGONG_PILIPINAS_SEAL = `${process.env.PUBLIC_URL || ''}/images/logos/bagong-pilipinas.png`;
 
 const ClearanceGenerate: React.FC = () => {
   const navigate = useNavigate();
@@ -62,9 +61,21 @@ const ClearanceGenerate: React.FC = () => {
     suffix: '',
     alias: '',
     age: '',
+    sex: 'Male',
     civil_status: 'Single',
     nationality: 'Filipino',
     address: '',
+    birth_date: '',
+    birth_place: '',
+    height: '',
+    weight: '',
+    blood_type: '',
+    distinguishing_marks: '',
+    id_presented: '',
+    id_number: '',
+    ctc_number: '',
+    ctc_issued_at: '',
+    ctc_issued_on: '',
     purpose: 'Local Employment',
     purpose_fee: 50,
     custom_purpose: '',
@@ -85,6 +96,7 @@ const ClearanceGenerate: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [hasCriminalRecord, setHasCriminalRecord] = useState(false);
 
   // Load clearance data if editing
   useEffect(() => {
@@ -93,7 +105,7 @@ const ClearanceGenerate: React.FC = () => {
         .then(response => {
           const data = response.data;
           setFormData({
-            format_type: data.format_type || 'A',
+            format_type: 'A',
             first_name: data.first_name || '',
             middle_name: data.middle_name || '',
             last_name: data.last_name || '',
@@ -122,6 +134,7 @@ const ClearanceGenerate: React.FC = () => {
             criminal_cases: data.criminal_cases || [{ case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }],
           });
           setGeneratedOR(data.or_number);
+          setHasCriminalRecord(data.has_criminal_record || false);
         })
         .catch(err => {
           console.error('Error loading clearance:', err);
@@ -132,44 +145,38 @@ const ClearanceGenerate: React.FC = () => {
 
   // Update expiry date when issued date or validity period changes
   useEffect(() => {
-    if (formData.date_issued) {
-      setFormData(prev => ({
+    if (formData.date_issued && formData.validity_period) {
+      setFormData((prev: FormData) => ({
         ...prev,
-        validity_expiry: getExpiryDate(prev.date_issued, prev.validity_period)
+        validity_expiry: getExpiryDate(prev.date_issued, prev.validity_period || '6 Months')
       }));
     }
   }, [formData.date_issued, formData.validity_period]);
 
-  // Initialize criminal_cases when format changes
+  // Auto-hide success message after 4 seconds
   useEffect(() => {
-    const formatConfig = FORMAT_TYPES[formData.format_type as keyof typeof FORMAT_TYPES];
-    if (formatConfig.hasCR) {
-      // If format requires criminal records, ensure criminal_cases is initialized
-      if (!formData.criminal_cases || formData.criminal_cases.length === 0) {
-        setFormData(prev => ({
-          ...prev,
-          criminal_cases: [{ case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }]
-        }));
-      }
+    if (submitStatus?.type === 'success') {
+      const timer = setTimeout(() => {
+        setSubmitStatus(null);
+      }, 4000);
+      return () => clearTimeout(timer);
     }
-  }, [formData.format_type]);
+  }, [submitStatus]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // Handle purpose selection with fee
     if (name === 'purpose') {
-      const selectedPurpose = PURPOSE_OPTIONS.find(p => p.name === value);
-      setFormData(prev => ({
+      const selectedPurpose = PURPOSE_OPTIONS.find((p: { name: string; fee: number }) => p.name === value);
+      setFormData((prev: FormData) => ({
         ...prev,
         purpose: value,
         purpose_fee: selectedPurpose?.fee || 0,
       }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev: FormData) => ({ ...prev, [name]: value }));
     }
     
-    // Clear error when user starts typing
     if (errors[name as keyof FormData]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -177,55 +184,42 @@ const ClearanceGenerate: React.FC = () => {
 
   // Helper functions for managing multiple criminal cases
   const addCriminalCase = () => {
-    setFormData(prev => ({
+    setFormData((prev: FormData) => ({
       ...prev,
-      criminal_cases: [...prev.criminal_cases, { case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }]
+      criminal_cases: [...(prev.criminal_cases || []), { case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }]
     }));
   };
 
   const removeCriminalCase = (index: number) => {
-    if (formData.criminal_cases.length > 1) {
-      setFormData(prev => ({
+    if ((formData.criminal_cases?.length || 0) > 1) {
+      setFormData((prev: FormData) => ({
         ...prev,
-        criminal_cases: prev.criminal_cases.filter((_, i) => i !== index)
+        criminal_cases: (prev.criminal_cases || []).filter((_: CriminalCase, i: number) => i !== index)
       }));
     }
   };
 
   const updateCriminalCase = (index: number, field: keyof CriminalCase, value: string) => {
-    setFormData(prev => ({
+    setFormData((prev: FormData) => ({
       ...prev,
-      criminal_cases: prev.criminal_cases.map((c, i) => i === index ? { ...c, [field]: value } : c)
+      criminal_cases: (prev.criminal_cases || []).map((c: CriminalCase, i: number) => i === index ? { ...c, [field]: value } : c)
     }));
   };
 
   const validateForm = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
-    const formatConfig = FORMAT_TYPES[formData.format_type as keyof typeof FORMAT_TYPES];
     
-    // Required fields
     if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
     if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
-    if (!formData.age || parseInt(formData.age) < 18 || parseInt(formData.age) > 120) {
+    if (!formData.age || parseInt(formData.age.toString()) < 18 || parseInt(formData.age.toString()) > 120) {
       newErrors.age = 'Age must be between 18 and 120';
     }
     if (!formData.address.trim()) newErrors.address = 'Address is required';
     if (!formData.purpose) newErrors.purpose = 'Purpose is required';
-    if (formData.purpose === 'Other' && !formData.custom_purpose.trim()) {
+    if (formData.purpose === 'Other' && !formData.custom_purpose?.trim()) {
       newErrors.custom_purpose = 'Please specify the purpose';
     }
-    if (!formData.prc_id_number.trim()) newErrors.prc_id_number = 'O.R No is required';
-    
-    // Criminal record fields (required for Format B and D)
-    if (formatConfig.hasCR) {
-      if (!formData.case_numbers.trim()) newErrors.case_numbers = 'Case number(s) required';
-      if (!formData.crime_description.trim()) newErrors.crime_description = 'Crime description required';
-      if (!formData.legal_statute.trim()) newErrors.legal_statute = 'Legal statute required';
-      if (!formData.date_of_commission) newErrors.date_of_commission = 'Date of commission required';
-      if (!formData.date_information_filed) newErrors.date_information_filed = 'Date filed required';
-      if (!formData.case_status) newErrors.case_status = 'Case status required';
-      if (!formData.court_branch.trim()) newErrors.court_branch = 'Court/Branch required';
-    }
+    if (!formData.prc_id_number?.trim()) newErrors.prc_id_number = 'O.R No is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -243,12 +237,11 @@ const ClearanceGenerate: React.FC = () => {
     setSubmitStatus(null);
     
     try {
-      const formatConfig = FORMAT_TYPES[formData.format_type as keyof typeof FORMAT_TYPES];
       const payload = {
         ...formData,
         purpose: formData.purpose === 'Other' ? formData.custom_purpose : formData.purpose,
-        has_criminal_record: formatConfig.hasCR,
-        age: parseInt(formData.age),
+        has_criminal_record: hasCriminalRecord,
+        age: parseInt(formData.age.toString()),
         issued_by_user_id: user?.id,
         issued_by_name: user?.name,
       };
@@ -275,11 +268,12 @@ const ClearanceGenerate: React.FC = () => {
         setGeneratedOR(response.data.data.or_number);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: string } } };
       console.error('Error saving clearance:', error);
       setSubmitStatus({ 
         type: 'error', 
-        message: error.response?.data?.error || 'Failed to save clearance' 
+        message: axiosError.response?.data?.error || 'Failed to save clearance' 
       });
     } finally {
       setIsSubmitting(false);
@@ -295,9 +289,21 @@ const ClearanceGenerate: React.FC = () => {
       suffix: '',
       alias: '',
       age: '',
+      sex: 'Male',
       civil_status: 'Single',
       nationality: 'Filipino',
       address: '',
+      birth_date: '',
+      birth_place: '',
+      height: '',
+      weight: '',
+      blood_type: '',
+      distinguishing_marks: '',
+      id_presented: '',
+      id_number: '',
+      ctc_number: '',
+      ctc_issued_at: '',
+      ctc_issued_on: '',
       purpose: 'Local Employment',
       purpose_fee: 50,
       custom_purpose: '',
@@ -319,10 +325,10 @@ const ClearanceGenerate: React.FC = () => {
     setErrors({});
     setSubmitStatus(null);
     setGeneratedOR(null);
+    setHasCriminalRecord(false);
   };
 
   const handleDownloadPDF = async () => {
-    // Dynamic import of html2pdf
     const html2pdf = (await import('html2pdf.js')).default;
     
     const element = document.getElementById('certificate-preview');
@@ -331,7 +337,7 @@ const ClearanceGenerate: React.FC = () => {
     const opt = {
       margin: 0.5,
       filename: `clearance_${generatedOR || 'preview'}_${formData.last_name}.pdf`,
-      image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
@@ -339,7 +345,6 @@ const ClearanceGenerate: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     html2pdf().set(opt as any).from(element).save();
     
-    // Log the download if we have a clearance ID
     if (editId) {
       try {
         await axios.post(`${config.api.baseURL}/api/clearances/${editId}/log-download`, {
@@ -353,14 +358,22 @@ const ClearanceGenerate: React.FC = () => {
   };
 
   const handlePrint = () => {
-    // Create a new window for printing
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
     const certificateElement = document.getElementById('certificate-preview');
     if (!certificateElement) return;
     
-    // Build clean certificate content for print (matching Word document format exactly)
+    // Build full name for print template
+    const printFullName = [
+      formData.first_name.toUpperCase(),
+      formData.middle_name ? `${formData.middle_name.charAt(0).toUpperCase()}.` : '',
+      formData.last_name.toUpperCase(),
+      formData.suffix ? formData.suffix.toUpperCase() : ''
+    ].filter(Boolean).join(' ');
+
+    const textColor = formData.format_type === 'B' ? '#000000' : '#00008B';
+    
     const printDocument = `
       <!DOCTYPE html>
       <html>
@@ -385,7 +398,7 @@ const ClearanceGenerate: React.FC = () => {
               font-family: "Century Gothic", Arial, sans-serif;
               font-size: 12pt;
               line-height: 1.0;
-              color: ${formData.format_type === 'A' ? '#00008B' : '#000000'};
+              color: ${textColor};
               background: white;
             }
             
@@ -396,7 +409,6 @@ const ClearanceGenerate: React.FC = () => {
               padding: 0;
             }
             
-            /* Header Section */
             .header {
               display: flex;
               align-items: flex-start;
@@ -421,176 +433,55 @@ const ClearanceGenerate: React.FC = () => {
               line-height: 1.0;
             }
             
-            .header-text .republic {
-              font-size: 12pt;
-              font-style: normal;
-            }
+            .header-text .republic { font-size: 12pt; font-style: normal; }
+            .header-text .dept { font-size: 12pt; font-style: normal; }
+            .header-text .office { font-size: 12pt; font-weight: bold; }
+            .header-text .city { font-size: 12pt; font-style: normal; }
+            .header-text .address { font-size: 9pt; font-style: italic; }
+            .header-text .email { font-size: 9pt; font-style: italic; }
+            .header-text .email a { color: #0000FF; text-decoration: underline; font-style: italic; }
             
-            .header-text .dept {
-              font-size: 12pt;
-              font-style: normal;
-            }
+            .title { text-align: center; margin: 4pt 0 8pt 0; }
+            .title h1 { font-size: 16pt; font-weight: bold; letter-spacing: 0.15em; margin: 0; color: ${textColor}; }
             
-            .header-text .office {
-              font-size: 12pt;
-              font-weight: bold;
-            }
+            .salutation { font-size: 12pt; font-weight: bold; margin-bottom: 4pt; }
             
-            .header-text .city {
-              font-size: 12pt;
-              font-style: normal;
-            }
+            .body-text { font-size: 12pt; line-height: 1.0; text-align: justify; text-indent: 0.3in; margin-bottom: 6pt; }
+            .body-text strong { font-weight: bold; }
             
-            .header-text .address {
-              font-size: 9pt;
-              font-style: italic;
-            }
+            .no-record { text-align: center; margin: 8pt 0; font-size: 25pt; }
+            .no-record p { font-size: 25pt; font-weight: bold; color: #008000 !important; margin: 0; }
             
-            .header-text .email {
-              font-size: 9pt;
-              font-style: italic;
-            }
+            .with-record { text-align: center; margin: 8pt 0; }
+            .with-record p { font-size: 20pt; font-weight: bold; color: #DC2626 !important; margin: 0; }
             
-            .header-text .email a {
-              color: #0000FF;
-              text-decoration: underline;
-              font-style: italic;
-            }
+            .details { margin-left: 0.3in; font-size: 12pt; line-height: 1.0; }
+            .details p { margin: 0 0 2pt 0; }
             
-            /* Title */
-            .title {
-              text-align: center;
-              margin: 4pt 0 8pt 0;
-            }
+            .witness { font-size: 12pt; line-height: 1.0; text-align: justify; text-indent: 0.3in; }
             
-            .title h1 {
-              font-size: 16pt;
-              font-weight: bold;
-              letter-spacing: 0.15em;
-              margin: 0;
-              color: ${formData.format_type === 'A' ? '#00008B' : '#000000'};
-            }
+            .signature { text-align: right; margin-top: 14pt; margin-right: 0.3in; display: flex; flex-direction: column; align-items: flex-end; }
+            .signature .for-prosecutor { font-size: 12pt; font-weight: bold; margin-bottom: 32pt; text-align: right; text-transform: uppercase; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
+            .signature .name { font-size: 12pt; font-weight: bold; margin-bottom: 0; margin-right: 25pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
+            .signature .position { font-size: 12pt; font-style: italic; margin-top: 0pt; margin-right: 5pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
             
-            /* Salutation */
-            .salutation {
-              font-size: 12pt;
-              font-weight: bold;
-              margin-bottom: 4pt;
-            }
+            .footer { margin-top: 18pt; font-size: 12pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
+            .footer p { margin: 0 0 2pt 0; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
+            .footer .note { font-style: italic; font-size: 9pt; margin-top: 8pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
             
-            /* Body */
-            .body-text {
-              font-size: 12pt;
-              line-height: 1.0;
-              text-align: justify;
-              text-indent: 0.3in;
-              margin-bottom: 6pt;
-            }
-            
-            .body-text strong {
-              font-weight: bold;
-            }
-            
-            /* NO CRIMINAL RECORD */
-            .no-record {
-              text-align: center;
-              margin: 8pt 0;
-              font-size: 25pt;
-            }
-            
-            .no-record p {
-              font-size: 25pt;
-              font-weight: bold;
-              color: #008000 !important;
-              margin: 0;
-            }
-            
-            /* Details */
-            .details {
-              margin-left: 0.3in;
-              font-size: 12pt;
-              line-height: 1.0;
-            }
-            
-            .details p {
-              margin: 0 0 2pt 0;
-            }
-            
-            /* Witness */
-            .witness {
-              font-size: 12pt;
-              line-height: 1.0;
-              text-align: justify;
-              text-indent: 0.3in;
-              
-            }
-            
-            /* Signature Section */
-            .signature {
-              text-align: right;
-              margin-top: 14pt;
-              margin-right: 0.3in;
-              display: flex;
-              flex-direction: column;
-              align-items: flex-end;
-            }
-            
-            .signature .for-prosecutor {
-              font-size: 12pt;
-              font-weight: bold;
-              margin-bottom: 32pt;
-              text-align: right;
-            }
-            
-            .signature .name {
-              font-size: 12pt;
-              font-weight: bold;
-              margin-bottom: 0;
-              margin-right: 25pt;
-            }
-            
-            .signature .position {
-              font-size: 12pt;
-              font-style: italic;
-              margin-top: 0pt;
-              margin-right: 5pt;
-            }
-            
-            /* Footer */
-            .footer {
-              margin-top: 18pt;
-              font-size: 12pt;
-            }
-            
-            .footer p {
-              margin: 0 0 2pt 0;
-            }
-            
-            .footer .note {
-              font-style: italic;
-              font-size: 12pt;
-              margin-top: 8pt;
-            }
+            .criminal-case { margin-left: 0.3in; margin-bottom: 10pt; padding: 10pt; border-left: 2px solid #DC2626; }
+            .criminal-case p { margin: 2pt 0; font-size: 10pt; }
             
             @media print {
-              body {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              
-              .no-record p {
-                color: #008000 !important;
-              }
-              
-              .header-text .email a {
-                color: #0000FF !important;
-              }
+              body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              .no-record p { color: #008000 !important; }
+              .with-record p { color: #DC2626 !important; }
+              .header-text .email a { color: #0000FF !important; }
             }
           </style>
         </head>
         <body>
           <div class="certificate-container">
-            <!-- Header -->
             <div class="header">
               <img src="${(document.querySelector('#certificate-preview img:first-of-type') as HTMLImageElement)?.src || ''}" alt="DOJ Seal" />
               <div class="header-text">
@@ -607,35 +498,28 @@ const ClearanceGenerate: React.FC = () => {
             
             <br>
             
-            <!-- Title -->
             <div class="title">
-              <h1>C E R T I F I C A T I O N</h1>
+              <h1 style="font-size: 20pt;">${formData.format_type === 'C' ? 'CERTIFICATE OF CLEARANCE' : 'C E R T I F I C A T I O N'}</h1>
             </div>
             
             <br>
             
-            <!-- Salutation -->
             <p class="salutation">TO WHOM IT MAY CONCERN:</p>
             
             <br>
             
-            <!-- Body - Format Specific Content (imported from template files) -->
-            ${getPrintTemplateByFormat(formData.format_type, { formData, fullName, generatedOR, getOrdinalSuffix })}
+            ${getPrintTemplate({ formData, fullName: printFullName, generatedOR })}
             
             <br>
             
-            <!-- Signature -->
             <div class="signature">
               <p class="for-prosecutor">FOR THE CITY PROSECUTOR:</p>
-             
-              
               <p class="name">REGIE C. POCON</p>
               <p class="position">Administrative Officer V</p>
             </div>
             
             <br>
             
-            <!-- Footer -->
             <div class="footer">
               <p>O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
               <p>Date: <strong><u>${new Date(formData.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</u></strong></p>
@@ -655,17 +539,15 @@ const ClearanceGenerate: React.FC = () => {
       </html>
     `;
     
-    // Write the document and print
     printWindow.document.write(printDocument);
     printWindow.document.close();
   };
 
-  const formatConfig = FORMAT_TYPES[formData.format_type as keyof typeof FORMAT_TYPES];
+  // Text color for preview
+  const textColor = '#00008B';
   
-  // Determine text color based on format (Form A = navy blue, others = black)
-  const textColor = formData.format_type === 'A' ? '#00008B' : '#000000';
-  
-  // Build full name for preview
+  // Build full name for preview (used in print template)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fullName = [
     formData.first_name.toUpperCase(),
     formData.middle_name ? `${formData.middle_name.charAt(0).toUpperCase()}.` : '',
@@ -680,11 +562,6 @@ const ClearanceGenerate: React.FC = () => {
   }`;
 
   const labelClasses = `block text-xs font-semibold mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`;
-  
-  const fieldSpacing = 'space-y-1.5';
-  const fieldContainerClass = 'space-y-1.5';
-
-  const labelClasses2 = `block text-xs font-semibold mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -713,9 +590,17 @@ const ClearanceGenerate: React.FC = () => {
               <div>
                 <div className="flex items-center space-x-3">
                   <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${
-                    isDark ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-600'
+                    isDark ? 'bg-blue-900/50' : 'bg-blue-100'
                   }`}>
-                    <i className="fas fa-file-alt"></i>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="5" y="3" width="12" height="18" rx="1" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" fill="none"/>
+                      <rect x="8" y="1.5" width="6" height="2" rx="0.5" fill={isDark ? '#60a5fa' : '#2563eb'}/>
+                      <line x1="7" y1="7" x2="16" y2="7" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                      <line x1="7" y1="10" x2="16" y2="10" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                      <line x1="7" y1="13" x2="13" y2="13" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                      <circle cx="16" cy="16" r="3.5" fill={isDark ? '#60a5fa' : '#2563eb'} opacity="0.1"/>
+                      <path d="M14.5 16L15.5 17L17.5 15" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                    </svg>
                   </div>
                   <h1 className={`text-3xl font-bold tracking-tight ${
                     isDark ? 'text-white' : 'text-gray-900'
@@ -755,15 +640,7 @@ const ClearanceGenerate: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              onAnimationComplete={() => {
-                if (submitStatus.type === 'success') {
-                  const timer = setTimeout(() => {
-                    setSubmitStatus(null);
-                  }, 3000);
-                  return () => clearTimeout(timer);
-                }
-              }}
-              className={`relative overflow-hidden rounded-xl p-4 ${
+              className={`relative overflow-hidden rounded-xl p-4 mb-6 ${
                 submitStatus.type === 'success'
                   ? isDark 
                     ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-500/30 shadow-lg shadow-emerald-500/10' 
@@ -783,22 +660,8 @@ const ClearanceGenerate: React.FC = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold">{submitStatus.message}</p>
-                  {submitStatus.type === 'error' && Object.keys(errors).length > 0 && (
-                    <ul className="mt-2 text-sm space-y-1 opacity-90">
-                      {Object.entries(errors).map(([field, message]) => (
-                        <li key={field} className="flex items-center space-x-2">
-                          <span className="w-1 h-1 bg-current rounded-full flex-shrink-0"></span>
-                          <span>{message}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               </div>
-              {/* Accent line */}
-              <div className={`absolute bottom-0 left-0 right-0 h-1 ${
-                submitStatus.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
-              }`} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -824,20 +687,35 @@ const ClearanceGenerate: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${
-                      isDark ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-100 text-emerald-600'
+                      isDark ? 'bg-emerald-900/50' : 'bg-emerald-100'
                     }`}>
-                      <i className="fas fa-eye"></i>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="5" y="3" width="12" height="18" rx="1" stroke={isDark ? '#4ade80' : '#16a34a'} strokeWidth="1.5" fill="none"/>
+                        <rect x="8" y="1.5" width="6" height="2" rx="0.5" fill={isDark ? '#4ade80' : '#16a34a'}/>
+                        <line x1="7" y1="7" x2="16" y2="7" stroke={isDark ? '#4ade80' : '#16a34a'} strokeWidth="1" opacity="0.5"/>
+                        <line x1="7" y1="10" x2="16" y2="10" stroke={isDark ? '#4ade80' : '#16a34a'} strokeWidth="1" opacity="0.5"/>
+                        <line x1="7" y1="13" x2="13" y2="13" stroke={isDark ? '#4ade80' : '#16a34a'} strokeWidth="1" opacity="0.5"/>
+                        <circle cx="16" cy="16" r="3.5" fill={isDark ? '#4ade80' : '#16a34a'} opacity="0.1"/>
+                        <path d="M14.5 16L15.5 17L17.5 15" stroke={isDark ? '#4ade80' : '#16a34a'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                      </svg>
                     </div>
                     <div>
-                      <h2 className={`text-xl font-bold ${
-                        isDark ? 'text-white' : 'text-slate-900'
-                      }`}>
-                        Certificate Preview
-                      </h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className={`text-xl font-bold ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}>
+                          Certificate Preview
+                        </h2>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                          isDark ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          Format {formData.format_type}
+                        </span>
+                      </div>
                       <p className={`text-sm ${
                         isDark ? 'text-slate-400' : 'text-slate-600'
                       }`}>
-                        Real-time preview of your certificate
+                        {FORMAT_OPTIONS.find(f => f.value === formData.format_type)?.description || 'Real-time preview of your certificate'}
                       </p>
                     </div>
                   </div>
@@ -856,8 +734,8 @@ const ClearanceGenerate: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                {/* Certificate Preview - Official Format A */}
+              <div className="p-6 overflow-visible" style={{ maxHeight: 'none', overflowX: 'hidden' }}>
+                {/* Certificate Preview */}
                 <div 
                   id="certificate-preview"
                   className="bg-white text-black rounded-lg shadow-lg mx-auto"
@@ -873,220 +751,13 @@ const ClearanceGenerate: React.FC = () => {
                     background: 'white'
                   }}
                 >
-                  {/* Header with Official Logos - Form A Format */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
-                    {/* DOJ Seal - Left - 1.2" x 1.2" */}
-                    <div style={{ flexShrink: 0, width: '0.8in' }}>
-                      <img 
-                        src={DOJ_SEAL} 
-                        alt="DOJ Seal" 
-                        style={{ 
-                          width: '0.8in', 
-                          height: '0.8in',
-                          objectFit: 'contain'
-                        }}
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-
-                    {/* Center Text - Official Format */}
-                    <div style={{ flex: 1, textAlign: 'center', fontFamily: '"Century Gothic", Arial, sans-serif', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                      <p style={{ 
-                        color: textColor, 
-                        fontSize: '9pt', 
-                        fontStyle: 'italic',
-                        marginBottom: '1pt',
-                        lineHeight: '1.1',
-                        fontWeight: 'normal',
-                        margin: '0'
-                      }}>Republic of the Philippines</p>
-                      <p style={{ 
-                        color: textColor, 
-                        fontSize: '9pt', 
-                        fontStyle: 'italic',
-                        marginBottom: '1pt',
-                        lineHeight: '1.1',
-                        fontWeight: 'normal',
-                        margin: '0'
-                      }}>Department of Justice</p>
-                      <p style={{ 
-                        color: textColor, 
-                        fontSize: '11pt', 
-                        fontWeight: 'bold', 
-                        marginBottom: '1pt',
-                        lineHeight: '1.1',
-                        margin: '0'
-                      }}>OFFICE OF THE CITY PROSECUTOR</p>
-                      <p style={{ 
-                        color: textColor, 
-                        fontSize: '9pt', 
-                        marginBottom: '2pt',
-                        lineHeight: '1.1',
-                        fontWeight: 'normal',
-                        margin: '0'
-                      }}>City of Tagbilaran</p>
-                      <p style={{ 
-                        color: textColor, 
-                        fontSize: '7pt', 
-                        fontStyle: 'italic', 
-                        marginBottom: '1pt',
-                        lineHeight: '1.1',
-                        fontWeight: 'normal',
-                        margin: '0'
-                      }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-                      <p style={{ 
-                        color: textColor, 
-                        fontSize: '7pt', 
-                        fontStyle: 'italic', 
-                        marginBottom: '1pt',
-                        lineHeight: '1.1',
-                        fontWeight: 'normal',
-                        margin: '0'
-                      }}>Tel. No. 411-3403/411-2306</p>
-                      <p style={{ 
-                        color: '#000000', 
-                        fontSize: '10pt',
-                        fontStyle: 'italic', 
-                        marginBottom: '0pt',
-                        lineHeight: '1.1',
-                        fontWeight: 'normal',
-                        margin: '0'
-                      }}>
-                        Email: <a href="mailto:ocptagbilaran@doj.gov.ph" className="blue-link" style={{ 
-                          color: '#0000FF', 
-                          textDecoration: 'underline'
-                        }}>ocptagbilaran@doj.gov.ph</a>
-                      </p>
-                    </div>
-
-                    {/* Bagong Pilipinas - Right - 1.2" x 1.2" */}
-                    <div style={{ flexShrink: 0, width: '0.8in', textAlign: 'center' }}>
-                      <img 
-                        src={BAGONG_PILIPINAS_SEAL} 
-                        alt="Bagong Pilipinas" 
-                        style={{ 
-                          width: '0.8in', 
-                          height: '0.8in',
-                          objectFit: 'contain'
-                        }}
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* CERTIFICATION Title - 14-16pt, bold, all caps, centered */}
-                  <div style={{ textAlign: 'center', margin: '24pt 0 24pt 0' }}>
-                    <h1 style={{ 
-                      color: textColor, 
-                      fontSize: '20pt', 
-                      fontWeight: 'bold', 
-                      letterSpacing: '0.1em',
-                      fontFamily: '"Century Gothic", Arial, sans-serif',
-                      margin: '0',
-                      padding: '0',
-                      textTransform: 'uppercase',
-                    } as React.CSSProperties}>
-                      CERTIFICATION
-                    </h1>
-                  </div>
-
-                  {/* Body Content - Form A Official Format */}
-                  <div style={{ 
-                    textAlign: 'justify', 
-                    color: textColor, 
-                    lineHeight: '1.2',
-                    fontSize: '9pt',
-                    fontFamily: '"Century Gothic", Arial, sans-serif'
-                  }}>
-                    {/* TO WHOM IT MAY CONCERN - 11-12pt, bold, all caps, left aligned */}
-                    <p style={{ 
-                      fontWeight: 'bold', 
-                      marginBottom: '12pt',
-                      textAlign: 'left',
-                      fontSize: '10pt',
-                      textTransform: 'uppercase'
-                    }}>TO WHOM IT MAY CONCERN:</p>
-                    
-                    {/* Format-specific content - imported from template files */}
-                    {formData.format_type === 'E' ? (
-                      <FormatEPreview formData={formData} fullName={fullName} textColor={textColor} generatedOR={generatedOR} getOrdinalSuffix={getOrdinalSuffix} />
-                    ) : formData.format_type === 'F' ? (
-                      <FormatFPreview formData={formData} fullName={fullName} textColor={textColor} generatedOR={generatedOR} getOrdinalSuffix={getOrdinalSuffix} />
-                    ) : formData.format_type === 'B' ? (
-                      <FormatBPreview formData={formData} fullName={fullName} textColor={textColor} generatedOR={generatedOR} getOrdinalSuffix={getOrdinalSuffix} />
-                    ) : formData.format_type === 'D' ? (
-                      <FormatDPreview formData={formData} fullName={fullName} textColor={textColor} generatedOR={generatedOR} getOrdinalSuffix={getOrdinalSuffix} />
-                    ) : formData.format_type === 'C' ? (
-                      <FormatCPreview formData={formData} fullName={fullName} textColor={textColor} generatedOR={generatedOR} getOrdinalSuffix={getOrdinalSuffix} />
-                    ) : (
-                      <FormatAPreview formData={formData} fullName={fullName} textColor={textColor} generatedOR={generatedOR} getOrdinalSuffix={getOrdinalSuffix} />
-                    )}
-
-                  </div>
-
-                  {/* Signature Section - Form A Format */}
-                  <div style={{ 
-                    marginTop: '18pt',
-                    textAlign: 'center',
-                    color: textColor,
-                    fontFamily: 'Century Gothic',
-                    marginRight: '-205pt',
-                    
-                  }}>
-                    {/* FOR THE CITY PROSECUTOR - 11-12pt, bold, all caps, centered */}
-                    <p style={{ 
-                      fontWeight: 'bold',
-                      fontSize: '10pt',
-                      marginBottom: '48pt',
-                      textTransform: 'uppercase',
-                      color: textColor,
-                    }}>FOR THE CITY PROSECUTOR:</p>
-                    
-                    {/* Signature area with name and title */}
-                    <div>
-                      {/* Name - 11-12pt, bold, centered */}
-                      <p style={{ 
-                        fontWeight: 'bold',
-                        fontSize: '10pt',
-                        marginBottom: '2pt',
-                        color: textColor,
-                      }}>REGIE C. POCON</p>
-                      {/* Title - 10-11pt, normal, italicized, centered */}
-                      <p style={{ 
-                        fontSize: '9pt',
-                        fontStyle: 'italic',
-                        fontWeight: 'normal',
-                        color: textColor,
-                      }}>Administrative Officer V</p>
-                    </div>
-                  </div>
-
-                  {/* Footer - O.R No, Date, and Note */}
-                  <div style={{ 
-                    marginTop: '48pt',
-                    color: '#000000', 
-                    fontSize: '13pt',
-                    fontFamily: '"Century Gothic", Arial, sans-serif'
-                  }}>
-                    {/* O.R No - 10pt, bold, underlined */}
-                    <p style={{ marginBottom: '3pt', color: textColor }}>
-                      O.R No: <strong style={{ textDecoration: 'underline', color: textColor, fontWeight: 'bold' }}>{formData.prc_id_number || generatedOR || '________'}</strong>
-                    </p>
-                    {/* Date - 10pt, bold, underlined */}
-                    <p style={{ marginBottom: '12pt', color: textColor }}>
-                      Date: <strong style={{ textDecoration: 'underline', color: textColor, fontWeight: 'bold'}}>{new Date(formData.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
-                    </p>
-                    {/* Note - 8-9pt, italicized */}
-                    <p style={{ fontStyle: 'italic', fontSize: '12pt', color: textColor }}>
-                      Note: Valid until 6 months from the date issued.
-                    </p>
-                  </div>
+                  {/* Use Complete Template with Full Header and Footer */}
+                  <ClearancePreview 
+                    data={formData} 
+                    isDark={isDark} 
+                    showFullTemplate={true}
+                    generatedOR={generatedOR}
+                  />
                 </div>
               </div>
             </div>
@@ -1103,142 +774,101 @@ const ClearanceGenerate: React.FC = () => {
                 ? 'bg-slate-800/70 border border-slate-700/60 shadow-2xl shadow-slate-900/25' 
                 : 'bg-white/80 border border-slate-200/60 shadow-2xl shadow-gray-900/10'
             }`}>
-              <div className={`px-5 py-4 border-b ${
+              <div className={`px-4 py-3 border-b ${
                 isDark 
                   ? 'border-slate-700/60 bg-gradient-to-r from-slate-800/80 to-slate-700/80' 
-                  : 'border-slate-100/60 bg-gradient-to-r from-slate-50/80 to-white/80'
+                  : 'border-slate-100/60 bg-gradient-to-r from-blue-50/80 to-white/80'
               }`}>
-                <div className="flex items-center space-x-2">
-                  <div className={`inline-flex items-center justify-center w-7 h-7 rounded-lg ${
-                    isDark ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-600'
+                <div className="flex items-center space-x-2.5">
+                  <div className={`inline-flex items-center justify-center w-6 h-6 rounded-lg ${
+                    isDark ? 'bg-blue-900/50' : 'bg-blue-100'
                   }`}>
-                    <i className="fas fa-edit text-sm"></i>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="5" y="3" width="12" height="18" rx="1" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" fill="none"/>
+                      <rect x="8" y="1.5" width="6" height="2" rx="0.5" fill={isDark ? '#60a5fa' : '#2563eb'}/>
+                      <line x1="7" y1="7" x2="16" y2="7" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                      <line x1="7" y1="10" x2="16" y2="10" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                      <line x1="7" y1="13" x2="13" y2="13" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                      <circle cx="16" cy="16" r="3.5" fill={isDark ? '#60a5fa' : '#2563eb'} opacity="0.1"/>
+                      <path d="M14.5 16L15.5 17L17.5 15" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                    </svg>
                   </div>
                   <div>
-                    <h2 className={`text-base font-bold ${
-                      isDark ? 'text-white' : 'text-slate-900'
-                    }`}>
+                    <h2 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       Certificate Details
                     </h2>
-                    <p className={`text-xs ${
-                      isDark ? 'text-slate-400' : 'text-slate-600'
-                    }`}>
+                    <p className={`text-xs leading-tight ${isDark ? 'text-slate-400' : 'text-blue-600'}`}>
                       Fill in the required information
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Form Container - Compact and Scrollable */}
-              <div className="p-4 overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(100vh - 240px)', wordWrap: 'break-word' }}>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Step 1: Certificate Format */}
+              {/* Form Container */}
+              <div className="p-3 overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(100vh - 220px)', wordWrap: 'break-word' }}>
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  
+                  {/* Format Selection Section */}
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
-                        isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        1
-                      </div>
-                      <div>
-                        <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                          Certificate Format
-                        </h3>
-                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                          Select format type
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 gap-2">
-                      {Object.entries(FORMAT_TYPES).map(([key, config]) => (
-                        <motion.button
-                          key={key}
+                    <div className="grid grid-cols-2 gap-2">
+                      {FORMAT_OPTIONS.map((format) => (
+                        <button
+                          key={format.value}
                           type="button"
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.99 }}
-                          onClick={() => setFormData(prev => ({ ...prev, format_type: key }))}
-                          className={`group relative p-2 rounded-md text-left border-2 transition-all duration-200 overflow-hidden ${
-                            formData.format_type === key
+                          onClick={() => setFormData((prev: FormData) => ({ ...prev, format_type: format.value }))}
+                          className={`p-2.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                            formData.format_type === format.value
                               ? isDark
-                                ? 'border-blue-400 bg-blue-900/30 shadow-lg shadow-blue-500/25'
-                                : 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/25'
-                              : isDark 
-                                ? 'border-slate-600 hover:border-slate-500 bg-slate-700/30 hover:bg-slate-700/50'
-                                : 'border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100'
+                                ? 'border-purple-500 bg-purple-900/30 shadow-lg shadow-purple-500/20'
+                                : 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-500/20'
+                              : isDark
+                                ? 'border-slate-600 bg-slate-700/30 hover:border-slate-500'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
                           }`}
                         >
-                          <div className="flex items-start space-x-2">
-                            <div className={`flex items-center justify-center w-4 h-4 rounded-full border-2 transition-all flex-shrink-0 mt-0.5 ${
-                              formData.format_type === key 
-                                ? 'border-blue-500 bg-blue-500' 
-                                : isDark ? 'border-slate-500 group-hover:border-slate-400' : 'border-slate-300 group-hover:border-slate-400'
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-bold ${
+                              formData.format_type === format.value
+                                ? isDark ? 'text-purple-300' : 'text-purple-700'
+                                : isDark ? 'text-white' : 'text-slate-900'
                             }`}>
-                              {formData.format_type === key && (
-                                <i className="fas fa-check text-white text-xs"></i>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <span className={`text-sm font-bold ${
-                                  formData.format_type === key
-                                    ? isDark ? 'text-blue-300' : 'text-blue-700'
-                                    : isDark ? 'text-slate-300' : 'text-slate-700'
-                                }`}>
-                                  Format {key}
-                                </span>
-                                {config.hasCR && (
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                                    isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-700'
-                                  }`}>
-                                    Criminal Record
-                                  </span>
-                                )}
-                              </div>
-                              <p className={`text-xs leading-relaxed ${
-                                formData.format_type === key
-                                  ? isDark ? 'text-blue-200' : 'text-blue-600'
-                                  : isDark ? 'text-slate-400' : 'text-slate-600'
-                              }`}>
-                                {config.label}
-                              </p>
-                            </div>
+                              {format.label}
+                            </span>
+                            {formData.format_type === format.value && (
+                              <i className={`fas fa-check-circle text-xs ${isDark ? 'text-purple-400' : 'text-purple-500'}`}></i>
+                            )}
                           </div>
-                          
-                          {/* Selection indicator */}
-                          {formData.format_type === key && (
-                            <motion.div
-                              layoutId="selectedFormat"
-                              className="absolute inset-0 rounded-xl border-2 border-blue-400 bg-blue-500/5 pointer-events-none"
-                              initial={false}
-                              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                            />
-                          )}
-                        </motion.button>
+                          <p className={`text-[10px] mt-0.5 leading-tight ${
+                            formData.format_type === format.value
+                              ? isDark ? 'text-purple-400' : 'text-purple-600'
+                              : isDark ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
+                            {format.description}
+                          </p>
+                        </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Step 2: Applicant Information */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold ${
-                        isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                  {/* Step 1: Applicant Information */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                        isDark ? 'bg-blue-500 text-white' : 'bg-blue-500 text-white'
                       }`}>
-                        2
+                        1
                       </div>
                       <div>
-                        <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                           Applicant Information
                         </h3>
-                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                           Enter applicant details
                         </p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-1 gap-2.5">
                       <div className="space-y-1.5">
                         <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                           <i className="fas fa-user text-xs"></i>
@@ -1252,10 +882,7 @@ const ClearanceGenerate: React.FC = () => {
                           className={`${inputClasses} ${errors.first_name ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter first name"
                         />
-                        {errors.first_name && <p className="text-red-500 text-xs mt-1 flex items-center space-x-1">
-                          <i className="fas fa-exclamation-triangle text-xs"></i>
-                          <span>{errors.first_name}</span>
-                        </p>}
+                        {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>}
                       </div>
                       
                       <div className="space-y-1.5">
@@ -1286,10 +913,7 @@ const ClearanceGenerate: React.FC = () => {
                           className={`${inputClasses} ${errors.last_name ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter last name"
                         />
-                        {errors.last_name && <p className="text-red-500 text-xs mt-1 flex items-center space-x-1">
-                          <i className="fas fa-exclamation-triangle text-xs"></i>
-                          <span>{errors.last_name}</span>
-                        </p>}
+                        {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
                       </div>
                       
                       <div className="space-y-1.5">
@@ -1307,20 +931,23 @@ const ClearanceGenerate: React.FC = () => {
                         />
                       </div>
 
-                      {formatConfig.hasCR && (
+                      {/* Sex - Show for formats B, C, E, F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('sex') && (
                         <div className="space-y-1.5">
                           <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                            <i className="fas fa-user text-xs"></i>
-                            <span>Alias (if any)</span>
+                            <i className="fas fa-venus-mars text-xs"></i>
+                            <span>Sex *</span>
                           </label>
-                          <input
-                            type="text"
-                            name="alias"
-                            value={formData.alias}
+                          <select
+                            name="sex"
+                            value={formData.sex}
                             onChange={handleInputChange}
                             className={inputClasses}
-                            placeholder='e.g., alias "NICKNAME"'
-                          />
+                          >
+                            {SEX_OPTIONS.map((sex: string) => (
+                              <option key={sex} value={sex}>{sex}</option>
+                            ))}
+                          </select>
                         </div>
                       )}
                       
@@ -1339,11 +966,43 @@ const ClearanceGenerate: React.FC = () => {
                           className={`${inputClasses} ${errors.age ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter age"
                         />
-                        {errors.age && <p className="text-red-500 text-xs mt-1 flex items-center space-x-1">
-                          <i className="fas fa-exclamation-triangle text-xs"></i>
-                          <span>{errors.age}</span>
-                        </p>}
+                        {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                       </div>
+
+                      {/* Birth Date - Show for formats B, C, E, F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('birth_date') && (
+                        <div className="space-y-1.5">
+                          <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <i className="fas fa-birthday-cake text-xs"></i>
+                            <span>Date of Birth *</span>
+                          </label>
+                          <input
+                            type="date"
+                            name="birth_date"
+                            value={formData.birth_date}
+                            onChange={handleInputChange}
+                            className={inputClasses}
+                          />
+                        </div>
+                      )}
+
+                      {/* Birth Place - Show for formats B, C, E, F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('birth_place') && (
+                        <div className="space-y-1.5">
+                          <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <i className="fas fa-map-marker-alt text-xs"></i>
+                            <span>Place of Birth *</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="birth_place"
+                            value={formData.birth_place}
+                            onChange={handleInputChange}
+                            className={inputClasses}
+                            placeholder="Enter place of birth"
+                          />
+                        </div>
+                      )}
                       
                       <div className="space-y-1.5">
                         <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -1356,7 +1015,7 @@ const ClearanceGenerate: React.FC = () => {
                           onChange={handleInputChange}
                           className={inputClasses}
                         >
-                          {CIVIL_STATUS_OPTIONS.map(status => (
+                          {CIVIL_STATUS_OPTIONS.map((status: string) => (
                             <option key={status} value={status}>{status}</option>
                           ))}
                         </select>
@@ -1376,6 +1035,81 @@ const ClearanceGenerate: React.FC = () => {
                           placeholder="Enter nationality"
                         />
                       </div>
+
+                      {/* Height - Show for formats C, F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('height') && (
+                        <div className="space-y-1.5">
+                          <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <i className="fas fa-ruler-vertical text-xs"></i>
+                            <span>Height</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="height"
+                            value={formData.height}
+                            onChange={handleInputChange}
+                            className={inputClasses}
+                            placeholder="e.g., 5'6&quot; or 168 cm"
+                          />
+                        </div>
+                      )}
+
+                      {/* Weight - Show for formats C, F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('weight') && (
+                        <div className="space-y-1.5">
+                          <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <i className="fas fa-weight text-xs"></i>
+                            <span>Weight</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="weight"
+                            value={formData.weight}
+                            onChange={handleInputChange}
+                            className={inputClasses}
+                            placeholder="e.g., 65 kg or 143 lbs"
+                          />
+                        </div>
+                      )}
+
+                      {/* Blood Type - Show for format F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('blood_type') && (
+                        <div className="space-y-1.5">
+                          <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <i className="fas fa-tint text-xs"></i>
+                            <span>Blood Type</span>
+                          </label>
+                          <select
+                            name="blood_type"
+                            value={formData.blood_type}
+                            onChange={handleInputChange}
+                            className={inputClasses}
+                          >
+                            <option value="">Select blood type</option>
+                            {BLOOD_TYPE_OPTIONS.map((type: string) => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Distinguishing Marks - Show for formats C, F */}
+                      {FORMAT_FIELDS[formData.format_type]?.includes('distinguishing_marks') && (
+                        <div className="space-y-1.5">
+                          <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <i className="fas fa-fingerprint text-xs"></i>
+                            <span>Distinguishing Marks</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="distinguishing_marks"
+                            value={formData.distinguishing_marks}
+                            onChange={handleInputChange}
+                            className={inputClasses}
+                            placeholder="e.g., Mole on left cheek, scar on arm"
+                          />
+                        </div>
+                      )}
                       
                       <div className="space-y-1.5">
                         <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -1390,34 +1124,146 @@ const ClearanceGenerate: React.FC = () => {
                           className={`${inputClasses} ${errors.address ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter complete address"
                         />
-                        {errors.address && <p className="text-red-500 text-xs mt-1 flex items-center space-x-1">
-                          <i className="fas fa-exclamation-triangle text-xs"></i>
-                          <span>{errors.address}</span>
-                        </p>}
+                        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
                       </div>
                     </div>
                   </div>
 
-                  {/* Step 3: Clearance Details */}
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
-                        isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                  {/* ID Information Section - Show for formats E, F */}
+                  {(FORMAT_FIELDS[formData.format_type]?.includes('id_presented') || FORMAT_FIELDS[formData.format_type]?.includes('ctc_number')) && (
+                    <div className="space-y-2 pt-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                          isDark ? 'bg-indigo-500 text-white' : 'bg-indigo-500 text-white'
+                        }`}>
+                          <i className="fas fa-id-card text-[8px]"></i>
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            ID Information
+                          </h3>
+                          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Identification details
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {FORMAT_FIELDS[formData.format_type]?.includes('id_presented') && (
+                          <>
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-id-badge text-xs"></i>
+                                <span>ID Presented</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="id_presented"
+                                value={formData.id_presented}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                                placeholder="e.g., Passport, Driver's License, PhilSys ID"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-hashtag text-xs"></i>
+                                <span>ID Number</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="id_number"
+                                value={formData.id_number}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                                placeholder="Enter ID number"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {FORMAT_FIELDS[formData.format_type]?.includes('ctc_number') && (
+                          <>
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-file-invoice text-xs"></i>
+                                <span>CTC Number</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="ctc_number"
+                                value={formData.ctc_number}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                                placeholder="Enter CTC number"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-map-pin text-xs"></i>
+                                <span>CTC Issued At</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="ctc_issued_at"
+                                value={formData.ctc_issued_at}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                                placeholder="e.g., Tagbilaran City"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-calendar text-xs"></i>
+                                <span>CTC Issued On</span>
+                              </label>
+                              <input
+                                type="date"
+                                name="ctc_issued_on"
+                                value={formData.ctc_issued_on}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 2: Clearance Details - Moved after Criminal Cases for Format B */}
+                  {formData.format_type !== 'B' && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                        isDark ? 'bg-blue-500 text-white' : 'bg-blue-500 text-white'
                       }`}>
-                        3
+                        2
                       </div>
                       <div>
-                        <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                           Clearance Details
                         </h3>
-                        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                          Purpose and additional clearance information
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Purpose and clearance information
                         </p>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="md:col-span-2 space-y-2">
+                    <div className="grid grid-cols-1 gap-2.5">
+                      <div className="space-y-1.5">
+                        <label className={labelClasses}>Issued Upon Request By</label>
+                        <input
+                          type="text"
+                          name="issued_upon_request_by"
+                          value={formData.issued_upon_request_by}
+                          onChange={handleInputChange}
+                          className={inputClasses}
+                          placeholder="Name of requester (if different from applicant)"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
                         <label className={labelClasses}>Purpose *</label>
                         <select
                           name="purpose"
@@ -1425,7 +1271,7 @@ const ClearanceGenerate: React.FC = () => {
                           onChange={handleInputChange}
                           className={`${inputClasses} ${errors.purpose ? 'border-red-500' : ''}`}
                         >
-                          {PURPOSE_OPTIONS.map(opt => (
+                          {PURPOSE_OPTIONS.map((opt: { name: string; fee: number }) => (
                             <option key={opt.name} value={opt.name}>
                               {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
                             </option>
@@ -1433,8 +1279,9 @@ const ClearanceGenerate: React.FC = () => {
                         </select>
                         {errors.purpose && <p className="text-red-500 text-xs mt-1">{errors.purpose}</p>}
                       </div>
+                      
                       {formData.purpose === 'Other' && (
-                        <div className="md:col-span-2 space-y-2">
+                        <div className="space-y-1.5">
                           <label className={labelClasses}>Specify Purpose *</label>
                           <input
                             type="text"
@@ -1447,7 +1294,271 @@ const ClearanceGenerate: React.FC = () => {
                           {errors.custom_purpose && <p className="text-red-500 text-xs mt-1">{errors.custom_purpose}</p>}
                         </div>
                       )}
-                      <div className="md:col-span-2 space-y-2">
+                    </div>
+                  </div>
+                  )}
+
+                  {/* Step 3: Criminal Record Toggle */}
+                  {formData.format_type !== 'A' && formData.format_type !== 'B' && formData.format_type !== 'C' && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                        isDark ? 'bg-blue-500 text-white' : 'bg-blue-500 text-white'
+                      }`}>
+                        3
+                      </div>
+                      <div>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          Criminal Record Status
+                        </h3>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {formData.format_type === 'D' ? 'Format D is designed for criminal records' : 'Does this person have a criminal record?'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Toggle for Criminal Record */}
+                    <div className={`p-3 rounded-xl border-2 ${
+                      isDark ? 'bg-slate-700/30 border-slate-600' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          Has Criminal Record
+                        </span>
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={hasCriminalRecord}
+                            onChange={(e) => setHasCriminalRecord(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className={`w-11 h-6 rounded-full peer transition-colors ${
+                            hasCriminalRecord 
+                              ? 'bg-red-500' 
+                              : isDark ? 'bg-slate-600' : 'bg-slate-300'
+                          }`}></div>
+                          <div className={`absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+                            hasCriminalRecord ? 'translate-x-5' : ''
+                          }`}></div>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Criminal Cases Section (Conditional) */}
+                    {(hasCriminalRecord || formData.format_type === 'B') && (
+                      <div className="space-y-3 mt-3">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-red-900/20 border border-red-500/30' : 'bg-red-50 border border-red-200'}`}>
+                          <p className={`text-xs font-medium ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                            <i className="fas fa-exclamation-triangle mr-1"></i>
+                            Criminal record information will appear on the certificate
+                          </p>
+                        </div>
+                        
+                        {(formData.criminal_cases || []).map((crimCase: CriminalCase, index: number) => (
+                          <div key={index} className={`p-3 rounded-xl border-2 ${
+                            isDark ? 'bg-slate-700/50 border-red-500/30' : 'bg-red-50/50 border-red-200'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className={`font-semibold text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                                <i className="fas fa-folder-open mr-1"></i>
+                                Case #{index + 1}
+                              </h4>
+                              {(formData.criminal_cases?.length || 0) > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeCriminalCase(index)}
+                                  className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+                                    isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-100'
+                                  }`}
+                                >
+                                  <i className="fas fa-trash-alt mr-1"></i>
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-2">
+                              <input
+                                type="text"
+                                value={crimCase.case_number}
+                                onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Case Number"
+                              />
+                              <input
+                                type="text"
+                                value={crimCase.crime}
+                                onChange={(e) => updateCriminalCase(index, 'crime', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Crime"
+                              />
+                              <input
+                                type="date"
+                                value={crimCase.date_info_filed}
+                                onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
+                                className={inputClasses}
+                              />
+                              <input
+                                type="text"
+                                value={crimCase.origin}
+                                onChange={(e) => updateCriminalCase(index, 'origin', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Origin"
+                              />
+                              <input
+                                type="text"
+                                value={crimCase.status}
+                                onChange={(e) => updateCriminalCase(index, 'status', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Status"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <button
+                          type="button"
+                          onClick={addCriminalCase}
+                          className={`w-full py-2 rounded-xl border-2 border-dashed transition-all flex items-center justify-center gap-2 ${
+                            isDark 
+                              ? 'border-red-500/50 text-red-400 hover:bg-red-900/20' 
+                              : 'border-red-300 text-red-600 hover:bg-red-50'
+                          }`}
+                        >
+                          <i className="fas fa-plus-circle"></i>
+                          <span className="font-medium text-xs">Add Another Case</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* Step 2B: Criminal Cases for Format B (Direct) */}
+                  {formData.format_type === 'B' && (
+                    <div className="space-y-2 pt-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                          isDark ? 'bg-blue-500 text-white' : 'bg-blue-500 text-white'
+                        }`}>
+                          2
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            Criminal Cases Details
+                          </h3>
+                          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Enter the criminal case information below
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={`p-2 rounded-lg ${isDark ? 'bg-red-900/20 border border-red-500/30' : 'bg-red-50 border border-red-200'}`}>
+                        <p className={`text-xs font-medium ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                          <i className="fas fa-exclamation-triangle mr-1"></i>
+                          Criminal record information will appear on the certificate
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {(formData.criminal_cases || []).map((crimCase: CriminalCase, index: number) => (
+                          <div key={index} className={`p-3 rounded-xl border-2 ${
+                            isDark ? 'bg-slate-700/50 border-red-500/30' : 'bg-red-50/50 border-red-200'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className={`font-semibold text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                                <i className="fas fa-folder-open mr-1"></i>
+                                Case #{index + 1}
+                              </h4>
+                              {(formData.criminal_cases?.length || 0) > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeCriminalCase(index)}
+                                  className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+                                    isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-100'
+                                  }`}
+                                >
+                                  <i className="fas fa-trash-alt mr-1"></i>
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-2">
+                              <input
+                                type="text"
+                                value={crimCase.case_number}
+                                onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Case Number"
+                              />
+                              <input
+                                type="text"
+                                value={crimCase.crime}
+                                onChange={(e) => updateCriminalCase(index, 'crime', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Crime"
+                              />
+                              <input
+                                type="date"
+                                value={crimCase.date_info_filed}
+                                onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
+                                className={inputClasses}
+                              />
+                              <input
+                                type="text"
+                                value={crimCase.origin}
+                                onChange={(e) => updateCriminalCase(index, 'origin', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Origin"
+                              />
+                              <input
+                                type="text"
+                                value={crimCase.status}
+                                onChange={(e) => updateCriminalCase(index, 'status', e.target.value)}
+                                className={inputClasses}
+                                placeholder="Status"
+                              />
+                            </div>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={addCriminalCase}
+                          className={`w-full py-2 rounded-xl border-2 border-dashed transition-all flex items-center justify-center gap-2 ${
+                            isDark 
+                              ? 'border-red-500/50 text-red-400 hover:bg-red-900/20' 
+                              : 'border-red-300 text-red-600 hover:bg-red-50'
+                          }`}
+                        >
+                          <i className="fas fa-plus-circle"></i>
+                          <span className="font-medium text-xs">Add Another Case</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 3B: Clearance Details for Format B */}
+                  {formData.format_type === 'B' && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                        isDark ? 'bg-blue-500 text-white' : 'bg-blue-500 text-white'
+                      }`}>
+                        3
+                      </div>
+                      <div>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          Clearance Details
+                        </h3>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Purpose and clearance information
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-2.5">
+                      <div className="space-y-1.5">
                         <label className={labelClasses}>Issued Upon Request By</label>
                         <input
                           type="text"
@@ -1458,227 +1569,188 @@ const ClearanceGenerate: React.FC = () => {
                           placeholder="Name of requester (if different from applicant)"
                         />
                       </div>
+
+                      <div className="space-y-1.5">
+                        <label className={labelClasses}>Purpose *</label>
+                        <select
+                          name="purpose"
+                          value={formData.purpose}
+                          onChange={handleInputChange}
+                          className={`${inputClasses} ${errors.purpose ? 'border-red-500' : ''}`}
+                        >
+                          {PURPOSE_OPTIONS.map((opt: { name: string; fee: number }) => (
+                            <option key={opt.name} value={opt.name}>
+                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.purpose && <p className="text-red-500 text-xs mt-1">{errors.purpose}</p>}
+                      </div>
+                      
+                      {formData.purpose === 'Other' && (
+                        <div className="space-y-1.5">
+                          <label className={labelClasses}>Specify Purpose *</label>
+                          <input
+                            type="text"
+                            name="custom_purpose"
+                            value={formData.custom_purpose}
+                            onChange={handleInputChange}
+                            className={`${inputClasses} ${errors.custom_purpose ? 'border-red-500' : ''}`}
+                            placeholder="Enter specific purpose"
+                          />
+                          {errors.custom_purpose && <p className="text-red-500 text-xs mt-1">{errors.custom_purpose}</p>}
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  {/* Step 4: Criminal Record Details (Conditional) */}
-                  {formatConfig.hasCR && (
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
-                          isDark ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'
-                        }`}>
-                          4
-                        </div>
-                        <div>
-                          <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                            <i className="fas fa-exclamation-triangle mr-2 text-red-500"></i>
-                            Criminal Record Details
-                          </h3>
-                          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                            Add criminal case entries (you can add multiple cases)
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {/* Multiple Criminal Cases */}
-                      {formData.criminal_cases.map((crimCase, index) => (
-                        <div key={index} className={`p-4 rounded-xl border-2 ${
-                          isDark ? 'bg-slate-700/50 border-red-500/30' : 'bg-red-50/50 border-red-200'
-                        }`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className={`font-semibold text-sm ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-                              <i className="fas fa-folder-open mr-2"></i>
-                              Case #{index + 1}
-                            </h4>
-                            {formData.criminal_cases.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeCriminalCase(index)}
-                                className={`text-xs px-2 py-1 rounded-lg transition-colors ${
-                                  isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-100'
-                                }`}
-                              >
-                                <i className="fas fa-trash-alt mr-1"></i>
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                          
-                          <div className="grid grid-cols-1 gap-3">
-                            <div className="space-y-1.5">
-                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                <i className="fas fa-hashtag text-xs"></i>
-                                <span>Crim. Case No. *</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={crimCase.case_number}
-                                onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
-                                className={inputClasses}
-                                placeholder="e.g., R-10705 & R-10707 Br. 3"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1.5">
-                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                <i className="fas fa-gavel text-xs"></i>
-                                <span>Crime *</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={crimCase.crime}
-                                onChange={(e) => updateCriminalCase(index, 'crime', e.target.value)}
-                                className={inputClasses}
-                                placeholder="e.g., Frustrated Homicide (2 counts)"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1.5">
-                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                <i className="fas fa-calendar text-xs"></i>
-                                <span>Date Info Filed *</span>
-                              </label>
-                              <input
-                                type="date"
-                                value={crimCase.date_info_filed}
-                                onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
-                                className={inputClasses}
-                              />
-                            </div>
-                            
-                            <div className="space-y-1.5">
-                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                <i className="fas fa-map-marker-alt text-xs"></i>
-                                <span>Origin *</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={crimCase.origin}
-                                onChange={(e) => updateCriminalCase(index, 'origin', e.target.value)}
-                                className={inputClasses}
-                                placeholder="Tagbilaran City"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1.5">
-                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                <i className="fas fa-info-circle text-xs"></i>
-                                <span>Status *</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={crimCase.status}
-                                onChange={(e) => updateCriminalCase(index, 'status', e.target.value)}
-                                className={inputClasses}
-                                placeholder="e.g., Dismissed 11/16/2001"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Add Case Button */}
-                      <button
-                        type="button"
-                        onClick={addCriminalCase}
-                        className={`w-full py-2.5 rounded-xl border-2 border-dashed transition-all flex items-center justify-center gap-2 ${
-                          isDark 
-                            ? 'border-red-500/50 text-red-400 hover:bg-red-900/20 hover:border-red-400' 
-                            : 'border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400'
-                        }`}
-                      >
-                        <i className="fas fa-plus-circle"></i>
-                        <span className="font-medium text-sm">Add Another Case</span>
-                      </button>
-                    </div>
                   )}
 
-                  {/* Step 5: Issuance Information */}
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
-                        isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                  {/* Step 4/3: Issuance Information */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                        isDark ? 'bg-blue-500 text-white' : 'bg-blue-500 text-white'
                       }`}>
-                        {formatConfig.hasCR ? '5' : '4'}
+                        4
                       </div>
                       <div>
-                        <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                           Issuance Information
                         </h3>
-                        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                          Date and validity information for the certificate
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Date and validity information
                         </p>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className={labelClasses}>Date of Issuance *</label>
-                        <input
-                          type="date"
-                          name="date_issued"
-                          value={formData.date_issued}
-                          onChange={handleInputChange}
-                          className={inputClasses}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className={labelClasses}>Validity Period *</label>
-                        <select
-                          name="validity_period"
-                          value={formData.validity_period}
-                          onChange={handleInputChange}
-                          className={inputClasses}
-                        >
-                          <option value="6 Months">6 Months</option>
-                          <option value="1 Year">1 Year</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className={labelClasses}>Valid Until</label>
-                        <input
-                          type="date"
-                          name="validity_expiry"
-                          value={formData.validity_expiry}
-                          readOnly
-                          className={`${inputClasses} cursor-not-allowed opacity-70`}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                          <i className="fas fa-receipt text-xs"></i>
-                          <span>O.R No *</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="prc_id_number"
-                          value={formData.prc_id_number}
-                          onChange={e => {
-                            // Only allow numbers
-                            const value = e.target.value.replace(/[^0-9]/g, '');
-                            setFormData(prev => ({ ...prev, prc_id_number: value }));
-                            if (errors.prc_id_number) setErrors(prev => ({ ...prev, prc_id_number: '' }));
-                          }}
-                          onPaste={e => {
-                            const paste = e.clipboardData.getData('text');
-                            if (/\D/.test(paste)) e.preventDefault();
-                          }}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          className={`${inputClasses} ${errors.prc_id_number ? 'border-red-500 focus:border-red-500' : ''}`}
-                          placeholder="Enter O.R Number"
-                        />
-                        {errors.prc_id_number && <p className="text-red-500 text-xs mt-1 flex items-center space-x-1">
-                          <i className="fas fa-exclamation-triangle text-xs"></i>
-                          <span>{errors.prc_id_number}</span>
-                        </p>}
-                      </div>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {/* For Format C: Different field order */}
+                      {formData.format_type === 'C' ? (
+                        <>
+                          <div className="space-y-1.5">
+                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              <i className="fas fa-calendar text-xs"></i>
+                              <span>Valid Until *</span>
+                            </label>
+                            <input
+                              type="date"
+                              name="validity_expiry"
+                              value={formData.validity_expiry}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              <i className="fas fa-id-card text-xs"></i>
+                              <span>DOJ ID No *</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="prc_id_number"
+                              value={formData.prc_id_number}
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                setFormData((prev: FormData) => ({ ...prev, prc_id_number: value }));
+                              }}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              className={inputClasses}
+                              placeholder="Enter DOJ ID Number"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              <i className="fas fa-receipt text-xs"></i>
+                              <span>O.R No *</span>
+                            </label>
+                            <input
+                              type="text"
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                setFormData((prev: FormData) => ({ ...prev, or_number: value }));
+                                if (errors.or_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, or_number: '' }));
+                              }}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              className={`${inputClasses} ${errors.or_number ? 'border-red-500 focus:border-red-500' : ''}`}
+                              placeholder="Enter O.R Number"
+                            />
+                            {errors.or_number && <p className="text-red-500 text-xs mt-1">{errors.or_number}</p>}
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Date of Issuance *</label>
+                            <input
+                              type="date"
+                              name="date_issued"
+                              value={formData.date_issued}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Date of Issuance *</label>
+                            <input
+                              type="date"
+                              name="date_issued"
+                              value={formData.date_issued}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Validity Period *</label>
+                            <select
+                              name="validity_period"
+                              value={formData.validity_period}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                            >
+                              <option value="6 Months">6 Months</option>
+                              <option value="1 Year">1 Year</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Valid Until</label>
+                            <input
+                              type="date"
+                              name="validity_expiry"
+                              value={formData.validity_expiry}
+                              readOnly
+                              className={`${inputClasses} cursor-not-allowed opacity-70`}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              <i className="fas fa-receipt text-xs"></i>
+                              <span>O.R No *</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="prc_id_number"
+                              value={formData.prc_id_number}
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                setFormData((prev: FormData) => ({ ...prev, prc_id_number: value }));
+                                if (errors.prc_id_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, prc_id_number: '' }));
+                              }}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              className={`${inputClasses} ${errors.prc_id_number ? 'border-red-500 focus:border-red-500' : ''}`}
+                              placeholder="Enter O.R Number"
+                            />
+                            {errors.prc_id_number && <p className="text-red-500 text-xs mt-1">{errors.prc_id_number}</p>}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   {/* Notes */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className={labelClasses}>Additional Notes (optional)</label>
                     <textarea
                       name="notes"

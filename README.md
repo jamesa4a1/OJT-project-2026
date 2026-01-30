@@ -1,3 +1,36 @@
+# OJT Project 2026
+
+## Git Instructions
+
+### Cloning the Repository
+To clone this repository to your local machine:
+
+```bash
+git clone https://github.com/jamesa4a1/OJT-project-2026.git
+cd OJT-project-2026
+```
+
+### Pushing Changes to the Repository
+After making changes to your code:
+
+```bash
+# Stage all changes
+git add .
+
+# Commit with a descriptive message
+git commit -m "Your descriptive commit message here"
+
+# Push to the main branch
+git push origin main
+```
+
+If you're working on a feature branch:
+```bash
+git push origin your-branch-name
+```
+
+---
+
 ## INSTRUCTIONS ON HOW TO RUN THE PROGRAM
 
 ### Prerequisites

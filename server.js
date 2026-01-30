@@ -190,16 +190,21 @@ let db;
 
 function handleDisconnect() {
   db = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "", 
-    database: "ocp_docketing",
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "ocp_docketing",
   });
+
+  if (!process.env.DB_PASSWORD && process.env.NODE_ENV === 'production') {
+    console.error('⚠️  WARNING: DB_PASSWORD is not set. This is a security risk in production!');
+    console.error('Please set DB_PASSWORD environment variable in your .env file');
+  }
 
   db.connect((err) => {
     if (err) {
       console.error("❌ Database connection failed: " + err.message);
-      console.error("⚠️  Please make sure MySQL/XAMPP is running and the 'ocp_docketing' database exists.");
+      console.error("⚠️  Please make sure MySQL/XAMPP is running and the database exists.");
       console.error("🔄 Will retry connection in 5 seconds...");
       setTimeout(handleDisconnect, 5000);
       return;
@@ -307,7 +312,7 @@ function handleDisconnect() {
       
       // Create default admin account if not exists
       const adminEmail = "james@gmail.com";
-      const adminPassword = "james12345";
+      const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD || bcrypt.hashSync("ChangeMe@123456", 10);
       const adminName = "James Admin";
       
       db.query("SELECT * FROM users WHERE email = ?", [adminEmail], async (err, results) => {
@@ -1750,6 +1755,414 @@ const generateClearanceHTML = (clearance) => {
 </html>
   `;
 };
+
+// =====================================================
+// FORMAT MANAGEMENT API ENDPOINTS
+// =====================================================
+
+// Path for clearance formats JSON file
+const FORMATS_FILE_PATH = path.join(__dirname, 'uploads', 'clearance_formats.json');
+
+// Helper function to read formats from JSON file
+const readFormatsFromFile = () => {
+  try {
+    if (fs.existsSync(FORMATS_FILE_PATH)) {
+      const data = fs.readFileSync(FORMATS_FILE_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+    return [];
+  } catch (error) {
+    console.error('Error reading formats file:', error);
+    return [];
+  }
+};
+
+// Helper function to write formats to JSON file
+const writeFormatsToFile = (formats) => {
+  try {
+    const dir = path.dirname(FORMATS_FILE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(FORMATS_FILE_PATH, JSON.stringify(formats, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing formats file:', error);
+    return false;
+  }
+};
+
+// Helper function to generate TSX template file from format data
+const generateTemplateTSX = (format) => {
+  const formatKey = format.format_key.toUpperCase();
+  const hasCR = format.has_criminal_record;
+  const formatName = format.name || 'Custom Format';
+  const formatDesc = format.description || 'Auto-generated from Format Editor';
+  const templateHtml = format.template_html || '';
+  
+  // Process the HTML template for print version - convert placeholders to template literals
+  const processTemplateForPrint = (html) => {
+    return html
+      .replace(/\{\{FULL_NAME\}\}/g, '${fullName || "[FULL NAME]"}${formData.alias ? ` y ${formData.alias.toUpperCase()}` : ""}')
+      .replace(/\{\{AGE\}\}/g, '${formData.age || "[AGE]"}')
+      .replace(/\{\{CIVIL_STATUS\}\}/g, '${formData.civil_status || "[STATUS]"}')
+      .replace(/\{\{NATIONALITY\}\}/g, '${formData.nationality || "Filipino"}')
+      .replace(/\{\{ADDRESS\}\}/g, '${formData.address || "[ADDRESS]"}')
+      .replace(/\{\{REQUESTER\}\}/g, '${formData.issued_upon_request_by || fullName || "[REQUESTER]"}')
+      .replace(/\{\{PURPOSE\}\}/g, '${(formData.purpose === "Other" ? formData.custom_purpose : formData.purpose)?.toUpperCase() || "[PURPOSE]"}')
+      .replace(/\{\{DAY\}\}/g, '${new Date(formData.date_issued).getDate()}')
+      .replace(/\{\{DAY_SUFFIX\}\}/g, '${getOrdinalSuffix ? getOrdinalSuffix(new Date(formData.date_issued).getDate()) : ""}')
+      .replace(/\{\{MONTH_YEAR\}\}/g, '${new Date(formData.date_issued).toLocaleDateString("en-US", { month: "long", year: "numeric" })}')
+      .replace(/\{\{OR_NUMBER\}\}/g, '${generatedOR || formData.or_number || "[OR NUMBER]"}')
+      .replace(/\{\{DATE_ISSUED\}\}/g, '${new Date(formData.date_issued).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}')
+      .replace(/\{\{ISSUED_BY_NAME\}\}/g, '${formData.issued_by || "[ISSUED BY]"}')
+      .replace(/\[ISSUED_BY_NAME\]/g, '${formData.issued_by || "[ISSUED BY]"}');
+  };
+
+  // Process the HTML template for preview version - convert placeholders to JSX expressions
+  const processTemplateForPreview = (html) => {
+    return html
+      .replace(/\{\{FULL_NAME\}\}/g, '{fullName || "[FULL NAME]"}{formData.alias && ` y ${formData.alias.toUpperCase()}`}')
+      .replace(/\{\{AGE\}\}/g, '{formData.age || "[AGE]"}')
+      .replace(/\{\{CIVIL_STATUS\}\}/g, '{formData.civil_status || "[STATUS]"}')
+      .replace(/\{\{NATIONALITY\}\}/g, '{formData.nationality || "Filipino"}')
+      .replace(/\{\{ADDRESS\}\}/g, '{formData.address || "[ADDRESS]"}')
+      .replace(/\{\{REQUESTER\}\}/g, '{formData.issued_upon_request_by || fullName || "[REQUESTER]"}')
+      .replace(/\{\{PURPOSE\}\}/g, '{(formData.purpose === "Other" ? formData.custom_purpose : formData.purpose)?.toUpperCase() || "[PURPOSE]"}')
+      .replace(/\{\{DAY\}\}/g, '{new Date(formData.date_issued).getDate()}')
+      .replace(/\{\{DAY_SUFFIX\}\}/g, '{getOrdinalSuffix ? getOrdinalSuffix(new Date(formData.date_issued).getDate()) : ""}')
+      .replace(/\{\{MONTH_YEAR\}\}/g, '{new Date(formData.date_issued).toLocaleDateString("en-US", { month: "long", year: "numeric" })}')
+      .replace(/\{\{OR_NUMBER\}\}/g, '{generatedOR || formData.or_number || "[OR NUMBER]"}')
+      .replace(/\{\{DATE_ISSUED\}\}/g, '{new Date(formData.date_issued).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}')
+      .replace(/\{\{ISSUED_BY_NAME\}\}/g, '{formData.issued_by || "[ISSUED BY]"}')
+      .replace(/\[ISSUED_BY_NAME\]/g, '{formData.issued_by || "[ISSUED BY]"}')
+      .replace(/class=/g, 'className=');
+  };
+
+  const printTemplateContent = processTemplateForPrint(templateHtml);
+  
+  const templateContent = `/**
+ * FORMAT ${formatKey} - ${formatName}
+ * 
+ * ${formatDesc}
+ * Generated on: ${new Date().toISOString()}
+ * 
+ * This file is auto-generated by the Format Editor.
+ * Changes made here will be overwritten when the format is updated in the editor.
+ */
+
+import React from 'react';
+import { TemplateProps, PreviewTemplateProps } from './types';
+import { getOrdinalSuffix } from './constants';
+
+// ============================================
+// PRINT TEMPLATE - Format ${formatKey}
+// ============================================
+export const getFormat${formatKey}PrintTemplate = (props: TemplateProps): string => {
+  const { formData, fullName, generatedOR } = props;
+  
+  return \`
+    <!-- Format ${formatKey} - ${hasCR ? 'With Criminal Record' : 'No Criminal Record'} -->
+    ${printTemplateContent}
+  \`;
+};
+
+// ============================================
+// PREVIEW COMPONENT - Format ${formatKey}
+// ============================================
+export const Format${formatKey}Preview: React.FC<PreviewTemplateProps> = ({ formData, fullName, textColor, generatedOR, getOrdinalSuffix }) => {
+  // Use dangerouslySetInnerHTML to render the template with dynamic data
+  const getPreviewContent = () => {
+    const content = \`${printTemplateContent}\`;
+    return content;
+  };
+
+  return (
+    <div dangerouslySetInnerHTML={{ __html: getPreviewContent() }} />
+  );
+};
+
+export default {
+  getPrintTemplate: getFormat${formatKey}PrintTemplate,
+  Preview: Format${formatKey}Preview,
+};
+`;
+
+  return templateContent;
+};
+
+// Helper function to write TSX template file
+const writeTemplateTSXFile = (format) => {
+  try {
+    const formatKey = format.format_key.toUpperCase();
+    const templatesDir = path.join(__dirname, 'src', 'pages', 'clearances', 'templates');
+    
+    // Ensure templates directory exists
+    if (!fs.existsSync(templatesDir)) {
+      fs.mkdirSync(templatesDir, { recursive: true });
+    }
+    
+    const filePath = path.join(templatesDir, `Format${formatKey}.tsx`);
+    const content = generateTemplateTSX(format);
+    
+    fs.writeFileSync(filePath, content, 'utf8');
+    console.log(`Template file written: ${filePath}`);
+    return true;
+  } catch (error) {
+    console.error('Error writing template TSX file:', error);
+    return false;
+  }
+};
+
+// Get all clearance formats
+app.get("/api/formats", (req, res) => {
+  try {
+    const formats = readFormatsFromFile();
+    res.json(formats);
+  } catch (error) {
+    console.error("Error fetching formats:", error);
+    res.status(500).json({ message: "Failed to fetch formats" });
+  }
+});
+
+// Get single format by ID
+app.get("/api/formats/:id", (req, res) => {
+  try {
+    const formats = readFormatsFromFile();
+    const format = formats.find(f => f.id === parseInt(req.params.id));
+    
+    if (!format) {
+      return res.status(404).json({ message: "Format not found" });
+    }
+    
+    res.json(format);
+  } catch (error) {
+    console.error("Error fetching format:", error);
+    res.status(500).json({ message: "Failed to fetch format" });
+  }
+});
+
+// Get format by key (A, B, C, D, etc.)
+app.get("/api/formats/key/:key", (req, res) => {
+  try {
+    const formats = readFormatsFromFile();
+    const format = formats.find(f => f.format_key.toUpperCase() === req.params.key.toUpperCase());
+    
+    if (!format) {
+      return res.status(404).json({ message: "Format not found" });
+    }
+    
+    res.json(format);
+  } catch (error) {
+    console.error("Error fetching format:", error);
+    res.status(500).json({ message: "Failed to fetch format" });
+  }
+});
+
+// Create new format
+app.post("/api/formats", (req, res) => {
+  try {
+    const {
+      name,
+      format_key,
+      description,
+      template_html,
+      styles,
+      logo_url,
+      has_criminal_record,
+      is_family,
+    } = req.body;
+
+    // Validation
+    if (!name || !format_key || !template_html) {
+      return res.status(400).json({ message: "Name, format key, and template HTML are required" });
+    }
+
+    const formats = readFormatsFromFile();
+    
+    // Check for duplicate format_key
+    if (formats.some(f => f.format_key.toUpperCase() === format_key.toUpperCase())) {
+      return res.status(400).json({ message: "A format with this key already exists" });
+    }
+
+    // Generate new ID
+    const maxId = formats.length > 0 ? Math.max(...formats.map(f => f.id)) : 0;
+    const newId = maxId + 1;
+
+    const newFormat = {
+      id: newId,
+      name,
+      format_key: format_key.toUpperCase(),
+      description: description || '',
+      template_html,
+      styles: styles || {
+        fontFamily: 'Century Gothic, Arial, sans-serif',
+        fontSize: '12pt',
+        lineHeight: '1.4',
+        marginTop: '0.25in',
+        marginBottom: '0.25in',
+        marginLeft: '0.2in',
+        marginRight: '0.2in',
+        textColor: '#000000',
+      },
+      logo_url: logo_url || '/images/logos/doj-seal.png',
+      has_criminal_record: has_criminal_record || false,
+      is_family: is_family || false,
+      is_default: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    formats.push(newFormat);
+    
+    if (writeFormatsToFile(formats)) {
+      // Also create the TSX template file
+      writeTemplateTSXFile(newFormat);
+      res.status(201).json(newFormat);
+    } else {
+      res.status(500).json({ message: "Failed to save format" });
+    }
+  } catch (error) {
+    console.error("Error creating format:", error);
+    res.status(500).json({ message: "Failed to create format" });
+  }
+});
+
+// Update existing format
+app.put("/api/formats/:id", (req, res) => {
+  try {
+    const formatId = parseInt(req.params.id);
+    const {
+      name,
+      format_key,
+      description,
+      template_html,
+      styles,
+      logo_url,
+      has_criminal_record,
+      is_family,
+    } = req.body;
+
+    const formats = readFormatsFromFile();
+    const formatIndex = formats.findIndex(f => f.id === formatId);
+    
+    if (formatIndex === -1) {
+      return res.status(404).json({ message: "Format not found" });
+    }
+
+    // Check for duplicate format_key (excluding current format)
+    if (format_key && formats.some(f => f.id !== formatId && f.format_key.toUpperCase() === format_key.toUpperCase())) {
+      return res.status(400).json({ message: "A format with this key already exists" });
+    }
+
+    // Update format
+    formats[formatIndex] = {
+      ...formats[formatIndex],
+      name: name || formats[formatIndex].name,
+      format_key: format_key ? format_key.toUpperCase() : formats[formatIndex].format_key,
+      description: description !== undefined ? description : formats[formatIndex].description,
+      template_html: template_html || formats[formatIndex].template_html,
+      styles: styles || formats[formatIndex].styles,
+      logo_url: logo_url || formats[formatIndex].logo_url,
+      has_criminal_record: has_criminal_record !== undefined ? has_criminal_record : formats[formatIndex].has_criminal_record,
+      is_family: is_family !== undefined ? is_family : formats[formatIndex].is_family,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (writeFormatsToFile(formats)) {
+      // Also sync the TSX template file
+      writeTemplateTSXFile(formats[formatIndex]);
+      res.json(formats[formatIndex]);
+    } else {
+      res.status(500).json({ message: "Failed to update format" });
+    }
+  } catch (error) {
+    console.error("Error updating format:", error);
+    res.status(500).json({ message: "Failed to update format" });
+  }
+});
+
+// Delete format
+app.delete("/api/formats/:id", (req, res) => {
+  try {
+    const formatId = parseInt(req.params.id);
+    const formats = readFormatsFromFile();
+    
+    const formatIndex = formats.findIndex(f => f.id === formatId);
+    
+    if (formatIndex === -1) {
+      return res.status(404).json({ message: "Format not found" });
+    }
+
+    // Don't allow deleting default formats
+    if (formats[formatIndex].is_default) {
+      return res.status(400).json({ message: "Cannot delete default formats" });
+    }
+
+    formats.splice(formatIndex, 1);
+
+    if (writeFormatsToFile(formats)) {
+      res.json({ message: "Format deleted successfully" });
+    } else {
+      res.status(500).json({ message: "Failed to delete format" });
+    }
+  } catch (error) {
+    console.error("Error deleting format:", error);
+    res.status(500).json({ message: "Failed to delete format" });
+  }
+});
+
+// Configure multer for logo uploads
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const logoDir = path.join(__dirname, 'public', 'images', 'logos');
+    if (!fs.existsSync(logoDir)) {
+      fs.mkdirSync(logoDir, { recursive: true });
+    }
+    cb(null, logoDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const logoUpload = multer({
+  storage: logoStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|svg|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files are allowed'));
+  }
+});
+
+// Upload logo endpoint
+app.post("/api/formats/upload-logo", logoUpload.single('logo'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    
+    const logoUrl = `/images/logos/${req.file.filename}`;
+    res.json({ url: logoUrl, filename: req.file.filename });
+  } catch (error) {
+    console.error("Error uploading logo:", error);
+    res.status(500).json({ message: "Failed to upload logo" });
+  }
+});
+
+// Serve static files from public directory for logos
+app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
+
+// =====================================================
+// END FORMAT MANAGEMENT API ENDPOINTS
+// =====================================================
 
 app.listen(5000, () => {
   console.log("Server running on port 5000");

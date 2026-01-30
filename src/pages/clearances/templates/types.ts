@@ -1,4 +1,5 @@
-// Clearance Template Types and Interfaces
+// Shared Types for Clearance Templates
+import React from 'react';
 
 export interface CriminalCase {
   case_number: string;
@@ -11,50 +12,163 @@ export interface CriminalCase {
 export interface FormData {
   format_type: string;
   first_name: string;
-  middle_name: string;
+  middle_name?: string;
   last_name: string;
-  suffix: string;
-  alias: string;
-  age: string;
+  suffix?: string;
+  alias?: string;
+  age: string | number;
   civil_status: string;
   nationality: string;
   address: string;
   purpose: string;
   purpose_fee: number;
-  custom_purpose: string;
-  issued_upon_request_by: string;
+  custom_purpose?: string;
+  issued_upon_request_by?: string;
   date_issued: string;
-  prc_id_number: string;
-  validity_period: string;
-  validity_expiry: string;
-  // Criminal record fields (legacy - for single case)
-  case_numbers: string;
-  crime_description: string;
-  legal_statute: string;
-  date_of_commission: string;
-  date_information_filed: string;
-  case_status: string;
-  court_branch: string;
-  notes: string;
-  // Multiple criminal cases for Format B/D/F
-  criminal_cases: CriminalCase[];
+  prc_id_number?: string;
+  validity_period?: string;
+  validity_expiry?: string;
+  case_numbers?: string;
+  crime_description?: string;
+  legal_statute?: string;
+  date_of_commission?: string;
+  date_information_filed?: string;
+  case_status?: string;
+  court_branch?: string;
+  notes?: string;
+  criminal_cases?: CriminalCase[];
+  or_number?: string;
+  has_criminal_record?: boolean;
+  // Additional fields for different formats
+  sex?: string;
+  birth_date?: string;
+  birth_place?: string;
+  height?: string;
+  weight?: string;
+  blood_type?: string;
+  distinguishing_marks?: string;
+  id_presented?: string;
+  id_number?: string;
+  right_thumbmark?: string;
+  photo?: string;
+  ctc_number?: string;
+  ctc_issued_at?: string;
+  ctc_issued_on?: string;
 }
 
-export interface FormatConfig {
-  label: string;
-  hasCR: boolean;
-  isFamily: boolean;
-  isDerogatory: boolean;
-  isBalsaff: boolean;
+export interface ClearanceTemplateProps {
+  data: FormData;
+  isDark?: boolean;
 }
 
-export interface TemplateProps {
-  formData: FormData;
-  fullName: string;
-  generatedOR: string | null;
-  getOrdinalSuffix: (day: number) => string;
-}
+// Common text color for all formats
+export const TEXT_COLOR = '#00008B';
 
-export interface PreviewTemplateProps extends TemplateProps {
-  textColor: string;
-}
+// Common base style for preview components
+export const getBaseStyle = (): React.CSSProperties => ({
+  fontFamily: "'Century Gothic', Arial, sans-serif",
+  fontSize: '10pt',
+  lineHeight: 1.5,
+  color: TEXT_COLOR,
+});
+
+// Utility function for ordinal suffix
+export const getOrdinalSuffix = (day: number): string => {
+  if (day > 3 && day < 21) return 'th';
+  switch (day % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+};
+
+// Format date utility
+export const formatDate = (dateStr: string): { day: number; suffix: string; monthYear: string; fullDate: string } => {
+  const date = new Date(dateStr);
+  const day = date.getDate();
+  const suffix = getOrdinalSuffix(day);
+  const monthYear = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const fullDate = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return { day, suffix, monthYear, fullDate };
+};
+
+// Format date string for print templates
+export const formatDateString = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const day = date.getDate();
+  const ordinal = getOrdinalSuffix(day);
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const year = date.getFullYear();
+  return `${day}${ordinal} day of ${month}, ${year}`;
+};
+
+// Format full date for print templates
+export const formatFullDate = (dateStr: string): string => {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+};
+
+// Build full name from form data
+export const buildFullName = (data: FormData): string => {
+  return [
+    data.first_name?.toUpperCase(),
+    data.middle_name ? `${data.middle_name.charAt(0).toUpperCase()}.` : '',
+    data.last_name?.toUpperCase(),
+    data.suffix ? data.suffix.toUpperCase() : ''
+  ].filter(Boolean).join(' ');
+};
+
+// Check if has criminal record
+export const hasCriminalRecord = (data: FormData): boolean => {
+  return !!(data.criminal_cases && data.criminal_cases.some(c => c.case_number && c.crime));
+};
+
+// Format types with descriptions
+export const FORMAT_OPTIONS = [
+  { value: 'A', label: 'Format A', description: 'Standard Certification (No Criminal Record - Basic)' },
+  { value: 'B', label: 'Format B', description: 'Criminal Record Certification (With Case Details)' },
+  { value: 'C', label: 'Format C', description: 'Standard Certification (With Signature & Thumbmark)' },
+  { value: 'D', label: 'Format D', description: 'Criminal Record Certification (Table Format)' },
+  { value: 'E', label: 'Format E', description: 'Overseas/Immigration Certification' },
+  { value: 'F', label: 'Format F', description: 'Complete Certification (Full Details with Photo)' },
+];
+
+// Civil status options
+export const CIVIL_STATUS_OPTIONS = [
+  'Single',
+  'Married',
+  'Divorced',
+  'Widowed',
+  'Separated'
+];
+
+// Sex options
+export const SEX_OPTIONS = ['Male', 'Female'];
+
+// Blood type options
+export const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'];
+
+// Purpose options with fees
+export const PURPOSE_OPTIONS = [
+  { name: 'Employment', fee: 115 },
+  { name: 'Local Employment', fee: 50 },
+  { name: 'Visa Application', fee: 115 },
+  { name: 'Immigration', fee: 115 },
+  { name: 'Professional Licensing', fee: 115 },
+  { name: 'Business License', fee: 115 },
+  { name: 'Travel', fee: 115 },
+  { name: 'Legal Proceedings', fee: 115 },
+  { name: 'Adoption', fee: 115 },
+  { name: 'Marriage', fee: 115 },
+  { name: 'Other', fee: 115 }
+];
+
+// Fields required for each format
+export const FORMAT_FIELDS: Record<string, string[]> = {
+  'A': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number'],
+  'B': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number', 'criminal_cases'],
+  'C': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number', 'validity_expiry', 'or_number'],
+  'D': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number', 'criminal_cases'],
+  'E': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'sex', 'civil_status', 'nationality', 'address', 'birth_date', 'birth_place', 'id_presented', 'id_number', 'purpose', 'date_issued', 'prc_id_number'],
+  'F': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'sex', 'civil_status', 'nationality', 'address', 'birth_date', 'birth_place', 'height', 'weight', 'blood_type', 'distinguishing_marks', 'id_presented', 'id_number', 'ctc_number', 'ctc_issued_at', 'ctc_issued_on', 'purpose', 'date_issued', 'prc_id_number', 'photo', 'right_thumbmark'],
+};
