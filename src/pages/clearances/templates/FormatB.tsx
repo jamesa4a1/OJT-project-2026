@@ -20,7 +20,7 @@ const FORMAT_B_CONFIG = {
   textColor: '#000000',            // Main text color (black for Format B)
   noRecordColor: '#008000',        // Green for "NO CRIMINAL RECORD"
   withRecordColor: '#DC2626',      // Red for "WITH CRIMINAL RECORD"
-  bodyFontSize: '10pt',            // Body text font size
+  bodyFontSize: '13pt',            // Body text font size
   caseFontSize: '9pt',             // Criminal case details font size
   fontFamily: "'Century Gothic', Arial, sans-serif",
 };
@@ -86,7 +86,7 @@ const FormatBHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
       </div>
 
       {/* Salutation */}
-      <p style={{ fontWeight: 'bold', marginBottom: '12pt', textAlign: 'left', fontSize: '10pt', textTransform: 'uppercase', color: FORMAT_B_CONFIG.textColor }}>
+      <p style={{ fontWeight: 'bold', marginBottom: '12pt', textAlign: 'left', fontSize: '13pt', textTransform: 'uppercase', color: FORMAT_B_CONFIG.textColor }}>
         TO WHOM IT MAY CONCERN:
       </p>
     </>
@@ -104,32 +104,32 @@ const FormatBBody: React.FC<{ data: FormData }> = ({ data }) => {
   return (
     <div style={{ color: FORMAT_B_CONFIG.textColor }}>
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '8pt', fontSize: FORMAT_B_CONFIG.bodyFontSize, lineHeight: 1.6 }}>
-        THIS IS TO CERTIFY that per records of this office show that one <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>, <strong>{data.age || '[AGE]'}</strong> years old, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>, <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at <strong>{data.address || '[ADDRESS]'}</strong>, has been charged of the following:
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;THIS IS TO CERTIFY that per records of this office show that one <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>, <strong>{data.age || '[AGE]'} years old</strong>, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>, <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at <strong>{data.address || '[ADDRESS]'}</strong>, has been charged of the following:
       </p>
 
-      <div style={{ marginLeft: '0.5in', marginBottom: '12pt', fontSize: FORMAT_B_CONFIG.caseFontSize }}>
+      <div style={{ marginLeft: '0.5in', marginBottom: '12pt', fontSize: '13pt'}}>
         {validCases && validCases.length > 0 ? (
           validCases.map((crimCase, index) => (
             <div key={index} style={{ marginBottom: '12pt' }}>
-              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Crim. Case No.: {crimCase.case_number || 'N/A'}</p>
-              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Crime: {crimCase.crime || 'N/A'}</p>
-              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Date Info Filed: {crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</p>
-              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Origin: {crimCase.origin || 'Tagbilaran City'}</p>
-              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Status: {crimCase.status || 'N/A'}</p>
+              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Crim. Case No.</span> : <strong>{crimCase.case_number || 'N/A'}</strong></p>
+              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Crime</span> : {crimCase.crime || 'N/A'}</p>
+              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Date Info Filed</span> : {crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</p>
+              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Origin</span> : {crimCase.origin || 'Tagbilaran City'}</p>
+              <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Status</span> : {crimCase.status || 'N/A'}</p>
             </div>
           ))
         ) : (
           <div>
-            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Crim. Case No.: N/A</p>
-            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Crime: N/A</p>
-            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Date Info Filed: N/A</p>
-            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Origin: Tagbilaran City</p>
-            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}>Status: N/A</p>
+            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Crim. Case No.</span> : N/A</p>
+            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Crime</span> : N/A</p>
+            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Date Info Filed</span> : N/A</p>
+            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Origin</span> : Tagbilaran City</p>
+            <p style={{ margin: '2pt 0', lineHeight: 1.3 }}><span style={{ display: 'inline-block', width: '150px' }}>Status</span> : N/A</p>
           </div>
         )}
       </div>
 
-      <div style={{ marginLeft: '0.5in', marginBottom: '12pt', marginTop: '12pt', fontSize: FORMAT_B_CONFIG.bodyFontSize, lineHeight: 1.5 }}>
+      <div style={{ marginLeft: '0.9in', marginBottom: '12pt', marginTop: '12pt', fontSize: FORMAT_B_CONFIG.bodyFontSize, lineHeight: 1.5 }}>
         <p style={{ marginBottom: '4pt' }}>Issued upon request : <strong style={{ textDecoration: 'underline' }}>{data.issued_upon_request_by || fullName || '[REQUESTER NAME]'}</strong></p>
         <p style={{ margin: 0 }}>Purpose : <strong style={{ textDecoration: 'underline' }}>{data.purpose === 'Other' ? data.custom_purpose : data.purpose || '[PURPOSE]'}</strong></p>
       </div>
@@ -163,13 +163,13 @@ const FormatBFooter: React.FC<{ data: FormData; generatedOR?: string | null }> =
         fontFamily: FORMAT_B_CONFIG.fontFamily,
         marginRight: '-205pt',
       }}>
-        <p style={{ fontWeight: 'bold', fontSize: '10pt', marginBottom: '48pt', textTransform: 'uppercase', color: '#000000' }}>
+        <p style={{ fontWeight: 'bold', fontSize: '13pt', marginBottom: '48pt', textTransform: 'uppercase', color: '#000000' }}>
           FOR THE CITY PROSECUTOR:
         </p>
         
         <div>
-          <p style={{ fontWeight: 'bold', fontSize: '10pt', marginBottom: '2pt', color: '#000000' }}>REGIE C. POCON</p>
-          <p style={{ fontSize: '9pt', fontStyle: 'italic', fontWeight: 'normal', color: '#000000' }}>Administrative Officer V</p>
+          <p style={{ fontWeight: 'bold', fontSize: '13pt', marginBottom: '2pt', color: '#000000' }}>REGIE C. POCON</p>
+          <p style={{ fontSize: '13pt', fontStyle: 'normal', fontWeight: 'normal', color: '#000000' }}>Administrative Officer V</p>
         </div>
       </div>
 
@@ -181,7 +181,7 @@ const FormatBFooter: React.FC<{ data: FormData; generatedOR?: string | null }> =
         <p style={{ marginBottom: '12pt', color: '#000000' }}>
           Date: <strong style={{ textDecoration: 'underline', color: '#000000', fontWeight: 'bold'}}>{new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
         </p>
-        <p style={{ fontStyle: 'italic', fontSize: '12pt', color: '#000000' }}>
+        <p style={{ fontStyle: 'italic', fontSize: '10pt', color: '#000000' }}>
           {getValidityMessage()}
         </p>
       </div>
@@ -248,38 +248,38 @@ export const getFormatBHtml = (formData: FormData, fullName: string, generatedOR
   const casesHtml = validCases.length > 0
     ? validCases.map((crimCase) => `
         <div style="margin-bottom: 12pt; margin-left: 0.2in;">
-          <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-            <span style="display: inline-block; width: 130px;">Crim. Case No.</span>: ${crimCase.case_number || 'N/A'}
+          <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+            <span style="display: inline-block; width: 150px;">Crim. Case No.</span> : <strong>${crimCase.case_number || 'N/A'}</strong>
           </p>
-          <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-            <span style="display: inline-block; width: 130px;">Crime</span>: ${crimCase.crime || 'N/A'}
+          <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+            <span style="display: inline-block; width: 150px;">Crime</span> : ${crimCase.crime || 'N/A'}
           </p>
-          <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-            <span style="display: inline-block; width: 130px;">Date Info Filed</span>: ${crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
+          <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+            <span style="display: inline-block; width: 150px;">Date Info Filed</span> : ${crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
           </p>
-          <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-            <span style="display: inline-block; width: 130px;">Origin</span>: ${crimCase.origin || 'Tagbilaran City'}
+          <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+            <span style="display: inline-block; width: 150px;">Origin</span> : ${crimCase.origin || 'Tagbilaran City'}
           </p>
-          <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-            <span style="display: inline-block; width: 130px;">Status</span>: ${crimCase.status || 'N/A'}
+          <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+            <span style="display: inline-block; width: 150px;">Status</span> : ${crimCase.status || 'N/A'}
           </p>
         </div>
       `).join('')
     : `<div style="margin-bottom: 12pt; margin-left: 0.2in;">
-        <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-          <span style="display: inline-block; width: 130px;">Crim. Case No.</span>: N/A
+        <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+          <span style="display: inline-block; width: 150px;">Crim. Case No.</span> : <strong>N/A</strong>
         </p>
-        <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-          <span style="display: inline-block; width: 130px;">Crime</span>: N/A
+        <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+          <span style="display: inline-block; width: 150px;">Crime</span> : N/A
         </p>
-        <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-          <span style="display: inline-block; width: 130px;">Date Info Filed</span>: N/A
+        <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+          <span style="display: inline-block; width: 150px;">Date Info Filed</span> : N/A
         </p>
-        <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-          <span style="display: inline-block; width: 130px;">Origin</span>: Tagbilaran City
+        <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+          <span style="display: inline-block; width: 150px;">Origin</span> : Tagbilaran City
         </p>
-        <p style="margin: 2pt 0; line-height: 1.0; font-size: 12pt;">
-          <span style="display: inline-block; width: 130px;">Status</span>: N/A
+        <p style="margin: 2pt 0; line-height: 1.3; font-size: 13pt;">
+          <span style="display: inline-block; width: 150px;">Status</span> : N/A
         </p>
       </div>`;
 
@@ -290,7 +290,7 @@ export const getFormatBHtml = (formData: FormData, fullName: string, generatedOR
   <style>
     @page { size: 9.5in 12in; margin: 0.75in 0.75in 0.5in 0.75in; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    body { margin: 0; padding: 0; font-family: ${FORMAT_B_CONFIG.fontFamily}; font-size: 12pt; line-height: 1.0; color: ${FORMAT_B_CONFIG.textColor}; background: white; }
+    body { margin: 0; padding: 0; font-family: ${FORMAT_B_CONFIG.fontFamily}; font-size: 13pt; line-height: 1.0; color: ${FORMAT_B_CONFIG.textColor}; background: white; }
     .certificate-container { width: 100%; max-width: 7in; margin: 0 auto; padding: 0; }
     .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4pt; }
     .header img { width: 1.2in; height: 1.2in; object-fit: contain; }
@@ -307,13 +307,13 @@ export const getFormatBHtml = (formData: FormData, fullName: string, generatedOR
     <div class="header">
       <img src="/images/logos/doj-seal.png" alt="DOJ Seal" class="left-logo" />
       <div class="header-text">
-        <p style="font-size: 12pt; font-style: normal; color: #000000; line-height: 1.5;">Republic of the Philippines</p>
-        <p style="font-size: 12pt; font-style: normal; color: #000000; line-height: 1.5;">Department of Justice</p>
-        <p style="font-size: 12pt; font-weight: bold; color: #000000; line-height: 1.5;">OFFICE OF THE CITY PROSECUTOR</p>
-        <p style="font-size: 12pt; color: #000000; line-height: 1.5;">City of Tagbilaran</p>
-        <p style="font-size: 9pt; font-style: italic; color: #000000; line-height: 1.5;">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-        <p style="font-size: 9pt; font-style: italic; color: #000000; line-height: 1.5;">Tel. No. 411-3403/411-2306</p>
-        <p style="font-size: 9pt; font-style: italic; color: #000000; line-height: 1.5;">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF;">ocptagbilaran@doj.gov.ph</a></p>
+        <p style="font-size: 13pt; font-style: normal; color: #000000; line-height: 1.0;">Republic of the Philippines</p>
+        <p style="font-size: 13pt; font-style: normal; color: #000000; line-height: 1.0;">Department of Justice</p>
+        <p style="font-size: 13pt; font-weight: bold; color: #000000; line-height: 1.0;">OFFICE OF THE CITY PROSECUTOR</p>
+        <p style="font-size: 13pt; color: #000000; line-height: 1.0;">City of Tagbilaran</p>
+        <p style="font-size: 11pt; font-style: italic; color: #000000; line-height: 1.0; white-space: nowrap;">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
+        <p style="font-size: 11pt; font-style: italic; color: #000000; line-height: 1.0;">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 11pt; font-style: italic; color: #000000; line-height: 1.0;">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF;">ocptagbilaran@doj.gov.ph</a></p>
       </div>
       <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" class="right-logo" />
     </div>
@@ -343,16 +343,19 @@ export const getFormatBHtml = (formData: FormData, fullName: string, generatedOR
         residing at <strong>${formData?.address}</strong>, has been charged of the following:
       </p>
       
-      <div style="margin-left: 0.5in; margin-bottom: 12pt; font-size: 9pt;">
+      <div style="margin-left: 0.5in; margin-bottom: 12pt; font-size: 13pt;">
         ${casesHtml}
       </div>
+
+      <div style="height: 15px;"></div>
+
       
       <div style="margin-left: 1.2in; margin-bottom: 12pt; margin-top: 12pt; line-height: 1.0;">
-        <p style="margin-bottom: 4pt; font-size: 12pt;">Issued upon request : <strong style="text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</strong></p>
-        <p style="margin: 0; font-size: 12pt;">Purpose : <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose}</strong></p>
+        <p style="margin-bottom: 4pt; font-size: 13pt;">Issued upon request : <strong style="text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</strong></p>
+        <p style="margin: 0; font-size: 13pt;">Purpose : <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose}</strong></p>
       </div>
       
-      <p style="text-indent: 0.5in; text-align: margin-left: 1.9in; justify; margin-top: 12pt; font-size: 12pt; line-height: 1.6;">
+      <p style="text-indent: 0.5in; text-align: margin-left: 1.9in; justify; margin-top: 12pt; font-size: 13pt; line-height: 1.6;">
         &nbsp &nbsp &thinsp;&hairsp;WITNESS MY HAND this <strong style="text-decoration: underline;">${dayNum}${getOrdinalSuffix(dayNum)}</strong> 
         day of <strong style="text-decoration: underline;">${monthYear}</strong> 
         in the City of Tagbilaran, Bohol, Philippines.
@@ -363,19 +366,19 @@ export const getFormatBHtml = (formData: FormData, fullName: string, generatedOR
     
     <!-- SIGNATURE -->
     <div style="text-align: right; margin-top: 14pt; margin-right: 0.8in; display: flex; flex-direction: column; align-items: flex-end;">
-      <p style="font-size: 12pt; font-weight: bold; margin-bottom: 32pt; text-transform: uppercase; color: #000000;">FOR THE CITY PROSECUTOR:</p>
-      <p style="font-size: 12pt; font-weight: bold; margin-bottom: 0; margin-right: 25pt; color: #000000;">REGIE C. POCON</p>
-      <p style="font-size: 12pt; font-style: normal; margin-top: 0pt; margin-right: 5pt; color: #000000;">Administrative Officer V</p>
+      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 32pt; text-transform: uppercase; color: #000000;">FOR THE CITY PROSECUTOR:</p>
+      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 0; margin-right: 25pt; color: #000000;">REGIE C. POCON</p>
+      <p style="font-size: 13pt; font-style: normal; margin-top: 0pt; margin-right: 5pt; color: #000000;">Administrative Officer V</p>
     </div>
     
     <br/>
     
     <!-- FOOTER -->
-    <div style="margin-top: 18pt; font-size: 12pt; color: #000000;">
+    <div style="margin-top: 18pt; font-size: 13pt; color: #000000;">
       <p style="margin: 0 0 2pt 0; color: #000000;">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
       <p style="margin: 0 0 2pt 0; color: #000000;">Date: <strong><u>${fullDate}</u></strong></p>
       <br/>
-      <p style="font-style: italic; font-size: 9pt; margin-top: 8pt; color: #000000;">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
+      <p style="font-style: italic; font-size: 10pt; margin-top: 8pt; color: #000000;">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
     </div>
   </div>
   

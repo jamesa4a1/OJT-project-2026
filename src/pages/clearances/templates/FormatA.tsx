@@ -23,8 +23,8 @@ const FORMAT_A_CONFIG = {
   withRecordColor: '#DC2626',      // Red for "WITH CRIMINAL RECORD"
   noRecordFontSize: '30pt',        // Font size for no criminal record status
   withRecordFontSize: '16pt',      // Font size for with criminal record status
-  bodyFontSize: '10pt',            // Body text font size
-  fontFamily: "Century Gothic, Arial, sans-serif",
+  bodyFontSize: '12pt',            // Body text font size
+  fontFamily: "Century Gothic",
 };
 
 // ============================================
@@ -75,7 +75,7 @@ const FormatAHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
       <div style={{ textAlign: 'center', margin: '16pt 0 16pt 0' }}>
         <h1 style={{ 
           color: textColor, 
-          fontSize: '18pt', 
+          fontSize: '20pt', 
           fontWeight: 'bold', 
           letterSpacing: '0.08em',
           fontFamily: FORMAT_A_CONFIG.fontFamily,
@@ -129,11 +129,11 @@ const FormatABody: React.FC<{ data: FormData }> = ({ data }) => {
   return (
     <div style={{ color: FORMAT_A_CONFIG.textColor }}>
       <p style={{ textIndent: '0.3in', textAlign: 'justify', marginBottom: '8pt', fontSize: FORMAT_A_CONFIG.bodyFontSize, lineHeight: '1.15' }}>
-        THIS IS TO CERTIFY that the record on file in this Office show(s) that{' '}
+        THIS IS TO CERTIFY that the records of office show that one {' '}
         <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>,{' '}
-        <strong>{data.age || '[AGE]'}</strong> years old, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}
-        <strong>{data.nationality || '[NATIONALITY]'}</strong>, presently residing at{' '}
-        <strong>{data.address || '[ADDRESS]'}</strong>, has
+        <strong>{data.age || '[AGE]'} years old</strong>, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}
+        <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at{' '}
+        <strong>{data.address || '[ADDRESS]'}</strong> has
       </p>
 
       <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '24pt', color: FORMAT_A_CONFIG.noRecordColor, margin: '12pt 0' }}>
@@ -141,19 +141,19 @@ const FormatABody: React.FC<{ data: FormData }> = ({ data }) => {
       </p>
 
       <div style={{ marginLeft: '0.3in', marginBottom: '6pt', lineHeight: '1.1' }}>
-        <p style={{ marginBottom: '3pt', fontSize: '10pt' }}>
+        <p style={{ marginBottom: '3pt', fontSize: '13pt' }}>
           Issued upon request: <strong style={{ textDecoration: 'underline' }}>
             {data.issued_upon_request_by || fullName || '[REQUESTER NAME]'}
           </strong>
         </p>
-        <p style={{ fontSize: '10pt' }}>
+        <p style={{ fontSize: '13pt' }}>
           Purpose: <strong style={{ textDecoration: 'underline' }}>
             {data.purpose === 'Other' ? data.custom_purpose : data.purpose || '[PURPOSE]'}
           </strong>
         </p>
       </div>
 
-      <p style={{ textIndent: '0.3in', textAlign: 'justify', marginTop: '8pt', fontSize: '10pt' }}>
+      <p style={{ textIndent: '0.3in', textAlign: 'justify', marginTop: '8pt', fontSize: '13pt' }}>
         WITNESS MY HAND this{' '}
         <strong style={{ textDecoration: 'underline' }}>
           {issuedDateInfo ? `${issuedDateInfo.day}${issuedDateInfo.suffix}` : '[DAY]'}
@@ -184,31 +184,31 @@ const FormatAFooter: React.FC<{ data: FormData; generatedOR?: string | null }> =
     <>
       {/* Signature Section */}
       <div style={{ 
-        marginTop: '12pt',
+        marginTop: '13pt',
         textAlign: 'right',
         color: '#000080',
         fontFamily: FORMAT_A_CONFIG.fontFamily,
         paddingRight: '0.5in'
       }}>
-        <p style={{ fontWeight: 'bold', fontSize: '10pt', marginBottom: '32pt', textTransform: 'uppercase', color: '#000080' }}>
+        <p style={{ fontWeight: 'bold', fontSize: '13pt', marginBottom: '32pt', textTransform: 'uppercase', color: '#000080' }}>
           FOR THE CITY PROSECUTOR:
         </p>
         
         <div>
-          <p style={{ fontWeight: 'bold', fontSize: '10pt', marginBottom: '2pt', color: '#000080' }}>REGIE C. POCON</p>
-          <p style={{ fontSize: '9pt', fontStyle: 'italic', fontWeight: 'normal', color: '#000080' }}>Administrative Officer V</p>
+          <p style={{ fontWeight: 'bold', fontSize: '13pt', marginBottom: '2pt', color: '#000080' }}>REGIE C. POCON</p>
+          <p style={{ fontSize: '13pt', fontStyle: 'italic', fontWeight: 'normal', color: '#000080' }}>Administrative Officer V</p>
         </div>
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: '20pt', color: '#000080', fontSize: '12pt', fontFamily: FORMAT_A_CONFIG.fontFamily }}>
+      <div style={{ marginTop: '20pt', color: '#000080', fontSize: '13pt', fontFamily: FORMAT_A_CONFIG.fontFamily }}>
         <p style={{ marginBottom: '2pt', color: '#000080' }}>
           O.R No: <strong style={{ textDecoration: 'underline', color: '#000080', fontWeight: 'bold' }}>{data.prc_id_number || generatedOR || '________'}</strong>
         </p>
         <p style={{ marginBottom: '8pt', color: '#000080' }}>
           Date: <strong style={{ textDecoration: 'underline', color: '#000080', fontWeight: 'bold'}}>{new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
         </p>
-        <p style={{ fontStyle: 'italic', fontSize: '12pt', color: '#000080', marginTop: '8pt' }}>
+        <p style={{ fontStyle: 'italic', fontSize: '10pt', color: '#000080', marginTop: '8pt' }}>
           {getValidityMessage()}
         </p>
       </div>
@@ -290,7 +290,7 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
 
   // Build criminal record status HTML - Always show NO CRIMINAL RECORD for FormatA
   const getStatusHtml = () => {
-    return `<br/><p style="text-align: center; font-weight: bold; font-size: 22pt; color: ${FORMAT_A_CONFIG.noRecordColor}; margin: 12pt 0;">&quot;NO CRIMINAL RECORD&quot;</p><br/>`;
+    return `<br/><p style="text-align: center; font-weight: bold; font-size: 27pt; color: ${FORMAT_A_CONFIG.noRecordColor}; margin: 12pt 0;">&quot;NO CRIMINAL RECORD&quot;</p><br/>`;
   };
 
   return `<!DOCTYPE html>
@@ -298,9 +298,9 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
 <head>
   <title>Certificate - Format A</title>
   <style>
-    @page { size: 8.5in 11in; margin: 0.5in 0.6in 0.4in 0.6in; }
+    @page { size: 8.5in 11in; margin: 0.3in 1.1in 0.2in 1.1in; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    body { margin: 0; padding: 0; font-family: ${FORMAT_A_CONFIG.fontFamily}; font-size: 11pt; line-height: 1.1; color: ${FORMAT_A_CONFIG.textColor}; background: white; }
+    body { margin: 0; padding: 0; font-family: ${FORMAT_A_CONFIG.fontFamily}; font-size: 13pt; line-height: 1.1; color: ${FORMAT_A_CONFIG.textColor}; background: white; }
     .certificate-container { width: 100%; max-width: 7.3in; margin: 0 auto; padding: 0; }
     .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8pt; }
     .header img { width: 1.1in; height: 1.1in; object-fit: contain; }
@@ -332,37 +332,37 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
     
     <!-- TITLE -->
     <div style="text-align: center; margin: 8pt 0 12pt 0;">
-      <h1 style="font-size: 18pt; font-weight: bold; letter-spacing: 0.05em; margin: 0; color: ${FORMAT_A_CONFIG.textColor};">C E R T I F I C A T I O N</h1>
+      <h1 style="font-size: 20pt; font-weight: bold; letter-spacing: 0.05em; margin: 0; color: ${FORMAT_A_CONFIG.textColor};">C E R T I F I C A T I O N</h1>
     </div>
     
     <br/>
     
     <!-- SALUTATION -->
-    <p style="font-size: 11pt; line-height: 1.0; font-weight: bold; margin-bottom: 8pt; color: ${FORMAT_A_CONFIG.textColor};">TO WHOM IT MAY CONCERN:</p>
+    <p style="font-size: 13pt; line-height: 1.0; font-weight: bold; margin-bottom: 8pt; color: ${FORMAT_A_CONFIG.textColor};">TO WHOM IT MAY CONCERN:</p>
     
     <br/>
     
     <!-- BODY -->
     <div style="color: ${FORMAT_A_CONFIG.textColor};">
-      <p style="text-indent: 0.3in; text-align: justify; margin-bottom: 6pt; line-height: 1.3; font-size: 11pt;">
-        THIS IS TO CERTIFY that the record on file in this Office show(s) that 
+      <p style="text-indent: 0.3in; text-align: justify; margin-bottom: 6pt; line-height: 1.3; font-size: 13pt;">
+        &nbsp;&nbsp;&nbsp;THIS IS TO CERTIFY that the records of this office show that one 
         <strong style="text-transform: uppercase;">${fullName}</strong>, 
-        <strong>${formData?.age}</strong> years old, 
+        <strong>${formData?.age} years old</strong>, 
         <strong>${formData?.civil_status}</strong>, 
         <strong>${formData?.nationality}</strong>, 
-        presently residing at <strong>${formData?.address}</strong>, has
+        residing at <strong>${formData?.address}</strong> has
       </p>
       
       ${getStatusHtml()}
       
       <div style="margin-left: 0.6in; margin-bottom: 6pt; line-height: 1.1;">
-        <p style="margin-bottom: 3pt; font-size: 11pt; line-height: 1.0;">Issued upon request: <strong style="text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</strong></p>
-        <p style="line-height: 1.0; font-size: 11pt;">Purpose: <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose}</strong></p>
+        <p style="margin-bottom: 3pt; font-size: 13pt; line-height: 1.0;">Issued upon request: <strong style="text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</strong></p>
+        <p style="line-height: 1.0; font-size: 13pt;">Purpose: <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose}</strong></p>
       </div>
       
       <br/>
       
-      <p style="text-indent: 0.3in; text-align: justify; margin-top: 8pt; line-height: 1.2; font-size: 11pt;">
+      <p style="text-indent: 0.3in; text-align: justify; margin-top: 8pt; line-height: 1.2; font-size: 13pt;">
         &nbsp &nbsp &nbsp &nbsp &nbsp &nbsp &nbsp  WITNESS MY HAND this <strong style="text-decoration: underline;">${dayNum}${getOrdinalSuffix(dayNum)}</strong> 
         day of <strong style="text-decoration: underline;">${monthYear}</strong> 
         in the City of Tagbilaran, Bohol, Philippines.
@@ -373,19 +373,19 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
     
     <!-- SIGNATURE -->
     <div style="text-align: right; margin-top: 10pt; margin-right: 0.4in; display: flex; flex-direction: column; align-items: flex-end;">
-      <p style="font-size: 11pt; font-weight: bold; margin-bottom: 28pt; text-transform: uppercase; color: #000080;">FOR THE CITY PROSECUTOR:</p>
-      <p style="font-size: 11pt; font-weight: bold; margin-bottom: 0; margin-right: 20pt; color: #000080;">REGIE C. POCON</p>
-      <p style="font-size: 10pt; font-style: normal; margin-top: 0pt; margin-right: 12pt; color: #000080;">Administrative Officer V</p>
+      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 28pt; text-transform: uppercase; color: #000080;">FOR THE CITY PROSECUTOR:</p>
+      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 0; margin-right: 28pt; color: #000080;">REGIE C. POCON</p>
+      <p style="font-size: 13pt; font-style: normal; margin-top: 0pt; margin-right: 9pt; color: #000080;">Administrative Officer V</p>
     </div>
     
     <br/>
     
     <!-- FOOTER -->
-    <div style="margin-top: 10pt; font-size: 11pt; color: #000080;">
+    <div style="margin-top: 10pt; font-size: 13pt; color: #000080;">
       <p style="margin: 0 0 2pt 0; color: #000080;">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
       <p style="margin: 0 0 6pt 0; color: #000080;">Date: <strong><u>${fullDate}</u></strong></p>
       <br/>
-      <p style="font-style: italic; font-size: 11pt; margin-top: 6pt; color: #000080;">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
+      <p style="font-style: italic; font-size: 10pt; margin-top: 6pt; color: #000080;">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
     </div>
   </div>
   
