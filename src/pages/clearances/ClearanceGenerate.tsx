@@ -14,18 +14,11 @@ import {
   FORMAT_FIELDS,
   SEX_OPTIONS,
   BLOOD_TYPE_OPTIONS,
-  getOrdinalSuffix,
   ClearancePreview,
   getPrintTemplate,
 } from './templates';
 
-// Used in handlePrint function
-void getOrdinalSuffix;
 import type { CriminalCase, FormData } from './templates';
-
-// Official DOJ and Bagong Pilipinas logos
-const DOJ_SEAL = `${process.env.PUBLIC_URL || ''}/images/logos/doj-seal.png`;
-const BAGONG_PILIPINAS_SEAL = `${process.env.PUBLIC_URL || ''}/images/logos/bagong-pilipinas.png`;
 
 const ClearanceGenerate: React.FC = () => {
   const navigate = useNavigate();
@@ -38,6 +31,7 @@ const ClearanceGenerate: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [generatedOR, setGeneratedOR] = useState<string | null>(null);
+  const [formKey, setFormKey] = useState(0); // Key to force form re-render on reset
   
   const getDefaultDate = () => {
     return new Date().toISOString().split('T')[0];
@@ -76,10 +70,10 @@ const ClearanceGenerate: React.FC = () => {
     ctc_number: '',
     ctc_issued_at: '',
     ctc_issued_on: '',
-    purpose: 'Local Employment',
+    purpose: '',
     purpose_fee: 50,
     custom_purpose: '',
-    issued_upon_request_by: user?.name || '',
+    issued_upon_request_by: '',
     date_issued: getDefaultDate(),
     prc_id_number: '',
     validity_period: '6 Months',
@@ -143,15 +137,18 @@ const ClearanceGenerate: React.FC = () => {
     }
   }, [editId, user?.name]);
 
-  // Update expiry date when issued date or validity period changes
+  // Note: Form inputs are now properly managed through React state
+  // No DOM manipulation is needed - inputs are controlled React components
+
+  // Update expiry date when issued date or validity period changes (except for Format C)
   useEffect(() => {
-    if (formData.date_issued && formData.validity_period) {
+    if (formData.date_issued && formData.validity_period && formData.format_type !== 'C') {
       setFormData((prev: FormData) => ({
         ...prev,
         validity_expiry: getExpiryDate(prev.date_issued, prev.validity_period || '6 Months')
       }));
     }
-  }, [formData.date_issued, formData.validity_period]);
+  }, [formData.date_issued, formData.validity_period, formData.format_type]);
 
   // Auto-hide success message after 4 seconds
   useEffect(() => {
@@ -179,6 +176,30 @@ const ClearanceGenerate: React.FC = () => {
     
     if (errors[name as keyof FormData]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // Handle Enter key to move to next field
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      e.preventDefault();
+      
+      // Get all focusable form elements in order (inputs and textareas only, not selects)
+      const focusableElements = Array.from(
+        document.querySelectorAll(
+          'input:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly])'
+        )
+      ) as HTMLElement[];
+      
+      // Find current element's index
+      const currentIndex = focusableElements.indexOf(e.target as HTMLElement);
+      
+      // Focus next element if it exists
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1];
+        (nextElement as HTMLInputElement | HTMLTextAreaElement).focus();
+        (nextElement as HTMLInputElement | HTMLTextAreaElement).select?.();
+      }
     }
   };
 
@@ -281,6 +302,15 @@ const ClearanceGenerate: React.FC = () => {
   };
 
   const handleClearForm = () => {
+    // Clear URL parameters to prevent edit mode interference
+    if (editId) {
+      navigate('/clearances/generate', { replace: true });
+    }
+    
+    // Reset all form state to initial values
+    const defaultDate = getDefaultDate();
+    const defaultExpiryDate = getExpiryDate(defaultDate, '6 Months');
+    
     setFormData({
       format_type: 'A',
       first_name: '',
@@ -304,14 +334,14 @@ const ClearanceGenerate: React.FC = () => {
       ctc_number: '',
       ctc_issued_at: '',
       ctc_issued_on: '',
-      purpose: 'Local Employment',
+      purpose: '',
       purpose_fee: 50,
       custom_purpose: '',
-      issued_upon_request_by: user?.name || '',
-      date_issued: getDefaultDate(),
+      issued_upon_request_by: '',
+      date_issued: defaultDate,
       prc_id_number: '',
       validity_period: '6 Months',
-      validity_expiry: getExpiryDate(getDefaultDate(), '6 Months'),
+      validity_expiry: defaultExpiryDate,
       case_numbers: '',
       crime_description: '',
       legal_statute: '',
@@ -326,13 +356,63 @@ const ClearanceGenerate: React.FC = () => {
     setSubmitStatus(null);
     setGeneratedOR(null);
     setHasCriminalRecord(false);
+    
+    // Increment formKey to force complete form re-render with fresh inputs
+    setFormKey(prev => prev + 1);
+    
+    // Focus on first available input field to improve UX
+    setTimeout(() => {
+      const firstInput = document.querySelector('input[name="first_name"]') as HTMLInputElement;
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }, 50);
   };
 
   const handleDownloadPDF = async () => {
     const html2pdf = (await import('html2pdf.js')).default;
     
-    const element = document.getElementById('certificate-preview');
-    if (!element) return;
+    // Build full name for print template
+    const printFullName = [
+      formData.first_name.toUpperCase(),
+      formData.middle_name ? `${formData.middle_name.charAt(0).toUpperCase()}.` : '',
+      formData.last_name.toUpperCase(),
+      formData.suffix ? formData.suffix.toUpperCase() : ''
+    ].filter(Boolean).join(' ');
+
+    // Get the print template HTML
+    const printDocument = getPrintTemplate({ formData, fullName: printFullName, generatedOR });
+    
+    // Verify it's actually the print template by checking for DOCTYPE
+    if (!printDocument.includes('<!DOCTYPE html>')) {
+      console.error('Print template generation failed, falling back to preview');
+      // Fallback to the old method if print template fails
+      const element = document.getElementById('certificate-preview');
+      if (!element) return;
+      
+      const opt = {
+        margin: 0.5,
+        filename: `clearance_${generatedOR || 'preview'}_${formData.last_name}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      html2pdf().set(opt as any).from(element).save();
+      return;
+    }
+    
+    // Create a temporary element with the print template
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = printDocument;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '-9999px';
+    document.body.appendChild(tempDiv);
+    
+    // Find the certificate container in the print template
+    const element = (tempDiv.querySelector('.certificate-container') as HTMLElement) || tempDiv;
     
     const opt = {
       margin: 0.5,
@@ -342,8 +422,13 @@ const ClearanceGenerate: React.FC = () => {
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    html2pdf().set(opt as any).from(element).save();
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await html2pdf().set(opt as any).from(element).save();
+    } finally {
+      // Clean up the temporary element
+      document.body.removeChild(tempDiv);
+    }
     
     if (editId) {
       try {
@@ -361,9 +446,6 @@ const ClearanceGenerate: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
-    const certificateElement = document.getElementById('certificate-preview');
-    if (!certificateElement) return;
-    
     // Build full name for print template
     const printFullName = [
       formData.first_name.toUpperCase(),
@@ -372,188 +454,13 @@ const ClearanceGenerate: React.FC = () => {
       formData.suffix ? formData.suffix.toUpperCase() : ''
     ].filter(Boolean).join(' ');
 
-    const textColor = formData.format_type === 'B' ? '#000000' : '#00008B';
-    
-    const printDocument = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Certificate</title>
-          <style>
-            @page {
-              size: 9.5in 12in;
-              margin: 0.75in 0.75in 0.5in 0.75in;
-            }
-            
-            * {
-              box-sizing: border-box;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            
-            body {
-              margin: 0;
-              padding: 0;
-              font-family: "Century Gothic", Arial, sans-serif;
-              font-size: 12pt;
-              line-height: 1.0;
-              color: ${textColor};
-              background: white;
-            }
-            
-            .certificate-container {
-              width: 100%;
-              max-width: 7in;
-              margin: 0 auto;
-              padding: 0;
-            }
-            
-            .header {
-              display: flex;
-              align-items: flex-start;
-              justify-content: space-between;
-              margin-bottom: 4pt;
-            }
-            
-            .header img {
-              width: 0.8in;
-              height: 0.8in;
-              object-fit: contain;
-            }
-            
-            .header-text {
-              flex: 1;
-              text-align: center;
-              padding: 0 8px;
-            }
-            
-            .header-text p {
-              margin: 0;
-              line-height: 1.0;
-            }
-            
-            .header-text .republic { font-size: 12pt; font-style: normal; }
-            .header-text .dept { font-size: 12pt; font-style: normal; }
-            .header-text .office { font-size: 12pt; font-weight: bold; }
-            .header-text .city { font-size: 12pt; font-style: normal; }
-            .header-text .address { font-size: 9pt; font-style: italic; }
-            .header-text .email { font-size: 9pt; font-style: italic; }
-            .header-text .email a { color: #0000FF; text-decoration: underline; font-style: italic; }
-            
-            .title { text-align: center; margin: 4pt 0 8pt 0; }
-            .title h1 { font-size: 16pt; font-weight: bold; letter-spacing: 0.15em; margin: 0; color: ${textColor}; }
-            
-            .salutation { font-size: 12pt; font-weight: bold; margin-bottom: 4pt; }
-            
-            .body-text { font-size: 12pt; line-height: 1.0; text-align: justify; text-indent: 0.3in; margin-bottom: 6pt; }
-            .body-text strong { font-weight: bold; }
-            
-            .no-record { text-align: center; margin: 8pt 0; font-size: 25pt; }
-            .no-record p { font-size: 25pt; font-weight: bold; color: #008000 !important; margin: 0; }
-            
-            .with-record { text-align: center; margin: 8pt 0; }
-            .with-record p { font-size: 20pt; font-weight: bold; color: #DC2626 !important; margin: 0; }
-            
-            .details { margin-left: 0.3in; font-size: 12pt; line-height: 1.0; }
-            .details p { margin: 0 0 2pt 0; }
-            
-            .witness { font-size: 12pt; line-height: 1.0; text-align: justify; text-indent: 0.3in; }
-            
-            .signature { text-align: right; margin-top: 14pt; margin-right: 0.3in; display: flex; flex-direction: column; align-items: flex-end; }
-            .signature .for-prosecutor { font-size: 12pt; font-weight: bold; margin-bottom: 32pt; text-align: right; text-transform: uppercase; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
-            .signature .name { font-size: 12pt; font-weight: bold; margin-bottom: 0; margin-right: 25pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
-            .signature .position { font-size: 12pt; font-style: italic; margin-top: 0pt; margin-right: 5pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
-            
-            .footer { margin-top: 18pt; font-size: 12pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
-            .footer p { margin: 0 0 2pt 0; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
-            .footer .note { font-style: italic; font-size: 9pt; margin-top: 8pt; color: ${formData.format_type === 'A' || formData.format_type === 'C' ? '#000080' : '#000000'}; }
-            
-            .criminal-case { margin-left: 0.3in; margin-bottom: 10pt; padding: 10pt; border-left: 2px solid #DC2626; }
-            .criminal-case p { margin: 2pt 0; font-size: 10pt; }
-            
-            @media print {
-              body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-              .no-record p { color: #008000 !important; }
-              .with-record p { color: #DC2626 !important; }
-              .header-text .email a { color: #0000FF !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="certificate-container">
-            <div class="header">
-              <img src="${(document.querySelector('#certificate-preview img:first-of-type') as HTMLImageElement)?.src || ''}" alt="DOJ Seal" />
-              <div class="header-text">
-                <p class="republic">Republic of the Philippines</p>
-                <p class="dept">Department of Justice</p>
-                <p class="office">OFFICE OF THE CITY PROSECUTOR</p>
-                <p class="city">City of Tagbilaran</p>
-                <p class="address">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-                <p class="address">Tel. No. 411-3403/411-2306</p>
-                <p class="email">Email: <a href="mailto:ocptagbilaran@doj.gov.ph">ocptagbilaran@doj.gov.ph</a></p>
-              </div>
-              <img src="${(document.querySelectorAll('#certificate-preview img')[1] as HTMLImageElement)?.src || ''}" alt="Bagong Pilipinas" />
-            </div>
-            
-            <br>
-            
-            <div class="title">
-              <h1 style="font-size: 20pt;">${formData.format_type === 'C' ? 'CERTIFICATE OF CLEARANCE' : 'C E R T I F I C A T I O N'}</h1>
-            </div>
-            
-            <br>
-            
-            <p class="salutation">TO WHOM IT MAY CONCERN:</p>
-            
-            <br>
-            
-            ${getPrintTemplate({ formData, fullName: printFullName, generatedOR })}
-            
-            <br>
-            
-            <div class="signature">
-              <p class="for-prosecutor">FOR THE CITY PROSECUTOR:</p>
-              <p class="name">REGIE C. POCON</p>
-              <p class="position">Administrative Officer V</p>
-            </div>
-            
-            <br>
-            
-            <div class="footer">
-              <p>O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
-              <p>Date: <strong><u>${new Date(formData.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</u></strong></p>
-              <br>
-              <p class="note">Note: Valid until 6 months from the date issued.</p>
-            </div>
-          </div>
-          
-          <script>
-            window.onload = function() {
-              document.title = '';
-              setTimeout(() => { window.print(); }, 200);
-              window.onafterprint = function() { window.close(); };
-            };
-          </script>
-        </body>
-      </html>
-    `;
+    // Get complete print document from the format file
+    // Each format file now contains a complete standalone HTML document
+    const printDocument = getPrintTemplate({ formData, fullName: printFullName, generatedOR });
     
     printWindow.document.write(printDocument);
     printWindow.document.close();
   };
-
-  // Text color for preview
-  const textColor = '#00008B';
-  
-  // Build full name for preview (used in print template)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const fullName = [
-    formData.first_name.toUpperCase(),
-    formData.middle_name ? `${formData.middle_name.charAt(0).toUpperCase()}.` : '',
-    formData.last_name.toUpperCase(),
-    formData.suffix ? formData.suffix.toUpperCase() : ''
-  ].filter(Boolean).join(' ');
 
   const inputClasses = `w-full px-3 py-2.5 rounded-lg border-2 outline-none transition-all duration-200 text-sm ${
     isDark 
@@ -779,34 +686,50 @@ const ClearanceGenerate: React.FC = () => {
                   ? 'border-slate-700/60 bg-gradient-to-r from-slate-800/80 to-slate-700/80' 
                   : 'border-slate-100/60 bg-gradient-to-r from-blue-50/80 to-white/80'
               }`}>
-                <div className="flex items-center space-x-2.5">
-                  <div className={`inline-flex items-center justify-center w-6 h-6 rounded-lg ${
-                    isDark ? 'bg-blue-900/50' : 'bg-blue-100'
-                  }`}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="5" y="3" width="12" height="18" rx="1" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" fill="none"/>
-                      <rect x="8" y="1.5" width="6" height="2" rx="0.5" fill={isDark ? '#60a5fa' : '#2563eb'}/>
-                      <line x1="7" y1="7" x2="16" y2="7" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
-                      <line x1="7" y1="10" x2="16" y2="10" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
-                      <line x1="7" y1="13" x2="13" y2="13" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
-                      <circle cx="16" cy="16" r="3.5" fill={isDark ? '#60a5fa' : '#2563eb'} opacity="0.1"/>
-                      <path d="M14.5 16L15.5 17L17.5 15" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                    </svg>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5">
+                    <div className={`inline-flex items-center justify-center w-6 h-6 rounded-lg ${
+                      isDark ? 'bg-blue-900/50' : 'bg-blue-100'
+                    }`}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="5" y="3" width="12" height="18" rx="1" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" fill="none"/>
+                        <rect x="8" y="1.5" width="6" height="2" rx="0.5" fill={isDark ? '#60a5fa' : '#2563eb'}/>
+                        <line x1="7" y1="7" x2="16" y2="7" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                        <line x1="7" y1="10" x2="16" y2="10" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                        <line x1="7" y1="13" x2="13" y2="13" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1" opacity="0.5"/>
+                        <circle cx="16" cy="16" r="3.5" fill={isDark ? '#60a5fa' : '#2563eb'} opacity="0.1"/>
+                        <path d="M14.5 16L15.5 17L17.5 15" stroke={isDark ? '#60a5fa' : '#2563eb'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        Certificate Details
+                      </h2>
+                      <p className={`text-xs leading-tight ${isDark ? 'text-slate-400' : 'text-blue-600'}`}>
+                        Fill in the required information
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      Certificate Details
-                    </h2>
-                    <p className={`text-xs leading-tight ${isDark ? 'text-slate-400' : 'text-blue-600'}`}>
-                      Fill in the required information
-                    </p>
-                  </div>
+                  <motion.button
+                    type="button"
+                    onClick={handleClearForm}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
+                      isDark 
+                        ? 'bg-red-950/40 hover:bg-red-900/50 text-red-300 hover:text-red-200 border border-red-800/30 shadow-lg shadow-red-900/10' 
+                        : 'bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 shadow-lg shadow-red-900/5'
+                    }`}
+                  >
+                    <i className="fas fa-redo-alt mr-1.5"></i>
+                    Reset Form
+                  </motion.button>
                 </div>
               </div>
 
               {/* Form Container */}
               <div className="p-3 overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(100vh - 220px)', wordWrap: 'break-word' }}>
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form key={formKey} onSubmit={handleSubmit} className="space-y-3">
                   
                   {/* Format Selection Section */}
                   <div className="space-y-2">
@@ -879,6 +802,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="first_name"
                           value={formData.first_name}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           className={`${inputClasses} ${errors.first_name ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter first name"
                         />
@@ -895,6 +819,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="middle_name"
                           value={formData.middle_name}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           className={inputClasses}
                           placeholder="Enter middle name"
                         />
@@ -910,6 +835,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="last_name"
                           value={formData.last_name}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           className={`${inputClasses} ${errors.last_name ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter last name"
                         />
@@ -926,6 +852,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="suffix"
                           value={formData.suffix}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           className={inputClasses}
                           placeholder="Jr., Sr., III, etc."
                         />
@@ -961,6 +888,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="age"
                           value={formData.age}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           min="18"
                           max="120"
                           className={`${inputClasses} ${errors.age ? 'border-red-500 focus:border-red-500' : ''}`}
@@ -981,6 +909,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="birth_date"
                             value={formData.birth_date}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={inputClasses}
                           />
                         </div>
@@ -998,6 +927,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="birth_place"
                             value={formData.birth_place}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={inputClasses}
                             placeholder="Enter place of birth"
                           />
@@ -1031,6 +961,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="nationality"
                           value={formData.nationality}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           className={inputClasses}
                           placeholder="Enter nationality"
                         />
@@ -1048,6 +979,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="height"
                             value={formData.height}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={inputClasses}
                             placeholder="e.g., 5'6&quot; or 168 cm"
                           />
@@ -1066,6 +998,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="weight"
                             value={formData.weight}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={inputClasses}
                             placeholder="e.g., 65 kg or 143 lbs"
                           />
@@ -1105,6 +1038,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="distinguishing_marks"
                             value={formData.distinguishing_marks}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={inputClasses}
                             placeholder="e.g., Mole on left cheek, scar on arm"
                           />
@@ -1120,6 +1054,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="address"
                           value={formData.address}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           rows={2}
                           className={`${inputClasses} ${errors.address ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter complete address"
@@ -1161,6 +1096,7 @@ const ClearanceGenerate: React.FC = () => {
                                 name="id_presented"
                                 value={formData.id_presented}
                                 onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
                                 className={inputClasses}
                                 placeholder="e.g., Passport, Driver's License, PhilSys ID"
                               />
@@ -1175,6 +1111,7 @@ const ClearanceGenerate: React.FC = () => {
                                 name="id_number"
                                 value={formData.id_number}
                                 onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
                                 className={inputClasses}
                                 placeholder="Enter ID number"
                               />
@@ -1194,6 +1131,7 @@ const ClearanceGenerate: React.FC = () => {
                                 name="ctc_number"
                                 value={formData.ctc_number}
                                 onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
                                 className={inputClasses}
                                 placeholder="Enter CTC number"
                               />
@@ -1208,6 +1146,7 @@ const ClearanceGenerate: React.FC = () => {
                                 name="ctc_issued_at"
                                 value={formData.ctc_issued_at}
                                 onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
                                 className={inputClasses}
                                 placeholder="e.g., Tagbilaran City"
                               />
@@ -1222,6 +1161,7 @@ const ClearanceGenerate: React.FC = () => {
                                 name="ctc_issued_on"
                                 value={formData.ctc_issued_on}
                                 onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
                                 className={inputClasses}
                               />
                             </div>
@@ -1258,6 +1198,7 @@ const ClearanceGenerate: React.FC = () => {
                           name="issued_upon_request_by"
                           value={formData.issued_upon_request_by}
                           onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
                           className={inputClasses}
                           placeholder="Name of requester (if different from applicant)"
                         />
@@ -1288,6 +1229,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="custom_purpose"
                             value={formData.custom_purpose}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={`${inputClasses} ${errors.custom_purpose ? 'border-red-500' : ''}`}
                             placeholder="Enter specific purpose"
                           />
@@ -1299,7 +1241,7 @@ const ClearanceGenerate: React.FC = () => {
                   )}
 
                   {/* Step 3: Criminal Record Toggle */}
-                  {formData.format_type !== 'A' && formData.format_type !== 'B' && formData.format_type !== 'C' && (
+                  {formData.format_type !== 'A' && formData.format_type !== 'B' && formData.format_type !== 'C' && formData.format_type !== 'D' && (
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center space-x-2 mb-2">
                       <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -1345,7 +1287,7 @@ const ClearanceGenerate: React.FC = () => {
                     </div>
 
                     {/* Criminal Cases Section (Conditional) */}
-                    {(hasCriminalRecord || formData.format_type === 'B') && (
+                    {(hasCriminalRecord || formData.format_type === 'B' || formData.format_type === 'D') && (
                       <div className="space-y-3 mt-3">
                         <div className={`p-2 rounded-lg ${isDark ? 'bg-red-900/20 border border-red-500/30' : 'bg-red-50 border border-red-200'}`}>
                           <p className={`text-xs font-medium ${isDark ? 'text-red-300' : 'text-red-700'}`}>
@@ -1433,8 +1375,8 @@ const ClearanceGenerate: React.FC = () => {
                   </div>
                   )}
 
-                  {/* Step 2B: Criminal Cases for Format B (Direct) */}
-                  {formData.format_type === 'B' && (
+                  {/* Step 2B: Criminal Cases for Format B & D (Direct) */}
+                  {(formData.format_type === 'B' || formData.format_type === 'D') && (
                     <div className="space-y-2 pt-2">
                       <div className="flex items-center space-x-2 mb-2">
                         <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -1538,8 +1480,8 @@ const ClearanceGenerate: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Step 3B: Clearance Details for Format B */}
-                  {formData.format_type === 'B' && (
+                  {/* Step 3B: Clearance Details for Format B & D */}
+                  {(formData.format_type === 'B' || formData.format_type === 'D') && (
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center space-x-2 mb-2">
                       <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -1595,6 +1537,7 @@ const ClearanceGenerate: React.FC = () => {
                             name="custom_purpose"
                             value={formData.custom_purpose}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             className={`${inputClasses} ${errors.custom_purpose ? 'border-red-500' : ''}`}
                             placeholder="Enter specific purpose"
                           />
@@ -1685,19 +1628,7 @@ const ClearanceGenerate: React.FC = () => {
                               name="date_issued"
                               value={formData.date_issued}
                               onChange={handleInputChange}
-                              className={inputClasses}
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="space-y-1.5">
-                            <label className={labelClasses}>Date of Issuance *</label>
-                            <input
-                              type="date"
-                              name="date_issued"
-                              value={formData.date_issued}
-                              onChange={handleInputChange}
+                              onKeyDown={handleKeyDown}
                               className={inputClasses}
                             />
                           </div>
@@ -1713,14 +1644,28 @@ const ClearanceGenerate: React.FC = () => {
                               <option value="1 Year">1 Year</option>
                             </select>
                           </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Date of Issuance *</label>
+                            <input
+                              type="date"
+                              name="date_issued"
+                              value={formData.date_issued}
+                              onChange={handleInputChange}
+                              onKeyDown={handleKeyDown}
+                              className={inputClasses}
+                            />
+                          </div>
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Valid Until</label>
                             <input
                               type="date"
                               name="validity_expiry"
                               value={formData.validity_expiry}
-                              readOnly
-                              className={`${inputClasses} cursor-not-allowed opacity-70`}
+                              disabled
+                              className={inputClasses}
                             />
                           </div>
                           <div className="space-y-1.5">
@@ -1744,6 +1689,18 @@ const ClearanceGenerate: React.FC = () => {
                             />
                             {errors.prc_id_number && <p className="text-red-500 text-xs mt-1">{errors.prc_id_number}</p>}
                           </div>
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Validity Period *</label>
+                            <select
+                              name="validity_period"
+                              value={formData.validity_period}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                            >
+                              <option value="6 Months">6 Months</option>
+                              <option value="1 Year">1 Year</option>
+                            </select>
+                          </div>
                         </>
                       )}
                     </div>
@@ -1756,6 +1713,7 @@ const ClearanceGenerate: React.FC = () => {
                       name="notes"
                       value={formData.notes}
                       onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
                       rows={2}
                       className={inputClasses}
                       placeholder="Any additional notes or remarks..."
@@ -1799,20 +1757,7 @@ const ClearanceGenerate: React.FC = () => {
                       Download PDF
                     </motion.button>
                     
-                    <motion.button
-                      type="button"
-                      onClick={handleClearForm}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      className={`w-full inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs font-semibold rounded-lg transition-all duration-200 ${
-                        isDark 
-                          ? 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg shadow-slate-900/40 hover:shadow-xl hover:shadow-slate-900/50' 
-                          : 'bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-700 hover:text-gray-800 shadow-lg shadow-gray-400/30 hover:shadow-xl hover:shadow-gray-400/40'
-                      }`}
-                    >
-                      <i className="fas fa-trash mr-2"></i>
-                      Clear Form
-                    </motion.button>
+
                   </div>
                 </form>
               </div>

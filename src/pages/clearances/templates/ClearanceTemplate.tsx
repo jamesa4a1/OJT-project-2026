@@ -81,33 +81,34 @@ export const ClearancePreview: React.FC<ClearanceTemplateProps & {
 /**
  * Print Template HTML Generator
  * 
- * Generates the HTML for printing based on the format type.
- * This is used for generating PDF documents.
+ * Generates the complete HTML document for printing based on the format type.
+ * Each format file now contains a complete standalone HTML document ready for printing.
  */
 export const getPrintTemplate = (data: {
   formData: FormData;
   fullName: string;
   generatedOR: string | null;
 }): string => {
-  const { formData, fullName } = data;
+  const { formData, fullName, generatedOR } = data;
   const formatType = formData.format_type || 'A';
   const resolvedFullName = fullName || buildFullName(formData);
 
+  // Each format function now returns a complete standalone HTML document
   switch (formatType) {
     case 'A':
-      return getFormatAHtml(formData, resolvedFullName);
+      return getFormatAHtml(formData, resolvedFullName, generatedOR);
     case 'B':
-      return getFormatBHtml(formData, resolvedFullName);
+      return getFormatBHtml(formData, resolvedFullName, generatedOR);
     case 'C':
-      return getFormatCHtml(formData, resolvedFullName);
+      return getFormatCHtml(formData, resolvedFullName, generatedOR);
     case 'D':
-      return getFormatDHtml(formData, resolvedFullName);
+      return getFormatDHtml(formData, resolvedFullName, generatedOR);
     case 'E':
-      return getFormatEHtml(formData, resolvedFullName);
+      return getFormatEHtml(formData, resolvedFullName, generatedOR);
     case 'F':
-      return getFormatFHtml(formData, resolvedFullName);
+      return getFormatFHtml(formData, resolvedFullName, generatedOR);
     default:
-      return getFormatAHtml(formData, resolvedFullName);
+      return getFormatAHtml(formData, resolvedFullName, generatedOR);
   }
 };
 

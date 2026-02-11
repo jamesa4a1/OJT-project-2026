@@ -1,4 +1,4 @@
-// Format D - Criminal Record Certification (With Case Details Table)
+// Format D - Certificate of Clearance (With Case Details)
 // This file contains the complete template for Format D including header, body, and footer
 // Edit this file to customize Format D independently from other formats
 
@@ -20,12 +20,8 @@ import {
 // Customize these values to change Format D appearance
 const FORMAT_D_CONFIG = {
   textColor: TEXT_COLOR,           // Main text color (dark blue)
-  noRecordColor: '#008000',        // Green for "NO CRIMINAL RECORD"
-  withRecordColor: '#DC2626',      // Red for "WITH CRIMINAL RECORD"
-  noRecordFontSize: '20pt',        // Font size for no criminal record status
-  withRecordFontSize: '16pt',      // Font size for with criminal record status
-  bodyFontSize: '10pt',            // Body text font size
-  tableFontSize: '9pt',            // Table font size
+  bodyFontSize: '13pt',            // Body text font size
+  headerFontSize: '9pt',           // Header font size
   fontFamily: "'Century Gothic', Arial, sans-serif",
 };
 
@@ -41,56 +37,55 @@ const FormatDHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
   return (
     <>
       {/* Header with Official Logos */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div style={{ flexShrink: 0, width: '0.8in' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8pt' }}>
+        <div style={{ flexShrink: 0, width: '0.9in' }}>
           <img 
             src={dojSealSrc} 
             alt="DOJ Seal" 
-            style={{ width: '0.8in', height: '0.8in', objectFit: 'contain' }}
+            style={{ width: '0.9in', height: '0.9in', objectFit: 'contain' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
 
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: FORMAT_D_CONFIG.fontFamily, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <p style={{ color: textColor, fontSize: '9pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>Republic of the Philippines</p>
-          <p style={{ color: textColor, fontSize: '9pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>Department of Justice</p>
-          <p style={{ color: textColor, fontSize: '11pt', fontWeight: 'bold', marginBottom: '1pt', lineHeight: '1.1', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
-          <p style={{ color: textColor, fontSize: '9pt', marginBottom: '2pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>City of Tagbilaran</p>
-          <p style={{ color: textColor, fontSize: '7pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-          <p style={{ color: textColor, fontSize: '7pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>Tel. No. 411-3403/411-2306</p>
-          <p style={{ color: '#000000', fontSize: '10pt', fontStyle: 'italic', marginBottom: '0pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>
-            Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style={{ color: '#0000FF', textDecoration: 'underline' }}>ocptagbilaran@doj.gov.ph</a>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: FORMAT_D_CONFIG.fontFamily, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0 8pt' }}>
+          <p style={{ color: textColor, fontSize: '13pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Republic of the Philippines</p>
+          <p style={{ color: textColor, fontSize: '13pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Department of Justice</p>
+          <p style={{ color: textColor, fontSize: '13pt', fontWeight: 'bold', lineHeight: '1.3', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
+          <p style={{ color: textColor, fontSize: '13pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>City of Tagbilaran</p>
+          <p style={{ color: textColor, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
+          <p style={{ color: textColor, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Tel. No. 411-3403/411-2306</p>
+          <p style={{ color: textColor, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>
+            Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style={{ color: textColor, textDecoration: 'underline' }}>ocptagbilaran@doj.gov.ph</a>
           </p>
         </div>
 
-        <div style={{ flexShrink: 0, width: '0.8in', textAlign: 'center' }}>
+        <div style={{ flexShrink: 0, width: '0.9in', textAlign: 'right' }}>
           <img 
             src={bagongPilipinasSrc} 
             alt="Bagong Pilipinas" 
-            style={{ width: '0.8in', height: '0.8in', objectFit: 'contain' }}
+            style={{ width: '0.9in', height: '0.9in', objectFit: 'contain' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
       </div>
 
-      {/* CERTIFICATION Title */}
-      <div style={{ textAlign: 'center', margin: '24pt 0 24pt 0' }}>
+      {/* CERTIFICATE OF CLEARANCE Title */}
+      <div style={{ textAlign: 'center', margin: '16pt 0 16pt 0' }}>
         <h1 style={{ 
           color: textColor, 
-          fontSize: '20pt', 
+          fontSize: '21pt', 
           fontWeight: 'bold', 
-          letterSpacing: '0.1em',
           fontFamily: FORMAT_D_CONFIG.fontFamily,
           margin: '0',
           padding: '0',
           textTransform: 'uppercase',
         }}>
-          CERTIFICATION
+          CERTIFICATE OF CLEARANCE
         </h1>
       </div>
 
       {/* Salutation */}
-      <p style={{ fontWeight: 'bold', marginBottom: '12pt', textAlign: 'left', fontSize: '10pt', textTransform: 'uppercase', color: textColor }}>
+      <p style={{ fontWeight: 'bold', marginBottom: '12pt', textAlign: 'left', fontSize: '13pt', textTransform: 'uppercase', color: textColor }}>
         TO WHOM IT MAY CONCERN:
       </p>
     </>
@@ -104,83 +99,118 @@ const FormatDBody: React.FC<{ data: FormData }> = ({ data }) => {
   const fullName = buildFullName(data);
   const issuedDateInfo = data.date_issued ? formatDate(data.date_issued) : null;
   const hasCriminalRecord = checkCriminalRecord(data);
-  const expiryDateStr = data.validity_expiry ? formatDateString(data.validity_expiry) : '';
+
+  // Get the first criminal case for display (if any)
+  const firstCase = data.criminal_cases && data.criminal_cases.length > 0 ? data.criminal_cases[0] : null;
 
   return (
-    <div style={{ color: FORMAT_D_CONFIG.textColor }}>
-      <p style={{ textIndent: '0.3in', textAlign: 'justify', marginBottom: '8pt', fontSize: FORMAT_D_CONFIG.bodyFontSize }}>
-        THIS IS TO CERTIFY that the record on file in this Office show(s) that{' '}
+    <div style={{ color: FORMAT_D_CONFIG.textColor, fontFamily: FORMAT_D_CONFIG.fontFamily }}>
+      {/* Main certification text */}
+      <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '12pt', fontSize: FORMAT_D_CONFIG.bodyFontSize, lineHeight: '1.4' }}>
+        {'\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'}THIS IS TO CERTIFY that the records of this office show that one{' '}
         <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>,{' '}
         <strong>{data.age || '[AGE]'}</strong> years old, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}
-        <strong>{data.nationality || '[NATIONALITY]'}</strong>, presently residing at{' '}
-        <strong>{data.address || '[ADDRESS]'}</strong>, has
+        <strong>{data.nationality || 'Filipino'}</strong>, residing at{' '}
+        <strong>{data.address || '[ADDRESS]'}</strong>,{' '}
+        {hasCriminalRecord ? 'has been charged of:' : 'has no pending or resolved criminal case on file.'}
       </p>
 
-      {hasCriminalRecord ? (
-        <div style={{ marginBottom: '12pt' }}>
-          <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: FORMAT_D_CONFIG.withRecordFontSize, color: FORMAT_D_CONFIG.withRecordColor, margin: '16pt 0' }}>
-            &quot;WITH CRIMINAL RECORD&quot;
-          </p>
-          
-          {/* Criminal Cases Table */}
-          <div style={{ margin: '12pt 0.3in' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FORMAT_D_CONFIG.tableFontSize, border: '1px solid #333' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f0f0f0' }}>
-                  <th style={{ border: '1px solid #333', padding: '4pt', textAlign: 'left' }}>Crim. Case No.</th>
-                  <th style={{ border: '1px solid #333', padding: '4pt', textAlign: 'left' }}>Crime</th>
-                  <th style={{ border: '1px solid #333', padding: '4pt', textAlign: 'left' }}>Date Info Filed</th>
-                  <th style={{ border: '1px solid #333', padding: '4pt', textAlign: 'left' }}>Origin</th>
-                  <th style={{ border: '1px solid #333', padding: '4pt', textAlign: 'left' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.criminal_cases?.filter(c => c.case_number || c.crime).map((crimCase, index) => (
-                  <tr key={index}>
-                    <td style={{ border: '1px solid #333', padding: '4pt' }}>{crimCase.case_number || 'N/A'}</td>
-                    <td style={{ border: '1px solid #333', padding: '4pt' }}>{crimCase.crime || 'N/A'}</td>
-                    <td style={{ border: '1px solid #333', padding: '4pt' }}>{crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</td>
-                    <td style={{ border: '1px solid #333', padding: '4pt' }}>{crimCase.origin || 'N/A'}</td>
-                    <td style={{ border: '1px solid #333', padding: '4pt' }}>{crimCase.status || 'N/A'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Case Details - Show all cases */}
+      <div style={{
+        margin: '12pt 0 12pt 0.5in',
+        fontSize: FORMAT_D_CONFIG.bodyFontSize,
+        lineHeight: '1.0',
+      }}>
+        {(data.criminal_cases || []).map((crimCase, index) => (
+          <div key={index}>
+            <div style={{ display: 'flex', marginBottom: '2pt' }}>
+              <span style={{ width: '1.6in', display: 'inline-block', whiteSpace: 'nowrap' }}>Criminal Case No.</span>
+              <span style={{ marginLeft: '8pt' }}>: <strong>{crimCase?.case_number || ''}</strong></span>
+            </div>
+            <div style={{ display: 'flex', marginBottom: '2pt' }}>
+              <span style={{ width: '1.6in', display: 'inline-block' }}>Crime</span>
+              <span style={{ marginLeft: '8pt' }}>: <strong>{crimCase?.crime || ''}</strong></span>
+            </div>
+            <div style={{ display: 'flex', marginBottom: '2pt' }}>
+              <span style={{ width: '1.6in', display: 'inline-block' }}>Date filed</span>
+              <span style={{ marginLeft: '8pt' }}>: <strong>{crimCase?.date_info_filed ? formatDateString(crimCase.date_info_filed) : ''}</strong></span>
+            </div>
+            <div style={{ display: 'flex', marginBottom: '2pt' }}>
+              <span style={{ width: '1.6in', display: 'inline-block' }}>Origin</span>
+              <span style={{ marginLeft: '8pt' }}>: <strong></strong></span>
+            </div>
+            <div style={{ display: 'flex', marginBottom: '2pt' }}>
+              <span style={{ width: '1.6in', display: 'inline-block' }}>Decision</span>
+              <span style={{ marginLeft: '8pt' }}>: <strong>{crimCase?.status || ''}</strong></span>
+            </div>
+            {index < (data.criminal_cases?.length || 0) - 1 && (
+              <div style={{ marginBottom: '18pt' }}></div>
+            )}
           </div>
-        </div>
-      ) : (
-        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: FORMAT_D_CONFIG.noRecordFontSize, color: FORMAT_D_CONFIG.noRecordColor, margin: '16pt 0' }}>
-          &quot;NO CRIMINAL RECORD&quot;
-        </p>
-      )}
+        ))}
+      </div>
 
-      <div style={{ marginLeft: '0.3in', marginBottom: '8pt' }}>
-        <p style={{ marginBottom: '4pt' }}>
-          Issued upon request: <strong style={{ textDecoration: 'underline' }}>
+      {/* Issued Upon Request and Purpose */}
+      <div style={{ margin: '12pt 0 12pt 0.5in', fontSize: FORMAT_D_CONFIG.bodyFontSize, lineHeight: '1.0', color: FORMAT_D_CONFIG.textColor }}>
+        <p style={{ margin: '0 0 4pt 0', color: FORMAT_D_CONFIG.textColor }}>
+          Issued Upon Request: <span style={{ color: FORMAT_D_CONFIG.textColor, textDecoration: 'underline' }}>
             {data.issued_upon_request_by || fullName || '[REQUESTER NAME]'}
-          </strong>
+          </span>
         </p>
-        <p>
-          Purpose: <strong style={{ textDecoration: 'underline' }}>
-            {data.purpose === 'Other' ? data.custom_purpose : data.purpose || '[PURPOSE]'}
+        <p style={{ margin: '0', color: FORMAT_D_CONFIG.textColor }}>
+          Purpose: <strong style={{ textDecoration: 'underline', color: FORMAT_D_CONFIG.textColor }}>
+            {data.purpose === 'Other' ? data.custom_purpose : data.purpose || 'FOR PROBATION'}
           </strong>
         </p>
       </div>
+      <div style={{ height: '3px' }}></div>
 
-      <p style={{ textIndent: '0.3in', textAlign: 'justify', marginTop: '12pt' }}>
+      {/* Applicant Signature Section with Thumbmark Box */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '24pt 0', padding: '0 0.2in', color: FORMAT_D_CONFIG.textColor }}>
+        {/* Left side - Signature */}
+        <div style={{ flex: 1 }}>
+          <div style={{ borderBottom: '1pt solid #000', width: '2.5in', marginBottom: '2pt' }}>
+            <p style={{ margin: '0', fontWeight: 'bold', fontSize: '13pt', color: FORMAT_D_CONFIG.textColor }}>
+              {fullName?.toUpperCase() || 'APPLICANT NAME'}
+            </p>
+          </div>
+          <p style={{ margin: '0 0 16pt 0.3in', fontSize: '13pt', fontStyle: 'italic', color: FORMAT_D_CONFIG.textColor }}>Signature</p>
+          
+          <p style={{ margin: '0 0 4pt 0', fontSize: '13pt', color: FORMAT_D_CONFIG.textColor }}>
+            National ID : <span style={{ textDecoration: 'underline', color: FORMAT_D_CONFIG.textColor }}>{data.id_number || '3853-0259-7193-4286'}</span>
+          </p>
+          <p style={{ margin: '0', fontSize: '13pt', color: FORMAT_D_CONFIG.textColor }}>
+            Date Issued : <span style={{ textDecoration: 'underline', color: FORMAT_D_CONFIG.textColor }}>
+              {issuedDateInfo ? `${issuedDateInfo.monthYear.split(' ')[0]} ${issuedDateInfo.day}, ${issuedDateInfo.monthYear.split(' ')[1]}` : 'May 12, 2023'}
+            </span>
+          </p>
+        </div>
+
+        {/* Right side - Thumbmark Box */}
+        <div style={{ 
+          border: '1pt solid #000', 
+          width: '1in', 
+          height: '1.2in', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          marginLeft: '0.5in',
+        }}>
+          <p style={{ fontSize: '7pt', textAlign: 'center', color: FORMAT_D_CONFIG.textColor, margin: '0' }}>RIGHT THUMBMARK</p>
+        </div>
+      </div>
+
+      {/* Witness clause */}
+      <p style={{ textIndent: '0.5in', textAlign: 'justify', marginTop: '16pt', fontSize: FORMAT_D_CONFIG.bodyFontSize, lineHeight: '1.4', color: FORMAT_D_CONFIG.textColor }}>
         WITNESS MY HAND this{' '}
-        <strong style={{ textDecoration: 'underline' }}>
+        <strong style={{ textDecoration: 'underline', color: FORMAT_D_CONFIG.textColor }}>
           {issuedDateInfo ? `${issuedDateInfo.day}${issuedDateInfo.suffix}` : '[DAY]'}
         </strong>{' '}
         day of{' '}
-        <strong style={{ textDecoration: 'underline' }}>
+        <strong style={{ textDecoration: 'underline', color: FORMAT_D_CONFIG.textColor }}>
           {issuedDateInfo ? issuedDateInfo.monthYear : '[MONTH, YEAR]'}
         </strong>{' '}
         in the City of Tagbilaran, Bohol, Philippines.
-      </p>
-
-      <p style={{ marginTop: '12pt', fontSize: FORMAT_D_CONFIG.bodyFontSize }}>
-        This clearance is valid until {expiryDateStr || '[EXPIRY DATE]'}.
       </p>
     </div>
   );
@@ -190,36 +220,47 @@ const FormatDBody: React.FC<{ data: FormData }> = ({ data }) => {
 // FORMAT D FOOTER/SIGNATURE COMPONENT
 // ============================================
 const FormatDFooter: React.FC<{ data: FormData; generatedOR?: string | null }> = ({ data, generatedOR }) => {
+  const issuedDate = data.date_issued ? new Date(data.date_issued) : new Date();
+  const fullDate = issuedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Calculate validity message based on validity_period
+  const getValidityMessage = () => {
+    if (data.validity_period === '1 Year') {
+      return 'Note: Valid until 1 year from the date issued.';
+    }
+    return 'Note: Valid until 6 months from the date issued.';
+  };
+
   return (
     <>
-      {/* Signature Section */}
+      {/* Signature Section - Right Aligned */}
       <div style={{ 
-        marginTop: '18pt',
-        textAlign: 'center',
+        marginTop: '24pt',
+        textAlign: 'right',
         color: '#000000',
         fontFamily: FORMAT_D_CONFIG.fontFamily,
-        marginRight: '-205pt',
+        paddingRight: '0.5in',
       }}>
-        <p style={{ fontWeight: 'bold', fontSize: '10pt', marginBottom: '48pt', textTransform: 'uppercase', color: '#000000' }}>
+        <p style={{ fontWeight: 'bold', fontSize: '13pt', marginBottom: '36pt', textTransform: 'uppercase', color: '#000000' }}>
           FOR THE CITY PROSECUTOR:
         </p>
         
-        <div>
-          <p style={{ fontWeight: 'bold', fontSize: '10pt', marginBottom: '2pt', color: '#000000' }}>REGIE C. POCON</p>
-          <p style={{ fontSize: '9pt', fontStyle: 'italic', fontWeight: 'normal', color: '#000000' }}>Administrative Officer V</p>
+        <div style={{ textAlign: 'center', display: 'inline-block' }}>
+          <p style={{ fontWeight: 'bold', fontSize: '13pt', marginBottom: '2pt', color: '#000000' }}>REGIE C. POCON</p>
+          <p style={{ fontSize: '13pt', fontStyle: 'italic', fontWeight: 'normal', color: '#000000', margin: '0' }}>Administrative Officer V</p>
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: '48pt', color: '#000000', fontSize: '13pt', fontFamily: FORMAT_D_CONFIG.fontFamily }}>
-        <p style={{ marginBottom: '3pt', color: '#000000' }}>
-          O.R No: <strong style={{ textDecoration: 'underline', color: '#000000', fontWeight: 'bold' }}>{data.prc_id_number || generatedOR || '________'}</strong>
+      {/* Footer - O.R. and Date on Left */}
+      <div style={{ marginTop: '32pt', color: '#000000', fontSize: '13pt', fontFamily: FORMAT_D_CONFIG.fontFamily }}>
+        <p style={{ marginBottom: '2pt', color: '#000000' }}>
+          O.R No: <strong style={{ textDecoration: 'underline', color: '#000000' }}>{data.prc_id_number || generatedOR || '7960144'}</strong>
         </p>
-        <p style={{ marginBottom: '12pt', color: '#000000' }}>
-          Date: <strong style={{ textDecoration: 'underline', color: '#000000', fontWeight: 'bold'}}>{new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+        <p style={{ marginBottom: '16pt', color: '#000000' }}>
+          Date: <strong style={{ textDecoration: 'underline', color: '#000000' }}>{fullDate}</strong>
         </p>
-        <p style={{ fontStyle: 'italic', fontSize: '12pt', color: '#000000' }}>
-          Note: Valid until 6 months from the date issued.
+        <p style={{ fontStyle: 'italic', fontSize: '9pt', color: '#000000' }}>
+          {getValidityMessage()}
         </p>
       </div>
     </>
@@ -241,8 +282,8 @@ export const FormatDPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
       <div 
         style={{ 
           ...baseStyle,
-          width: '6.0in',
-          padding: '0.25in 0.2in 0.25in 0.2in',
+          width: '6.5in',
+          padding: '0.4in 0.5in',
           margin: '0 auto',
           boxSizing: 'border-box',
           background: 'white'
@@ -263,73 +304,181 @@ export const FormatDPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
 // ============================================
 export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR?: string | null): string => {
   const hasCriminalRecord = formData.criminal_cases && formData.criminal_cases.some(c => c.case_number && c.crime);
-  const expiryDate = formData?.validity_expiry ? formatDateString(formData.validity_expiry) : '';
-
-  const getStatusHtml = () => {
-    if (hasCriminalRecord && formData.criminal_cases) {
-      const tableRows = formData.criminal_cases
-        .filter(c => c.case_number || c.crime)
-        .map(crimCase => `
-          <tr>
-            <td style="border: 1px solid #333; padding: 4pt;">${crimCase.case_number || 'N/A'}</td>
-            <td style="border: 1px solid #333; padding: 4pt;">${crimCase.crime || 'N/A'}</td>
-            <td style="border: 1px solid #333; padding: 4pt;">${crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</td>
-            <td style="border: 1px solid #333; padding: 4pt;">${crimCase.origin || 'N/A'}</td>
-            <td style="border: 1px solid #333; padding: 4pt;">${crimCase.status || 'N/A'}</td>
-          </tr>
-        `).join('');
-      
-      return `
-        <p style="text-align: center; font-weight: bold; font-size: ${FORMAT_D_CONFIG.withRecordFontSize}; color: ${FORMAT_D_CONFIG.withRecordColor}; margin: 16pt 0;">"WITH CRIMINAL RECORD"</p>
-        <div style="margin: 12pt 0.3in;">
-          <table style="width: 100%; border-collapse: collapse; font-size: ${FORMAT_D_CONFIG.tableFontSize}; border: 1px solid #333;">
-            <thead>
-              <tr style="background-color: #f0f0f0;">
-                <th style="border: 1px solid #333; padding: 4pt; text-align: left;">Crim. Case No.</th>
-                <th style="border: 1px solid #333; padding: 4pt; text-align: left;">Crime</th>
-                <th style="border: 1px solid #333; padding: 4pt; text-align: left;">Date Info Filed</th>
-                <th style="border: 1px solid #333; padding: 4pt; text-align: left;">Origin</th>
-                <th style="border: 1px solid #333; padding: 4pt; text-align: left;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRows}
-            </tbody>
-          </table>
-        </div>
-      `;
-    } else {
-      return `<p style="text-align: center; font-weight: bold; font-size: ${FORMAT_D_CONFIG.noRecordFontSize}; color: ${FORMAT_D_CONFIG.noRecordColor}; margin: 16pt 0;">"NO CRIMINAL RECORD"</p>`;
+  const firstCase = formData.criminal_cases && formData.criminal_cases.length > 0 ? formData.criminal_cases[0] : null;
+  const issuedDate = formData.date_issued ? new Date(formData.date_issued) : new Date();
+  const dayNum = issuedDate.getDate();
+  const getOrdinalSuffix = (day: number): string => {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
     }
   };
+  const monthYear = issuedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const fullDate = issuedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dateIssuedDisplay = issuedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  return `
-    <div class="certification-body" style="color: ${FORMAT_D_CONFIG.textColor};">
-      <p style="text-indent: 0.3in; text-align: justify; margin-bottom: 8pt;">
-        THIS IS TO CERTIFY that the record on file in this Office show(s) that 
+  // Case details HTML - show all cases
+  const getCaseDetailsHtml = () => {
+    if (!formData.criminal_cases || formData.criminal_cases.length === 0) {
+      return '';
+    }
+    
+    let caseHtml = '<div style="margin: 6pt 0 6pt 0.5in; font-size: 11pt; line-height: 1.0;">';
+    
+    formData.criminal_cases.forEach((crimCase, index) => {
+      caseHtml += `
+        <div>
+          <div style="display: flex; margin-bottom: 1pt;">
+            <span style="width: 1.8in; display: inline-block; white-space: nowrap;">Criminal Case No.</span>
+            <span style="margin-left: 8pt;">: ${crimCase?.case_number || ''}</span>
+          </div>
+          <div style="display: flex; margin-bottom: 1pt;">
+            <span style="width: 1.8in; display: inline-block;">Crime</span>
+            <span style="margin-left: 8pt;">: ${crimCase?.crime || ''}</span>
+          </div>
+          <div style="display: flex; margin-bottom: 1pt;">
+            <span style="width: 1.8in; display: inline-block;">Date filed</span>
+            <span style="margin-left: 8pt;">: ${crimCase?.date_info_filed ? formatDateString(crimCase.date_info_filed) : ''}</span>
+          </div>
+          <div style="display: flex; margin-bottom: 1pt;">
+            <span style="width: 1.8in; display: inline-block;">Origin</span>
+            <span style="margin-left: 8pt;">:</span>
+          </div>
+          <div style="display: flex; margin-bottom: 1pt;">
+            <span style="width: 1.8in; display: inline-block;">Decision</span>
+            <span style="margin-left: 8pt;">: ${crimCase?.status || ''}</span>
+          </div>
+          ${index < formData.criminal_cases!.length - 1 ? '<div style="margin-bottom: 4pt;"></div>' : ''}
+        </div>
+      `;
+    });
+    
+    caseHtml += '</div>';
+    return caseHtml;
+  };
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>Certificate of Clearance - Format D</title>
+  <style>
+    @page { size: 8.5in 11in; margin: 0.4in 0.5in 0.4in 0.5in; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body { margin: 0; padding: 0; font-family: ${FORMAT_D_CONFIG.fontFamily}; font-size: 11pt; line-height: 1.2; color: ${FORMAT_D_CONFIG.textColor}; background: white; }
+    .certificate-container { width: 100%; max-width: 7.3in; margin: 0 auto; padding: 0.3in 0.4in; background: white; }
+    .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4pt; }
+    .header img { width: 0.9in; height: 0.9in; object-fit: contain; }
+    .header-text { flex: 1; text-align: center; padding: 0 8pt; }
+    .header-text p { margin: 0; line-height: 1.3; }
+    @media print { 
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: white !important; }
+      .certificate-container { background: white !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="certificate-container">
+    <!-- HEADER -->
+    <div class="header">
+      <img src="/images/logos/doj-seal.png" alt="DOJ Seal" />
+      <div class="header-text">
+        <p style="font-size: 13pt; font-style: italic; color: ${FORMAT_D_CONFIG.textColor};">Republic of the Philippines</p>
+        <p style="font-size: 13pt; font-style: italic; color: ${FORMAT_D_CONFIG.textColor};">Department of Justice</p>
+        <p style="font-size: 13pt; font-weight: bold; color: ${FORMAT_D_CONFIG.textColor};">OFFICE OF THE CITY PROSECUTOR</p>
+        <p style="font-size: 13pt; font-style: italic; color: ${FORMAT_D_CONFIG.textColor};">City of Tagbilaran</p>
+        <p style="font-size: 10pt; font-style: italic; color: ${FORMAT_D_CONFIG.textColor};">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
+        <p style="font-size: 10pt; font-style: italic; color: ${FORMAT_D_CONFIG.textColor};">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 10pt; font-style: italic;">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: ${FORMAT_D_CONFIG.textColor}; text-decoration: underline;">ocptagbilaran@doj.gov.ph</a></p>
+      </div>
+      <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" />
+    </div>
+    
+    <!-- TITLE -->
+    <div style="text-align: center; margin: 8pt 0 8pt 0;">
+      <h1 style="font-size: 21pt; font-weight: bold; margin: 0; color: ${FORMAT_D_CONFIG.textColor}; text-transform: uppercase;">CERTIFICATE OF CLEARANCE</h1>
+    </div>
+    
+    <!-- SALUTATION -->
+    <p style="font-size: 13pt; font-weight: bold; margin-bottom: 8pt; color: ${FORMAT_D_CONFIG.textColor}; text-transform: uppercase;">TO WHOM IT MAY CONCERN:</p>
+    
+    <!-- BODY -->
+    <div style="color: ${FORMAT_D_CONFIG.textColor};">
+      <p style="text-indent: 0.5in; text-align: justify; margin-bottom: 6pt; font-size: 13pt; line-height: 1.3;">
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; THIS IS TO CERTIFY that the records of this office show that one 
         <strong style="text-transform: uppercase;">${fullName}</strong>, 
-        <strong>${formData?.age}</strong> years old, 
-        <strong>${formData?.civil_status}</strong>, 
-        <strong>${formData?.nationality}</strong>, 
-        presently residing at <strong>${formData?.address}</strong>, has
+        <strong>${formData?.age || '[AGE]'}</strong> years old, 
+        <strong>${formData?.civil_status || '[CIVIL STATUS]'}</strong>, 
+        <strong>${formData?.nationality || 'Filipino'}</strong>, 
+        residing at <strong>${formData?.address || '[ADDRESS]'}</strong>, 
+        ${hasCriminalRecord ? 'has been charged of:' : 'has no pending or resolved criminal case on file.'}
       </p>
       
-      ${getStatusHtml()}
+      ${getCaseDetailsHtml()}
       
-      <div style="margin-left: 0.3in; margin-bottom: 8pt;">
-        <p style="margin-bottom: 4pt;">Issued upon request: <strong style="text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</strong></p>
-        <p>Purpose: <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose}</strong></p>
+      <!-- Issued Upon Request and Purpose -->
+      <div style="margin: 8pt 0 8pt 0.5in; font-size: 11pt; line-height: 1.0; color: ${FORMAT_D_CONFIG.textColor};">
+        <p style="margin: 0 0 2pt 0; color: ${FORMAT_D_CONFIG.textColor};">Issued Upon Request: <span style="color: ${FORMAT_D_CONFIG.textColor}; text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</span></p>
+        <p style="margin: 0; color: ${FORMAT_D_CONFIG.textColor};">Purpose: <strong style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose || 'FOR PROBATION'}</strong></p>
+      </div>
+
+      <div style="height: 10pt;"></div>
+      
+      <!-- Applicant Signature Section with Thumbmark Box -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin: 12pt 0; padding: 0 0.2in; color: ${FORMAT_D_CONFIG.textColor};">
+        <!-- Left side - Signature -->
+        <div style="flex: 1; color: ${FORMAT_D_CONFIG.textColor};">
+          <div style="border-bottom: 1pt solid #000; width: 2.5in; margin-bottom: 2pt;">
+            <p style="margin: 0; font-weight: bold; font-size: 13pt;  color: ${FORMAT_D_CONFIG.textColor};">${fullName?.toUpperCase() || 'APPLICANT NAME'}</p>
+          </div>
+          <p style="margin: 0 0 8pt 0.3in; font-size: 13pt; font-style: italic; color: ${FORMAT_D_CONFIG.textColor};">Signature</p>
+          
+          <p style="margin: 0 0 4pt 0; font-size: 13pt; color: ${FORMAT_D_CONFIG.textColor};">National ID : <span style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${formData?.id_number || '3853-0259-7193-4286'}</span></p>
+          <p style="margin: 0; font-size: 13pt; color: ${FORMAT_D_CONFIG.textColor};">Date Issued : <span style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${dateIssuedDisplay}</span></p>
+        </div>
+
+        <!-- Right side - Thumbmark Box -->
+        <div style="border: 1pt solid #000; width: 1in; height: 1.2in; display: flex; align-items: center; justify-content: center; margin-left: 0.5in;">
+          <p style="font-size: 9pt; text-align: center; color: ${FORMAT_D_CONFIG.textColor}; margin: 0;">RIGHT THUMBMARK</p>
+        </div>
       </div>
       
-      <p style="text-indent: 0.3in; text-align: justify; margin-top: 12pt;">
-        WITNESS MY HAND this <strong style="text-decoration: underline;">${formData?.date_issued ? formatDateString(formData.date_issued).split(' day of ')[0] : '[DAY]'}</strong> 
-        day of <strong style="text-decoration: underline;">${formData?.date_issued ? new Date(formData.date_issued).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '[MONTH, YEAR]'}</strong> 
+      <!-- Witness clause -->
+      <p style="text-indent: 0.5in; text-align: justify; margin-top: 8pt; font-size: 13pt; line-height: 1.3; color: ${FORMAT_D_CONFIG.textColor};">
+        WITNESS MY HAND this <strong style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${dayNum}${getOrdinalSuffix(dayNum)}</strong> 
+        day of <strong style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${monthYear}</strong> 
         in the City of Tagbilaran, Bohol, Philippines.
       </p>
-      
-      <p style="margin-top: 12pt; font-size: 10pt;">This clearance is valid until ${expiryDate}.</p>
     </div>
-  `;
+    
+    <!-- SIGNATURE Section - Right Aligned -->
+    <div style="text-align: right; margin-top: 12pt; padding-right: 0.5in; color: ${FORMAT_D_CONFIG.textColor};">
+      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 24pt; text-transform: uppercase; color: ${FORMAT_D_CONFIG.textColor};">FOR THE CITY PROSECUTOR:</p>
+      <div style="text-align: center; display: inline-block;">
+        <p style="font-size: 13pt; font-weight: bold; margin-bottom: 2pt; color: ${FORMAT_D_CONFIG.textColor};">REGIE C. POCON</p>
+        <p style="font-size: 13pt; font-style: italic; margin: 0; color: ${FORMAT_D_CONFIG.textColor};">Administrative Officer V</p>
+      </div>
+    </div>
+    
+    <!-- FOOTER - O.R. and Date on Left -->
+    <div style="margin-top: 16pt; font-size: 13pt; color: ${FORMAT_D_CONFIG.textColor};">
+      <p style="margin: 0 0 2pt 0; color: ${FORMAT_D_CONFIG.textColor};">O.R No: <strong style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${formData.prc_id_number || generatedOR || '7960144'}</strong></p>
+      <p style="margin: 0 0 8pt 0; color: ${FORMAT_D_CONFIG.textColor};">Date: <strong style="text-decoration: underline; color: ${FORMAT_D_CONFIG.textColor};">${fullDate}</strong></p>
+      <p style="font-style: italic; font-size: 9pt; color: ${FORMAT_D_CONFIG.textColor};">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
+    </div>
+  </div>
+  
+  <script>
+    window.onload = function() {
+      document.title = '';
+      setTimeout(() => { window.print(); }, 200);
+      window.onafterprint = function() { window.close(); };
+    };
+  </script>
+</body>
+</html>`;
 };
 
 // Export header, body, footer components for flexible use

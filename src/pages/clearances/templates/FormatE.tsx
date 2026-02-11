@@ -43,16 +43,16 @@ const FormatEHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
     <>
       {/* Header with Official Logos */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div style={{ flexShrink: 0, width: '0.8in' }}>
+        <div style={{ flexShrink: 0, width: '1.2in', marginRight: '0.3in' }}>
           <img 
             src={dojSealSrc} 
             alt="DOJ Seal" 
-            style={{ width: '0.8in', height: '0.8in', objectFit: 'contain' }}
+            style={{ width: '1.2in', height: '1.2in', objectFit: 'contain' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
 
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: FORMAT_E_CONFIG.fontFamily, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: FORMAT_E_CONFIG.fontFamily, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', margin: '0 0.2in' }}>
           <p style={{ color: textColor, fontSize: '9pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>Republic of the Philippines</p>
           <p style={{ color: textColor, fontSize: '9pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.1', fontWeight: 'normal', margin: '0' }}>Department of Justice</p>
           <p style={{ color: textColor, fontSize: '11pt', fontWeight: 'bold', marginBottom: '1pt', lineHeight: '1.1', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
@@ -64,11 +64,11 @@ const FormatEHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
           </p>
         </div>
 
-        <div style={{ flexShrink: 0, width: '0.8in', textAlign: 'center' }}>
+        <div style={{ flexShrink: 0, width: '1.2in', textAlign: 'center', marginLeft: '0.3in' }}>
           <img 
             src={bagongPilipinasSrc} 
             alt="Bagong Pilipinas" 
-            style={{ width: '0.8in', height: '0.8in', objectFit: 'contain' }}
+            style={{ width: '1.2in', height: '1.2in', objectFit: 'contain' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
@@ -187,11 +187,9 @@ const FormatEBody: React.FC<{ data: FormData }> = ({ data }) => {
         has
       </p>
 
-      {hasCriminalRecord ? renderCriminalRecordStatus() : (
-        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: FORMAT_E_CONFIG.noRecordFontSize, color: FORMAT_E_CONFIG.noRecordColor, margin: '16pt 0' }}>
-          &quot;NO CRIMINAL RECORD&quot;
-        </p>
-      )}
+      <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: FORMAT_E_CONFIG.noRecordFontSize, color: FORMAT_E_CONFIG.noRecordColor, margin: '16pt 0' }}>
+        &quot;NO CRIMINAL RECORD&quot;
+      </p>
 
       <p style={{ textIndent: '0.3in', textAlign: 'justify', marginBottom: '8pt', fontSize: FORMAT_E_CONFIG.detailsFontSize }}>
         This certification is issued for <strong>{data.purpose === 'Other' ? data.custom_purpose : data.purpose || '[PURPOSE]'}</strong> purposes 
@@ -225,6 +223,14 @@ const FormatEBody: React.FC<{ data: FormData }> = ({ data }) => {
 // FORMAT E FOOTER/SIGNATURE COMPONENT
 // ============================================
 const FormatEFooter: React.FC<{ data: FormData; generatedOR?: string | null }> = ({ data, generatedOR }) => {
+  // Calculate validity message based on validity_period
+  const getValidityMessage = () => {
+    if (data.validity_period === '1 Year') {
+      return 'Note: Valid until 1 year from the date issued.';
+    }
+    return 'Note: Valid until 6 months from the date issued.';
+  };
+
   return (
     <>
       {/* Signature Section */}
@@ -254,7 +260,7 @@ const FormatEFooter: React.FC<{ data: FormData; generatedOR?: string | null }> =
           Date: <strong style={{ textDecoration: 'underline', color: '#000000', fontWeight: 'bold'}}>{new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
         </p>
         <p style={{ fontStyle: 'italic', fontSize: '12pt', color: '#000000' }}>
-          Note: Valid until 6 months from the date issued.
+          {getValidityMessage()}
         </p>
       </div>
     </>
@@ -298,32 +304,75 @@ export const FormatEPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
 // ============================================
 export const getFormatEHtml = (formData: FormData, fullName: string, generatedOR?: string | null): string => {
   const hasCriminalRecord = formData.criminal_cases && formData.criminal_cases.some(c => c.case_number && c.crime);
-
-  const getStatusHtml = () => {
-    if (hasCriminalRecord) {
-      const criminalCasesHtml = formData.criminal_cases
-        ?.filter(c => c.case_number || c.crime)
-        .map(crimCase => `
-          <div style="margin-bottom: 10px; padding-left: 20px; border-left: 2px solid ${FORMAT_E_CONFIG.withRecordColor}; margin-left: 0.3in;">
-            <p style="margin: 2pt 0;"><strong>Crim. Case No.:</strong> ${crimCase.case_number || 'N/A'}</p>
-            <p style="margin: 2pt 0;"><strong>Crime:</strong> ${crimCase.crime || 'N/A'}</p>
-            <p style="margin: 2pt 0;"><strong>Date Info Filed:</strong> ${crimCase.date_info_filed ? new Date(crimCase.date_info_filed).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</p>
-            <p style="margin: 2pt 0;"><strong>Origin:</strong> ${crimCase.origin || 'N/A'}</p>
-            <p style="margin: 2pt 0;"><strong>Status:</strong> ${crimCase.status || 'N/A'}</p>
-          </div>
-        `).join('') || '';
-      
-      return `
-        <p style="text-align: center; font-weight: bold; font-size: ${FORMAT_E_CONFIG.withRecordFontSize}; color: ${FORMAT_E_CONFIG.withRecordColor}; margin: 16pt 0;">"WITH CRIMINAL RECORD"</p>
-        ${criminalCasesHtml}
-      `;
-    } else {
-      return `<p style="text-align: center; font-weight: bold; font-size: ${FORMAT_E_CONFIG.noRecordFontSize}; color: ${FORMAT_E_CONFIG.noRecordColor}; margin: 16pt 0;">"NO CRIMINAL RECORD"</p>`;
+  const issuedDate = formData.date_issued ? new Date(formData.date_issued) : new Date();
+  const dayNum = issuedDate.getDate();
+  const getOrdinalSuffix = (day: number): string => {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
     }
   };
+  const monthYear = issuedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const fullDate = issuedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  return `
-    <div class="certification-body" style="color: ${FORMAT_E_CONFIG.textColor};">
+  const getStatusHtml = () => {
+    return `<p style="text-align: center; font-weight: bold; font-size: ${FORMAT_E_CONFIG.noRecordFontSize}; color: ${FORMAT_E_CONFIG.noRecordColor}; margin: 16pt 0;">"NO CRIMINAL RECORD"</p>`;
+  };
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>Certificate - Format E</title>
+  <style>
+    @page { size: 9.5in 12in; margin: 0.75in 0.75in 0.5in 0.75in; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body { margin: 0; padding: 0; font-family: ${FORMAT_E_CONFIG.fontFamily}; font-size: 12pt; line-height: 1.0; color: ${FORMAT_E_CONFIG.textColor}; background: white; }
+    .certificate-container { width: 100%; max-width: 7in; margin: 0 auto; padding: 0; }
+    .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4pt; }
+    .header img { width: 1.2in; height: 1.2in; object-fit: contain; }
+    .header .left-logo { margin-right: 0.3in; }
+    .header .right-logo { margin-left: 0.3in; }
+    .header-text { flex: 1; text-align: center; padding: 0 0.2in; }
+    .header-text p { margin: 0; line-height: 1.0; }
+    @media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
+  </style>
+</head>
+<body>
+  <div class="certificate-container">
+    <!-- HEADER -->
+    <div class="header">
+      <img src="/images/logos/doj-seal.png" alt="DOJ Seal" class="left-logo" />
+      <div class="header-text">
+        <p style="font-size: 12pt; font-style: italic; color: ${FORMAT_E_CONFIG.textColor};">Republic of the Philippines</p>
+        <p style="font-size: 12pt; font-style: italic; color: ${FORMAT_E_CONFIG.textColor};">Department of Justice</p>
+        <p style="font-size: 12pt; font-weight: bold; color: ${FORMAT_E_CONFIG.textColor};">OFFICE OF THE CITY PROSECUTOR</p>
+        <p style="font-size: 12pt; color: ${FORMAT_E_CONFIG.textColor};">City of Tagbilaran</p>
+        <p style="font-size: 9pt; font-style: italic; color: ${FORMAT_E_CONFIG.textColor};">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
+        <p style="font-size: 9pt; font-style: italic; color: ${FORMAT_E_CONFIG.textColor};">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 9pt; font-style: italic;">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF;">ocptagbilaran@doj.gov.ph</a></p>
+      </div>
+      <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" class="right-logo" />
+    </div>
+    
+    <br/>
+    
+    <!-- TITLE -->
+    <div style="text-align: center; margin: 4pt 0 8pt 0;">
+      <h1 style="font-size: 20pt; font-weight: bold; letter-spacing: 0.03em; margin: 0; color: ${FORMAT_E_CONFIG.textColor};">C E R T I F I C A T I O N</h1>
+    </div>
+    
+    <br/>
+    
+    <!-- SALUTATION -->
+    <p style="font-size: 12pt; font-weight: bold; margin-bottom: 4pt; color: ${FORMAT_E_CONFIG.textColor};">TO WHOM IT MAY CONCERN:</p>
+    
+    <br/>
+    
+    <!-- BODY -->
+    <div style="color: ${FORMAT_E_CONFIG.textColor};">
       <p style="text-indent: 0.3in; text-align: justify; margin-bottom: 8pt;">
         THIS IS TO CERTIFY that based on the records on file in this Office:
       </p>
@@ -357,12 +406,41 @@ export const getFormatEHtml = (formData: FormData, fullName: string, generatedOR
       </div>
       
       <p style="text-indent: 0.3in; text-align: justify; margin-top: 12pt;">
-        WITNESS MY HAND this <strong style="text-decoration: underline;">${formData?.date_issued ? formatDateString(formData.date_issued).split(' day of ')[0] : '[DAY]'}</strong> 
-        day of <strong style="text-decoration: underline;">${formData?.date_issued ? new Date(formData.date_issued).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '[MONTH, YEAR]'}</strong> 
+        WITNESS MY HAND this <strong style="text-decoration: underline;">${dayNum}${getOrdinalSuffix(dayNum)}</strong> 
+        day of <strong style="text-decoration: underline;">${monthYear}</strong> 
         in the City of Tagbilaran, Bohol, Philippines.
       </p>
     </div>
-  `;
+    
+    <br/>
+    
+    <!-- SIGNATURE -->
+    <div style="text-align: right; margin-top: 14pt; margin-right: 0.3in; display: flex; flex-direction: column; align-items: flex-end;">
+      <p style="font-size: 12pt; font-weight: bold; margin-bottom: 32pt; text-transform: uppercase; color: #000000;">FOR THE CITY PROSECUTOR:</p>
+      <p style="font-size: 12pt; font-weight: bold; margin-bottom: 0; margin-right: 25pt; color: #000000;">REGIE C. POCON</p>
+      <p style="font-size: 12pt; font-style: italic; margin-top: 0pt; margin-right: 5pt; color: #000000;">Administrative Officer V</p>
+    </div>
+    
+    <br/>
+    
+    <!-- FOOTER -->
+    <div style="margin-top: 18pt; font-size: 12pt; color: #000000;">
+      <p style="margin: 0 0 2pt 0; color: #000000;">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
+      <p style="margin: 0 0 2pt 0; color: #000000;">Date: <strong><u>${fullDate}</u></strong></p>
+      <br/>
+      <p style="font-style: italic; font-size: 12pt; margin-top: 8pt; color: #000000;">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
+    </div>
+  </div>
+  
+  <script>
+    window.onload = function() {
+      document.title = '';
+      setTimeout(() => { window.print(); }, 200);
+      window.onafterprint = function() { window.close(); };
+    };
+  </script>
+</body>
+</html>`;
 };
 
 // Export header, body, footer components for flexible use
