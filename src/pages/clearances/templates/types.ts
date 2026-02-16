@@ -3,8 +3,10 @@ import React from 'react';
 
 export interface CriminalCase {
   case_number: string;
+  case_number_type?: string; // "NPS Docket No." or "Criminal Case No."
   crime: string;
   date_info_filed: string;
+  date_type?: string; // "Date Info Filed" or "Date Filed"
   origin: string;
   status: string;
 }
@@ -62,7 +64,7 @@ export interface ClearanceTemplateProps {
 }
 
 // Common text color for all formats
-export const TEXT_COLOR = '#000000';
+export const TEXT_COLOR = '#000080';
 
 // Common base style for preview components
 export const getBaseStyle = (): React.CSSProperties => ({
@@ -169,6 +171,6 @@ export const FORMAT_FIELDS: Record<string, string[]> = {
   'B': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number', 'criminal_cases'],
   'C': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number', 'validity_expiry', 'or_number'],
   'D': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'issued_upon_request_by', 'date_issued', 'prc_id_number', 'criminal_cases', 'id_number'],
-  'E': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'sex', 'civil_status', 'nationality', 'address', 'birth_date', 'birth_place', 'id_presented', 'id_number', 'purpose', 'date_issued', 'prc_id_number'],
-  'F': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'sex', 'civil_status', 'nationality', 'address', 'birth_date', 'birth_place', 'height', 'weight', 'blood_type', 'distinguishing_marks', 'id_presented', 'id_number', 'ctc_number', 'ctc_issued_at', 'ctc_issued_on', 'purpose', 'date_issued', 'prc_id_number', 'photo', 'right_thumbmark'],
+  'E': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'purpose', 'date_issued', 'prc_id_number'],
+  'F': ['first_name', 'middle_name', 'last_name', 'suffix', 'age', 'civil_status', 'nationality', 'address', 'photo', 'right_thumbmark'],
 };

@@ -25,6 +25,7 @@ import Settings from './pages/Settings';
 import ExcelSync from './pages/ExcelSync';
 import ClearanceHistory from './pages/clearances/ClearanceHistory';
 import ClearanceGenerate from './pages/clearances/ClearanceGenerate';
+import ArchivedClearances from './pages/clearances/ArchivedClearances';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 // design
@@ -292,6 +293,18 @@ const AnimatedRoutes = () => {
                 isAuthenticated && (user?.role === 'Admin' || user?.role === 'Clerk') ? (
                   <DashboardPageWrapper>
                     <ClearanceGenerate />
+                  </DashboardPageWrapper>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/clearances/archived"
+              element={
+                isAuthenticated && (user?.role === 'Admin' || user?.role === 'Clerk') ? (
+                  <DashboardPageWrapper>
+                    <ArchivedClearances />
                   </DashboardPageWrapper>
                 ) : (
                   <Navigate to="/login" replace />

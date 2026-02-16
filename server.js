@@ -2164,19 +2164,6 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 // END FORMAT MANAGEMENT API ENDPOINTS
 // =====================================================
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-  
-  // Generate initial Excel file on server start
-  exportCasesToExcel()
-    .then(() => {
-      console.log("Initial Excel file generated on server start");
-    })
-    .catch(err => {
-      console.error("Error generating initial Excel file:", err);
-    });
-});
-
 // ==================== EXCEL EXPORT ENDPOINTS ====================
 
 // Download Excel file (auto-downloads to user's computer)
@@ -2791,7 +2778,136 @@ app.get("/api/clearances", (req, res) => {
   );
 });
 
-// Get single clearance by ID
+// ============================================
+// IMPORTANT: Specific clearance routes MUST come before /:id route
+// Otherwise Express matches "archived", "stats", "issuers" as :id
+// ============================================
+
+// Get clearance statistics
+app.get("/api/clearances/stats/overview", (req, res) => {
+  const queries = {
+    total: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL`,
+    thisMonth: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND MONTH(date_issued) = MONTH(CURRENT_DATE) AND YEAR(date_issued) = YEAR(CURRENT_DATE)`,
+    noCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = FALSE`,
+    hasCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = TRUE`,
+    byFormat: `SELECT format_type, COUNT(*) as count FROM clearances WHERE deleted_at IS NULL GROUP BY format_type`
+  };
+  
+  const results = {};
+  let completed = 0;
+  const totalQueries = Object.keys(queries).length;
+  
+  Object.entries(queries).forEach(([key, query]) => {
+    db.query(query, (err, result) => {
+      if (err) {
+        console.error(`Error fetching ${key} stats:`, err);
+        results[key] = key === 'byFormat' ? [] : 0;
+      } else {
+        results[key] = key === 'byFormat' ? result : result[0].count;
+      }
+      
+      completed++;
+      if (completed === totalQueries) {
+        res.json(results);
+      }
+    });
+  });
+});
+
+// Get users who have issued clearances (for filter dropdown)
+app.get("/api/clearances/issuers", (req, res) => {
+  db.query(
+    `SELECT DISTINCT issued_by_user_id, issued_by_name FROM clearances WHERE deleted_at IS NULL ORDER BY issued_by_name`,
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching issuers:", err);
+        return res.status(500).json({ error: "Failed to fetch issuers" });
+      }
+      res.json(results);
+    }
+  );
+});
+
+// Get archived clearances (paginated)
+app.get("/api/clearances/archived", (req, res) => {
+  const { 
+    page = 1, 
+    limit = 10, 
+    search = '', 
+    format_type = '', 
+    date_from = '', 
+    date_to = '' 
+  } = req.query;
+
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  
+  let whereConditions = ['deleted_at IS NOT NULL'];
+  let params = [];
+  
+  if (search) {
+    whereConditions.push(`(
+      CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) LIKE ? OR
+      or_number LIKE ?
+    )`);
+    params.push(`%${search}%`, `%${search}%`);
+  }
+  
+  if (format_type) {
+    whereConditions.push('format_type = ?');
+    params.push(format_type);
+  }
+  
+  if (date_from) {
+    whereConditions.push('date_issued >= ?');
+    params.push(date_from);
+  }
+  
+  if (date_to) {
+    whereConditions.push('date_issued <= ?');
+    params.push(date_to);
+  }
+  
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+  
+  // Get total count
+  db.query(
+    `SELECT COUNT(*) as total FROM clearances ${whereClause}`,
+    params,
+    (err, countResults) => {
+      if (err) {
+        console.error("Error counting archived clearances:", err);
+        return res.status(500).json({ error: "Failed to fetch archived clearances" });
+      }
+      
+      const total = countResults[0].total;
+      const totalPages = Math.ceil(total / parseInt(limit));
+      
+      // Get paginated clearances
+      db.query(
+        `SELECT * FROM clearances ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
+        [...params, parseInt(limit), offset],
+        (err, clearances) => {
+          if (err) {
+            console.error("Error fetching archived clearances:", err);
+            return res.status(500).json({ error: "Failed to fetch archived clearances" });
+          }
+          
+          res.json({
+            clearances,
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total,
+              totalPages
+            }
+          });
+        }
+      );
+    }
+  );
+});
+
+// Get single clearance by ID (MUST be after specific routes like /archived, /stats, /issuers)
 app.get("/api/clearances/:id", (req, res) => {
   const { id } = req.params;
   
@@ -2999,8 +3115,8 @@ app.delete("/api/clearances/:id", (req, res) => {
   const { deleted_by_user_id, deleted_by_name } = req.body;
   
   db.query(
-    `UPDATE clearances SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [id],
+    `UPDATE clearances SET deleted_at = CURRENT_TIMESTAMP, deleted_by_user_id = ?, deleted_by_name = ? WHERE id = ?`,
+    [deleted_by_user_id, deleted_by_name, id],
     (err, result) => {
       if (err) {
         console.error("Error deleting clearance:", err);
@@ -3048,47 +3164,64 @@ app.post("/api/clearances/:id/log-download", (req, res) => {
   );
 });
 
-// Get clearance statistics
-app.get("/api/clearances/stats/overview", (req, res) => {
-  const queries = {
-    total: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL`,
-    thisMonth: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND MONTH(date_issued) = MONTH(CURRENT_DATE) AND YEAR(date_issued) = YEAR(CURRENT_DATE)`,
-    noCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = FALSE`,
-    hasCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = TRUE`,
-    byFormat: `SELECT format_type, COUNT(*) as count FROM clearances WHERE deleted_at IS NULL GROUP BY format_type`
-  };
+// Restore archived clearance
+app.patch("/api/clearances/:id/restore", (req, res) => {
+  const { id } = req.params;
+  const { restored_by_user_id, restored_by_name } = req.body;
   
-  const results = {};
-  let completed = 0;
-  const totalQueries = Object.keys(queries).length;
-  
-  Object.entries(queries).forEach(([key, query]) => {
-    db.query(query, (err, result) => {
+  db.query(
+    `UPDATE clearances SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL`,
+    [id],
+    (err, result) => {
       if (err) {
-        console.error(`Error fetching ${key} stats:`, err);
-        results[key] = key === 'byFormat' ? [] : 0;
-      } else {
-        results[key] = key === 'byFormat' ? result : result[0].count;
+        console.error("Error restoring clearance:", err);
+        return res.status(500).json({ error: "Failed to restore clearance" });
       }
       
-      completed++;
-      if (completed === totalQueries) {
-        res.json(results);
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Archived clearance not found" });
       }
-    });
-  });
+      
+      // Log the restoration in audit log
+      db.query(
+        `INSERT INTO clearance_audit_log (clearance_id, action, action_by_user_id, action_by_name)
+         VALUES (?, 'RESTORE', ?, ?)`,
+        [id, restored_by_user_id || 0, restored_by_name || 'Unknown'],
+        (auditErr) => {
+          if (auditErr) console.error("Error logging audit:", auditErr);
+        }
+      );
+      
+      res.json({
+        success: true,
+        message: "Clearance restored successfully"
+      });
+    }
+  );
 });
 
-// Get users who have issued clearances (for filter dropdown)
-app.get("/api/clearances/issuers", (req, res) => {
+// Permanently delete archived clearance (hard delete)
+app.delete("/api/clearances/:id/permanent", (req, res) => {
+  const { id } = req.params;
+  const { deleted_by_user_id, deleted_by_name } = req.body;
+  
   db.query(
-    `SELECT DISTINCT issued_by_user_id, issued_by_name FROM clearances WHERE deleted_at IS NULL ORDER BY issued_by_name`,
-    (err, results) => {
+    `DELETE FROM clearances WHERE id = ?`,
+    [id],
+    (err, result) => {
       if (err) {
-        console.error("Error fetching issuers:", err);
-        return res.status(500).json({ error: "Failed to fetch issuers" });
+        console.error("Error permanently deleting clearance:", err);
+        return res.status(500).json({ error: "Failed to permanently delete clearance" });
       }
-      res.json(results);
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Clearance not found" });
+      }
+      
+      res.json({
+        success: true,
+        message: "Clearance permanently deleted"
+      });
     }
   );
 });
@@ -3128,14 +3261,15 @@ app.get("/api/clearances/export/excel", (req, res) => {
       CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) AS 'Applicant Name',
       age AS 'Age',
       civil_status AS 'Civil Status',
-      address AS 'Address',
+      nationality AS 'Nationality',
+      address AS 'Complete Address',
       CASE format_type
         WHEN 'A' THEN 'Individual - No CR'
         WHEN 'B' THEN 'Individual - Has CR'
         WHEN 'C' THEN 'Family - No CR'
         WHEN 'D' THEN 'Family - Has CR'
       END AS 'Format',
-      IF(has_criminal_record, 'Yes', 'No') AS 'Criminal Record',
+      IFNULL(notes, '') AS 'Notes',
       purpose AS 'Purpose',
       date_issued AS 'Date Issued',
       validity_expiry AS 'Valid Until',
@@ -3155,8 +3289,8 @@ app.get("/api/clearances/export/excel", (req, res) => {
       
       // Set column widths
       worksheet['!cols'] = [
-        { wch: 18 }, { wch: 30 }, { wch: 5 }, { wch: 12 }, { wch: 40 },
-        { wch: 18 }, { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 12 },
+        { wch: 18 }, { wch: 30 }, { wch: 5 }, { wch: 12 }, { wch: 15 }, { wch: 40 },
+        { wch: 18 }, { wch: 35 }, { wch: 25 }, { wch: 12 }, { wch: 12 },
         { wch: 20 }, { wch: 10 }
       ];
       
@@ -3486,6 +3620,7 @@ app.get("/api/clearances/export/csv", (req, res) => {
       CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) as applicant_name,
       age,
       civil_status,
+      nationality,
       address,
       has_criminal_record,
       purpose,
@@ -3777,4 +3912,21 @@ app.post("/api/clearances/search/advanced", (req, res) => {
       );
     }
   );
+});
+
+// =====================================================
+// START SERVER
+// =====================================================
+
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
+  
+  // Generate initial Excel file on server start
+  exportCasesToExcel()
+    .then(() => {
+      console.log("Initial Excel file generated on server start");
+    })
+    .catch(err => {
+      console.error("Error generating initial Excel file:", err);
+    });
 });

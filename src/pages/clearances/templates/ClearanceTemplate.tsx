@@ -56,25 +56,26 @@ import { buildFullName } from './types';
  */
 export const ClearancePreview: React.FC<ClearanceTemplateProps & { 
   showFullTemplate?: boolean; 
-  generatedOR?: string | null; 
-}> = ({ data, isDark, showFullTemplate = false, generatedOR }) => {
+  generatedOR?: string | null;
+  textColor?: 'navy' | 'black';
+}> = ({ data, isDark, showFullTemplate = false, generatedOR, textColor = 'navy' }) => {
   const formatType = data.format_type || 'A';
 
   switch (formatType) {
     case 'A':
-      return <FormatAPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatAPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
     case 'B':
-      return <FormatBPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatBPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
     case 'C':
-      return <FormatCPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatCPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
     case 'D':
-      return <FormatDPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatDPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
     case 'E':
-      return <FormatEPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatEPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
     case 'F':
-      return <FormatFPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatFPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
     default:
-      return <FormatAPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} />;
+      return <FormatAPreview data={data} isDark={isDark} showFullTemplate={showFullTemplate} generatedOR={generatedOR} textColor={textColor} />;
   }
 };
 
@@ -88,27 +89,28 @@ export const getPrintTemplate = (data: {
   formData: FormData;
   fullName: string;
   generatedOR: string | null;
+  textColor?: 'navy' | 'black';
 }): string => {
-  const { formData, fullName, generatedOR } = data;
+  const { formData, fullName, generatedOR, textColor = 'navy' } = data;
   const formatType = formData.format_type || 'A';
   const resolvedFullName = fullName || buildFullName(formData);
 
   // Each format function now returns a complete standalone HTML document
   switch (formatType) {
     case 'A':
-      return getFormatAHtml(formData, resolvedFullName, generatedOR);
+      return getFormatAHtml(formData, resolvedFullName, generatedOR, textColor);
     case 'B':
-      return getFormatBHtml(formData, resolvedFullName, generatedOR);
+      return getFormatBHtml(formData, resolvedFullName, generatedOR, textColor);
     case 'C':
-      return getFormatCHtml(formData, resolvedFullName, generatedOR);
+      return getFormatCHtml(formData, resolvedFullName, generatedOR, textColor);
     case 'D':
-      return getFormatDHtml(formData, resolvedFullName, generatedOR);
+      return getFormatDHtml(formData, resolvedFullName, generatedOR, textColor);
     case 'E':
-      return getFormatEHtml(formData, resolvedFullName, generatedOR);
+      return getFormatEHtml(formData, resolvedFullName, generatedOR, textColor);
     case 'F':
-      return getFormatFHtml(formData, resolvedFullName, generatedOR);
+      return getFormatFHtml(formData, resolvedFullName, generatedOR, textColor);
     default:
-      return getFormatAHtml(formData, resolvedFullName, generatedOR);
+      return getFormatAHtml(formData, resolvedFullName, generatedOR, textColor);
   }
 };
 

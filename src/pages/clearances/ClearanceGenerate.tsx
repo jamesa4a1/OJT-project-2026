@@ -32,6 +32,8 @@ const ClearanceGenerate: React.FC = () => {
   const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [generatedOR, setGeneratedOR] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0); // Key to force form re-render on reset
+  const [textColor, setTextColor] = useState<'navy' | 'black'>('navy'); // Text color for certificate
+  const [showColorDropdown, setShowColorDropdown] = useState(false); // Color dropdown visibility
   
   const getDefaultDate = () => {
     return new Date().toISOString().split('T')[0];
@@ -86,7 +88,7 @@ const ClearanceGenerate: React.FC = () => {
     case_status: '',
     court_branch: '',
     notes: '',
-    criminal_cases: [{ case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }],
+    criminal_cases: [{ case_number: '', case_number_type: 'Criminal Case No.', crime: '', date_info_filed: '', date_type: 'Date Info Filed', origin: 'Tagbilaran City', status: '' }],
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
@@ -98,6 +100,43 @@ const ClearanceGenerate: React.FC = () => {
       axios.get(`${config.api.baseURL}/api/clearances/${editId}`)
         .then(response => {
           const data = response.data;
+          
+          // Reconstruct criminal_cases from database fields
+          let reconstructedCriminalCases: CriminalCase[] = [];
+          
+          if (data.case_numbers || data.crime_description) {
+            // Split case numbers by comma or create single case
+            const caseNumbers = data.case_numbers ? data.case_numbers.split(',').map((c: string) => c.trim()) : [''];
+            const crimeDescriptions = data.crime_description ? data.crime_description.split(',').map((c: string) => c.trim()) : [''];
+            
+            // Create criminal case objects with proper defaults for dropdown fields
+            const maxLength = Math.max(caseNumbers.length, crimeDescriptions.length);
+            for (let i = 0; i < maxLength; i++) {
+              reconstructedCriminalCases.push({
+                case_number: caseNumbers[i] || '',
+                case_number_type: 'Criminal Case No.', // Default value
+                crime: crimeDescriptions[i] || '',
+                date_info_filed: data.date_information_filed?.split('T')[0] || '',
+                date_type: 'Date Info Filed', // Default value
+                origin: 'Tagbilaran City',
+                status: data.case_status || ''
+              });
+            }
+          }
+          
+          // If no criminal cases, provide default
+          if (reconstructedCriminalCases.length === 0) {
+            reconstructedCriminalCases = [{
+              case_number: '',
+              case_number_type: 'Criminal Case No.',
+              crime: '',
+              date_info_filed: '',
+              date_type: 'Date Info Filed',
+              origin: 'Tagbilaran City',
+              status: ''
+            }];
+          }
+          
           setFormData({
             format_type: 'A',
             first_name: data.first_name || '',
@@ -125,7 +164,7 @@ const ClearanceGenerate: React.FC = () => {
             case_status: data.case_status || '',
             court_branch: data.court_branch || '',
             notes: data.notes || '',
-            criminal_cases: data.criminal_cases || [{ case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }],
+            criminal_cases: reconstructedCriminalCases,
           });
           setGeneratedOR(data.or_number);
           setHasCriminalRecord(data.has_criminal_record || false);
@@ -207,7 +246,15 @@ const ClearanceGenerate: React.FC = () => {
   const addCriminalCase = () => {
     setFormData((prev: FormData) => ({
       ...prev,
-      criminal_cases: [...(prev.criminal_cases || []), { case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }]
+      criminal_cases: [...(prev.criminal_cases || []), { 
+        case_number: '', 
+        case_number_type: 'Criminal Case No.',
+        crime: '', 
+        date_info_filed: '', 
+        date_type: 'Date Info Filed',
+        origin: 'Tagbilaran City', 
+        status: '' 
+      }]
     }));
   };
 
@@ -230,17 +277,139 @@ const ClearanceGenerate: React.FC = () => {
   const validateForm = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
     
+    // Common required fields for all formats (suffix is optional per user request)
     if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
     if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
     if (!formData.age || parseInt(formData.age.toString()) < 18 || parseInt(formData.age.toString()) > 120) {
       newErrors.age = 'Age must be between 18 and 120';
     }
+    if (!formData.civil_status) newErrors.civil_status = 'Civil status is required';
+    if (!formData.nationality?.trim()) newErrors.nationality = 'Nationality is required';
     if (!formData.address.trim()) newErrors.address = 'Address is required';
-    if (!formData.purpose) newErrors.purpose = 'Purpose is required';
-    if (formData.purpose === 'Other' && !formData.custom_purpose?.trim()) {
-      newErrors.custom_purpose = 'Please specify the purpose';
+    
+    // Format-specific required fields
+    const currentFormatFields = FORMAT_FIELDS[formData.format_type] || [];
+    
+    // Purpose validation (required for most formats except F)
+    if (currentFormatFields.includes('purpose')) {
+      if (!formData.purpose) newErrors.purpose = 'Purpose is required';
+      if (formData.purpose === 'Other' && !formData.custom_purpose?.trim()) {
+        newErrors.custom_purpose = 'Please specify the purpose';
+      }
     }
-    if (!formData.prc_id_number?.trim()) newErrors.prc_id_number = 'O.R No is required';
+    
+    // Date issued validation (required for most formats)
+    if (currentFormatFields.includes('date_issued') && !formData.date_issued) {
+      newErrors.date_issued = 'Date of issuance is required';
+    }
+    
+    // O.R Number validation (required for most formats)
+    if (currentFormatFields.includes('prc_id_number') && !formData.prc_id_number?.trim()) {
+      newErrors.prc_id_number = 'O.R No is required';
+    }
+    
+    // Additional O.R Number for Format C
+    if (currentFormatFields.includes('or_number') && !formData.or_number?.trim()) {
+      newErrors.or_number = 'O.R Number is required';
+    }
+    
+    // Validity expiry for Format C
+    if (currentFormatFields.includes('validity_expiry') && !formData.validity_expiry) {
+      newErrors.validity_expiry = 'Valid until date is required';
+    }
+    
+    // Issued upon request by for Format D
+    if (currentFormatFields.includes('issued_upon_request_by') && !formData.issued_upon_request_by?.trim()) {
+      newErrors.issued_upon_request_by = 'Issued upon request by is required';
+    }
+    
+    // ID Number for Format D
+    if (currentFormatFields.includes('id_number') && !formData.id_number?.trim()) {
+      newErrors.id_number = 'ID number is required';
+    }
+    
+    // Criminal cases validation for Formats B and D
+    if (currentFormatFields.includes('criminal_cases') && formData.has_criminal_record) {
+      if (!formData.criminal_cases || formData.criminal_cases.length === 0) {
+        newErrors.criminal_cases = 'Criminal case information is required';
+      } else {
+        // Validate each criminal case
+        for (let i = 0; i < formData.criminal_cases.length; i++) {
+          const criminalCase = formData.criminal_cases[i];
+          if (!criminalCase.case_number?.trim()) {
+            newErrors.criminal_cases = 'Case number is required for all criminal cases';
+            break;
+          }
+          if (!criminalCase.crime?.trim()) {
+            newErrors.criminal_cases = 'Crime description is required for all criminal cases';
+            break;
+          }
+          if (!criminalCase.date_info_filed) {
+            newErrors.criminal_cases = 'Date filed is required for all criminal cases';
+            break;
+          }
+          if (!criminalCase.status?.trim()) {
+            newErrors.criminal_cases = 'Case status is required for all criminal cases';
+            break;
+          }
+        }
+      }
+    }
+    
+    // Photo validation for Format F
+    if (currentFormatFields.includes('photo') && !formData.photo?.trim()) {
+      newErrors.photo = 'Photo is required for Format F';
+    }
+    
+    // Right thumbmark validation for Format F
+    if (currentFormatFields.includes('right_thumbmark') && !formData.right_thumbmark?.trim()) {
+      newErrors.right_thumbmark = 'Right thumbmark is required for Format F';
+    }
+    
+    // Format-conditional field validation
+    if (FORMAT_FIELDS[formData.format_type]?.includes('sex') && !formData.sex) {
+      newErrors.sex = 'Sex is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('birth_date') && !formData.birth_date) {
+      newErrors.birth_date = 'Date of birth is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('birth_place') && !formData.birth_place?.trim()) {
+      newErrors.birth_place = 'Place of birth is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('height') && !formData.height?.trim()) {
+      newErrors.height = 'Height is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('weight') && !formData.weight?.trim()) {
+      newErrors.weight = 'Weight is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('blood_type') && !formData.blood_type) {
+      newErrors.blood_type = 'Blood type is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('distinguishing_marks') && !formData.distinguishing_marks?.trim()) {
+      newErrors.distinguishing_marks = 'Distinguishing marks is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('id_presented') && !formData.id_presented?.trim()) {
+      newErrors.id_presented = 'ID presented is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('ctc_number') && !formData.ctc_number?.trim()) {
+      newErrors.ctc_number = 'CTC number is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('ctc_issued_at') && !formData.ctc_issued_at?.trim()) {
+      newErrors.ctc_issued_at = 'CTC issued at is required';
+    }
+    
+    if (FORMAT_FIELDS[formData.format_type]?.includes('ctc_issued_on') && !formData.ctc_issued_on) {
+      newErrors.ctc_issued_on = 'CTC issued on is required';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -250,7 +419,56 @@ const ClearanceGenerate: React.FC = () => {
     e.preventDefault();
     
     if (!validateForm()) {
-      setSubmitStatus({ type: 'error', message: 'Please fix the errors in the form' });
+      // Generate detailed error message based on which fields are missing
+      const errorMessages = [];
+      const errorFields = [];
+      
+      // Basic information errors
+      if (errors.first_name) { errorMessages.push('First name'); errorFields.push('first_name'); }
+      if (errors.last_name) { errorMessages.push('Last name'); errorFields.push('last_name'); }
+      if (errors.age) { errorMessages.push('Age (18-120)'); errorFields.push('age'); }
+      if (errors.civil_status) { errorMessages.push('Civil status'); errorFields.push('civil_status'); }
+      if (errors.nationality) { errorMessages.push('Nationality'); errorFields.push('nationality'); }
+      if (errors.address) { errorMessages.push('Address'); errorFields.push('address'); }
+      
+      // Format-specific field errors
+      if (errors.purpose) { errorMessages.push('Purpose'); errorFields.push('purpose'); }
+      if (errors.custom_purpose) { errorMessages.push('Purpose details'); errorFields.push('custom_purpose'); }
+      if (errors.date_issued) { errorMessages.push('Date of issuance'); errorFields.push('date_issued'); }
+      if (errors.prc_id_number) { errorMessages.push('O.R No'); errorFields.push('prc_id_number'); }
+      if (errors.or_number) { errorMessages.push('O.R Number'); errorFields.push('or_number'); }
+      if (errors.validity_expiry) { errorMessages.push('Valid until date'); errorFields.push('validity_expiry'); }
+      if (errors.issued_upon_request_by) { errorMessages.push('Issued upon request by'); errorFields.push('issued_upon_request_by'); }
+      if (errors.id_number) { errorMessages.push('ID number'); errorFields.push('id_number'); }
+      if (errors.criminal_cases) { errorMessages.push('Criminal case information'); errorFields.push('criminal_cases'); }
+      if (errors.photo) { errorMessages.push('Photo'); errorFields.push('photo'); }
+      if (errors.right_thumbmark) { errorMessages.push('Right thumbmark'); errorFields.push('right_thumbmark'); }
+      
+      // Additional conditional field errors
+      if (errors.sex) { errorMessages.push('Sex'); errorFields.push('sex'); }
+      if (errors.birth_date) { errorMessages.push('Date of birth'); errorFields.push('birth_date'); }
+      if (errors.birth_place) { errorMessages.push('Place of birth'); errorFields.push('birth_place'); }
+      if (errors.height) { errorMessages.push('Height'); errorFields.push('height'); }
+      if (errors.weight) { errorMessages.push('Weight'); errorFields.push('weight'); }
+      if (errors.blood_type) { errorMessages.push('Blood type'); errorFields.push('blood_type'); }
+      if (errors.distinguishing_marks) { errorMessages.push('Distinguishing marks'); errorFields.push('distinguishing_marks'); }
+      if (errors.id_presented) { errorMessages.push('ID presented'); errorFields.push('id_presented'); }
+      if (errors.ctc_number) { errorMessages.push('CTC number'); errorFields.push('ctc_number'); }
+      if (errors.ctc_issued_at) { errorMessages.push('CTC issued at'); errorFields.push('ctc_issued_at'); }
+      if (errors.ctc_issued_on) { errorMessages.push('CTC issued on'); errorFields.push('ctc_issued_on'); }
+      
+      const errorDisplay = errorMessages.length > 0 
+        ? `Please fill up the empty fields: ${errorMessages.join(', ')}`
+        : 'Please fill up the empty fields';
+      
+      setSubmitStatus({ type: 'error', message: errorDisplay });
+      
+      // Scroll to the form section
+      const formContainer = document.querySelector('form');
+      if (formContainer) {
+        formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      
       return;
     }
     
@@ -350,7 +568,7 @@ const ClearanceGenerate: React.FC = () => {
       case_status: '',
       court_branch: '',
       notes: '',
-      criminal_cases: [{ case_number: '', crime: '', date_info_filed: '', origin: 'Tagbilaran City', status: '' }],
+      criminal_cases: [{ case_number: '', case_number_type: 'Criminal Case No.', crime: '', date_info_filed: '', date_type: 'Date Info Filed', origin: 'Tagbilaran City', status: '' }],
     });
     setErrors({});
     setSubmitStatus(null);
@@ -381,7 +599,7 @@ const ClearanceGenerate: React.FC = () => {
     ].filter(Boolean).join(' ');
 
     // Get the print template HTML
-    const printDocument = getPrintTemplate({ formData, fullName: printFullName, generatedOR });
+    const printDocument = getPrintTemplate({ formData, fullName: printFullName, generatedOR, textColor });
     
     // Verify it's actually the print template by checking for DOCTYPE
     if (!printDocument.includes('<!DOCTYPE html>')) {
@@ -443,9 +661,6 @@ const ClearanceGenerate: React.FC = () => {
   };
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    
     // Build full name for print template
     const printFullName = [
       formData.first_name.toUpperCase(),
@@ -455,11 +670,57 @@ const ClearanceGenerate: React.FC = () => {
     ].filter(Boolean).join(' ');
 
     // Get complete print document from the format file
-    // Each format file now contains a complete standalone HTML document
-    const printDocument = getPrintTemplate({ formData, fullName: printFullName, generatedOR });
+    const printDocument = getPrintTemplate({ formData, fullName: printFullName, generatedOR, textColor });
     
-    printWindow.document.write(printDocument);
-    printWindow.document.close();
+    // Remove the auto-print script from the template since we handle printing via iframe
+    const cleanedDocument = printDocument
+      .replace(/<script>[\s\S]*?<\/script>/gi, '')
+      .replace('</body>', '</body>');
+    
+    // Use a hidden iframe instead of window.open to avoid losing focus/tab switch
+    // This keeps the main page fully interactive after printing
+    const existingFrame = document.getElementById('print-frame') as HTMLIFrameElement;
+    if (existingFrame) {
+      document.body.removeChild(existingFrame);
+    }
+    
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+    
+    iframeDoc.open();
+    iframeDoc.write(cleanedDocument);
+    iframeDoc.close();
+    
+    // Wait for content to load, then print
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error('Print failed:', e);
+        }
+        // Clean up after printing (with delay to allow print dialog to finish)
+        setTimeout(() => {
+          if (document.getElementById('print-frame')) {
+            document.body.removeChild(iframe);
+          }
+        }, 1000);
+      }, 300);
+    };
   };
 
   const inputClasses = `w-full px-3 py-2.5 rounded-lg border-2 outline-none transition-all duration-200 text-sm ${
@@ -627,17 +888,79 @@ const ClearanceGenerate: React.FC = () => {
                     </div>
                   </div>
                   
-                  <motion.button
-                    type="button"
-                    onClick={handlePrint}
-                    disabled={!formData.first_name || !formData.last_name}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-xs font-semibold rounded-lg text-white bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 hover:from-green-600 hover:via-emerald-600 hover:to-teal-700 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 whitespace-nowrap"
-                  >
-                    <i className="fas fa-print mr-1.5"></i>
-                    Print
-                  </motion.button>
+                  <div className="flex items-center gap-2">
+                    {/* Color Dropdown Button */}
+                    <div className="relative">
+                      <motion.button
+                        type="button"
+                        onClick={() => setShowColorDropdown(!showColorDropdown)}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 ${
+                          isDark 
+                            ? 'bg-slate-700 border-slate-600 hover:border-purple-500 text-slate-300 hover:text-purple-300' 
+                            : 'bg-white border-slate-200 hover:border-purple-500 text-slate-600 hover:text-purple-600'
+                        }`}
+                        title="Change text color"
+                      >
+                        <i className="fas fa-palette text-sm"></i>
+                      </motion.button>
+                      
+                      <AnimatePresence>
+                        {showColorDropdown && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className={`absolute -right-8 top-12 z-50 w-48 rounded-lg shadow-xl border overflow-hidden ${
+                              isDark 
+                                ? 'bg-slate-800 border-slate-700' 
+                                : 'bg-white border-slate-200'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => { setTextColor('navy'); setShowColorDropdown(false); }}
+                              className={`w-full px-4 py-3 text-left text-sm font-medium flex items-center gap-3 transition-colors whitespace-nowrap ${
+                                textColor === 'navy'
+                                  ? isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-700'
+                                  : isDark ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <span className="w-4 h-4 rounded-full bg-[#000080] border border-slate-300 flex-shrink-0"></span>
+                              <span className="flex-1">Navy Blue</span>
+                              {textColor === 'navy' && <i className="fas fa-check text-xs flex-shrink-0"></i>}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setTextColor('black'); setShowColorDropdown(false); }}
+                              className={`w-full px-4 py-3 text-left text-sm font-medium flex items-center gap-3 transition-colors whitespace-nowrap ${
+                                textColor === 'black'
+                                  ? isDark ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-900'
+                                  : isDark ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <span className="w-4 h-4 rounded-full bg-black border border-slate-300 flex-shrink-0"></span>
+                              <span className="flex-1">Black</span>
+                              {textColor === 'black' && <i className="fas fa-check text-xs flex-shrink-0"></i>}
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    <motion.button
+                      type="button"
+                      onClick={handlePrint}
+                      disabled={!formData.first_name || !formData.last_name}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-xs font-semibold rounded-lg text-white bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 hover:from-green-600 hover:via-emerald-600 hover:to-teal-700 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 whitespace-nowrap"
+                    >
+                      <i className="fas fa-print mr-1.5"></i>
+                      Print
+                    </motion.button>
+                  </div>
                 </div>
               </div>
 
@@ -664,6 +987,7 @@ const ClearanceGenerate: React.FC = () => {
                     isDark={isDark} 
                     showFullTemplate={true}
                     generatedOR={generatedOR}
+                    textColor={textColor}
                   />
                 </div>
               </div>
@@ -943,12 +1267,13 @@ const ClearanceGenerate: React.FC = () => {
                           name="civil_status"
                           value={formData.civil_status}
                           onChange={handleInputChange}
-                          className={inputClasses}
+                          className={`${inputClasses} ${errors.civil_status ? 'border-red-500 focus:border-red-500' : ''}`}
                         >
                           {CIVIL_STATUS_OPTIONS.map((status: string) => (
                             <option key={status} value={status}>{status}</option>
                           ))}
                         </select>
+                        {errors.civil_status && <p className="text-red-500 text-xs mt-1">{errors.civil_status}</p>}
                       </div>
                       
                       <div className="space-y-1.5">
@@ -962,9 +1287,10 @@ const ClearanceGenerate: React.FC = () => {
                           value={formData.nationality}
                           onChange={handleInputChange}
                           onKeyDown={handleKeyDown}
-                          className={inputClasses}
+                          className={`${inputClasses} ${errors.nationality ? 'border-red-500 focus:border-red-500' : ''}`}
                           placeholder="Enter nationality"
                         />
+                        {errors.nationality && <p className="text-red-500 text-xs mt-1">{errors.nationality}</p>}
                       </div>
 
                       {/* Height - Show for formats C, F */}
@@ -1172,7 +1498,7 @@ const ClearanceGenerate: React.FC = () => {
                   )}
 
                   {/* Step 2: Clearance Details - Moved after Criminal Cases for Format B */}
-                  {formData.format_type !== 'B' && (
+                  {formData.format_type !== 'B' && formData.format_type !== 'E' && (
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center space-x-2 mb-2">
                       <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -1191,6 +1517,7 @@ const ClearanceGenerate: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-2.5">
+                      {formData.format_type !== 'E' && formData.format_type !== 'F' && (
                       <div className="space-y-1.5">
                         <label className={labelClasses}>Issued Upon Request By</label>
                         <input
@@ -1203,7 +1530,10 @@ const ClearanceGenerate: React.FC = () => {
                           placeholder="Name of requester (if different from applicant)"
                         />
                       </div>
+                      )}
 
+                      {formData.format_type !== 'F' && (
+                      <>
                       <div className="space-y-1.5">
                         <label className={labelClasses}>Purpose *</label>
                         <select
@@ -1236,12 +1566,14 @@ const ClearanceGenerate: React.FC = () => {
                           {errors.custom_purpose && <p className="text-red-500 text-xs mt-1">{errors.custom_purpose}</p>}
                         </div>
                       )}
+                      </>
+                      )}
                     </div>
                   </div>
                   )}
 
-                  {/* Step 3: Criminal Record Toggle */}
-                  {formData.format_type !== 'A' && formData.format_type !== 'B' && formData.format_type !== 'C' && formData.format_type !== 'D' && (
+                  {/* Step 3: Criminal Record Toggle (for formats that don't have direct criminal case inputs) */}
+                  {formData.format_type !== 'A' && formData.format_type !== 'B' && formData.format_type !== 'C' && formData.format_type !== 'D' && formData.format_type !== 'E' && formData.format_type !== 'F' && (
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center space-x-2 mb-2">
                       <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -1254,7 +1586,7 @@ const ClearanceGenerate: React.FC = () => {
                           Criminal Record Status
                         </h3>
                         <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {formData.format_type === 'D' ? 'Format D is designed for criminal records' : 'Does this person have a criminal record?'}
+                          Does this person have a criminal record?
                         </p>
                       </div>
                     </div>
@@ -1320,13 +1652,24 @@ const ClearanceGenerate: React.FC = () => {
                             </div>
                             
                             <div className="grid grid-cols-1 gap-2">
-                              <input
-                                type="text"
-                                value={crimCase.case_number}
-                                onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
-                                className={inputClasses}
-                                placeholder="Case Number"
-                              />
+                              {/* Case Number with Dropdown */}
+                              <div className="flex gap-3">
+                                <select
+                                  value={crimCase.case_number_type || 'Criminal Case No.'}
+                                  onChange={(e) => updateCriminalCase(index, 'case_number_type', e.target.value)}
+                                  className={`${inputClasses} w-44 cursor-pointer`}
+                                >
+                                  <option value="Criminal Case No.">Criminal Case No.</option>
+                                  <option value="NPS Docket No.">NPS Docket No.</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  value={crimCase.case_number}
+                                  onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
+                                  className={`${inputClasses} flex-1`}
+                                  placeholder=""
+                                />
+                              </div>
                               <input
                                 type="text"
                                 value={crimCase.crime}
@@ -1334,12 +1677,23 @@ const ClearanceGenerate: React.FC = () => {
                                 className={inputClasses}
                                 placeholder="Crime"
                               />
-                              <input
-                                type="date"
-                                value={crimCase.date_info_filed}
-                                onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
-                                className={inputClasses}
-                              />
+                              {/* Date with Dropdown */}
+                              <div className="flex gap-3">
+                                <select
+                                  value={crimCase.date_type || 'Date Info Filed'}
+                                  onChange={(e) => updateCriminalCase(index, 'date_type', e.target.value)}
+                                  className={`${inputClasses} w-44 cursor-pointer`}
+                                >
+                                  <option value="Date Info Filed">Date Info Filed</option>
+                                  <option value="Date Filed">Date Filed</option>
+                                </select>
+                                <input
+                                  type="date"
+                                  value={crimCase.date_info_filed}
+                                  onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
+                                  className={`${inputClasses} flex-1`}
+                                />
+                              </div>
                               <input
                                 type="text"
                                 value={crimCase.origin}
@@ -1375,8 +1729,8 @@ const ClearanceGenerate: React.FC = () => {
                   </div>
                   )}
 
-                  {/* Step 2B: Criminal Cases for Format B & D (Direct) */}
-                  {(formData.format_type === 'B' || formData.format_type === 'D') && (
+                  {/* Step 2B: Criminal Cases for Format B, D & F (Direct) */}
+                  {(formData.format_type === 'B' || formData.format_type === 'D' || formData.format_type === 'F') && (
                     <div className="space-y-2 pt-2">
                       <div className="flex items-center space-x-2 mb-2">
                         <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -1389,7 +1743,7 @@ const ClearanceGenerate: React.FC = () => {
                             Criminal Cases Details
                           </h3>
                           <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Enter the criminal case information below
+                            {formData.format_type === 'F' ? 'Format F supports criminal case details with habitual delinquent clause' : 'Enter the criminal case information below'}
                           </p>
                         </div>
                       </div>
@@ -1426,40 +1780,121 @@ const ClearanceGenerate: React.FC = () => {
                             </div>
                             
                             <div className="grid grid-cols-1 gap-2">
-                              <input
-                                type="text"
-                                value={crimCase.case_number}
-                                onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
-                                className={inputClasses}
-                                placeholder="Case Number"
-                              />
-                              <input
-                                type="text"
-                                value={crimCase.crime}
-                                onChange={(e) => updateCriminalCase(index, 'crime', e.target.value)}
-                                className={inputClasses}
-                                placeholder="Crime"
-                              />
-                              <input
-                                type="date"
-                                value={crimCase.date_info_filed}
-                                onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
-                                className={inputClasses}
-                              />
-                              <input
-                                type="text"
-                                value={crimCase.origin}
-                                onChange={(e) => updateCriminalCase(index, 'origin', e.target.value)}
-                                className={inputClasses}
-                                placeholder="Origin"
-                              />
-                              <input
-                                type="text"
-                                value={crimCase.status}
-                                onChange={(e) => updateCriminalCase(index, 'status', e.target.value)}
-                                className={inputClasses}
-                                placeholder="Status"
-                              />
+                              {formData.format_type === 'F' ? (
+                                <>
+                                  {/* Format F: Case Number with Dropdown */}
+                                  <div className="flex gap-3">
+                                    <select
+                                      value={crimCase.case_number_type || 'Criminal Case No.'}
+                                      onChange={(e) => updateCriminalCase(index, 'case_number_type', e.target.value)}
+                                      className={`${inputClasses} w-50 cursor-pointer`}
+                                    >
+                                      <option value="Criminal Case No.">Criminal Case No.</option>
+                                      <option value="NPS Docket No.">NPS Docket No.</option>
+                                    </select>
+                                    <input
+                                      type="text"
+                                      value={crimCase.case_number}
+                                      onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
+                                      className={`${inputClasses} flex-1`}
+                                      placeholder=""
+                                    />
+                                  </div>
+                                  {/* Format F: Date with Dropdown */}
+                                  <div className="flex gap-3">
+                                    <select
+                                      value={crimCase.date_type || 'Date Info Filed'}
+                                      onChange={(e) => updateCriminalCase(index, 'date_type', e.target.value)}
+                                      className={`${inputClasses} w-44 cursor-pointer`}
+                                    >
+                                      <option value="Date Info Filed">Date Info Filed</option>
+                                      <option value="Date Filed">Date Filed</option>
+                                    </select>
+                                    <input
+                                      type="date"
+                                      value={crimCase.date_info_filed}
+                                      onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
+                                      className={`${inputClasses} flex-1`}
+                                    />
+                                  </div>
+                                  {/* Format F: Crime */}
+                                  <input
+                                    type="text"
+                                    value={crimCase.crime}
+                                    onChange={(e) => updateCriminalCase(index, 'crime', e.target.value)}
+                                    className={inputClasses}
+                                    placeholder="Crime"
+                                  />
+                                  {/* Format F: Status */}
+                                  <input
+                                    type="text"
+                                    value={crimCase.status}
+                                    onChange={(e) => updateCriminalCase(index, 'status', e.target.value)}
+                                    className={inputClasses}
+                                    placeholder="Status"
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  {/* Format B & D: Case Number with Dropdown */}
+                                  <div className="flex gap-3">
+                                    <select
+                                      value={crimCase.case_number_type || 'Criminal Case No.'}
+                                      onChange={(e) => updateCriminalCase(index, 'case_number_type', e.target.value)}
+                                      className={`${inputClasses} w-50 cursor-pointer`}
+                                    >
+                                      <option value="Criminal Case No.">Criminal Case No.</option>
+                                      <option value="NPS Docket No.">NPS Docket No.</option>
+                                    </select>
+                                    <input
+                                      type="text"
+                                      value={crimCase.case_number}
+                                      onChange={(e) => updateCriminalCase(index, 'case_number', e.target.value)}
+                                      className={`${inputClasses} flex-1`}
+                                      placeholder=""
+                                    />
+                                  </div>
+                                  {/* Format B & D: Crime */}
+                                  <input
+                                    type="text"
+                                    value={crimCase.crime}
+                                    onChange={(e) => updateCriminalCase(index, 'crime', e.target.value)}
+                                    className={inputClasses}
+                                    placeholder="Crime"
+                                  />
+                                  {/* Format B & D: Date with Dropdown */}
+                                  <div className="flex gap-3">
+                                    <select
+                                      value={crimCase.date_type || 'Date Info Filed'}
+                                      onChange={(e) => updateCriminalCase(index, 'date_type', e.target.value)}
+                                      className={`${inputClasses} w-44 cursor-pointer`}
+                                    >
+                                      <option value="Date Info Filed">Date Info Filed</option>
+                                      <option value="Date Filed">Date Filed</option>
+                                    </select>
+                                    <input
+                                      type="date"
+                                      value={crimCase.date_info_filed}
+                                      onChange={(e) => updateCriminalCase(index, 'date_info_filed', e.target.value)}
+                                      className={`${inputClasses} flex-1`}
+                                    />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={crimCase.origin}
+                                    onChange={(e) => updateCriminalCase(index, 'origin', e.target.value)}
+                                    className={inputClasses}
+                                    placeholder="Origin"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={crimCase.status}
+                                    onChange={(e) => updateCriminalCase(index, 'status', e.target.value)}
+                                    className={inputClasses}
+                                    placeholder="Status"
+                                  />
+                                </>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1634,15 +2069,97 @@ const ClearanceGenerate: React.FC = () => {
                           </div>
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Validity Period *</label>
-                            <select
-                              name="validity_period"
-                              value={formData.validity_period}
-                              onChange={handleInputChange}
-                              className={inputClasses}
-                            >
-                              <option value="6 Months">6 Months</option>
-                              <option value="1 Year">1 Year</option>
-                            </select>
+                            <div className="relative group">
+                              <input
+                                type="text"
+                                name="validity_period"
+                                value={formData.validity_period}
+                                onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
+                                className={`${inputClasses} pr-12 transition-all duration-200`}
+                                placeholder="e.g., 6 Months, 1 Year, Custom Period"
+                              />
+                              <button
+                                type="button"
+                                aria-label="Toggle validity period dropdown"
+                                className={`absolute inset-y-0 right-0 px-3 flex items-center justify-center transition-all duration-200 ${
+                                  isDark 
+                                    ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50' 
+                                    : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                                } rounded-r-lg`}
+                                onClick={() => document.getElementById('validity-dropdown-f')?.click()}
+                              >
+                                <i className="fas fa-chevron-down text-sm"></i>
+                              </button>
+                              <select
+                                id="validity-dropdown-f"
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleInputChange({
+                                      target: { name: 'validity_period', value: e.target.value }
+                                    } as React.ChangeEvent<HTMLInputElement>);
+                                    (e.target as HTMLSelectElement).value = '';
+                                  }
+                                }}
+                                className={`absolute inset-y-0 right-0 opacity-0 w-full cursor-pointer appearance-none pointer-events-none`}
+                              >
+                                <option value="">Select a period</option>
+                                <option value="6 Months">📅 6 Months</option>
+                                <option value="1 Year">📅 1 Year</option>
+                              </select>
+                              {/* Enhanced Dropdown Menu */}
+                              <div className="hidden group-hover:block absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-1 z-50 transition-all duration-200">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleInputChange({
+                                      target: { name: 'validity_period', value: '6 Months' }
+                                    } as React.ChangeEvent<HTMLInputElement>);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all duration-150 flex items-center gap-3 ${
+                                    isDark
+                                      ? 'text-slate-300 hover:bg-blue-600/20 hover:text-blue-400'
+                                      : 'text-gray-700 hover:bg-blue-100 hover:text-blue-700'
+                                  }`}
+                                >
+                                  <i className="fas fa-calendar text-blue-500"></i>
+                                  <span>6 Months</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleInputChange({
+                                      target: { name: 'validity_period', value: '1 Year' }
+                                    } as React.ChangeEvent<HTMLInputElement>);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all duration-150 flex items-center gap-3 ${
+                                    isDark
+                                      ? 'text-slate-300 hover:bg-blue-600/20 hover:text-blue-400'
+                                      : 'text-gray-700 hover:bg-blue-100 hover:text-blue-700'
+                                  }`}
+                                >
+                                  <i className="fas fa-calendar text-blue-500"></i>
+                                  <span>1 Year</span>
+                                </button>
+                                <div className={`my-1 border-t ${ isDark ? 'border-slate-700' : 'border-gray-200' }`}></div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const customInput = document.querySelector('input[name="validity_period"]') as HTMLInputElement;
+                                    if (customInput) customInput.focus();
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all duration-150 flex items-center gap-3 ${
+                                    isDark
+                                      ? 'text-slate-400 hover:bg-slate-700/50 hover:text-blue-400'
+                                      : 'text-gray-600 hover:bg-gray-100 hover:text-blue-700'
+                                  }`}
+                                >
+                                  <i className="fas fa-pencil-alt text-slate-500"></i>
+                                  <span>Custom Validity</span>
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </>
                       ) : (
@@ -1658,6 +2175,7 @@ const ClearanceGenerate: React.FC = () => {
                               className={inputClasses}
                             />
                           </div>
+                          {formData.format_type !== 'E' && (
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Valid Until</label>
                             <input
@@ -1668,6 +2186,7 @@ const ClearanceGenerate: React.FC = () => {
                               className={inputClasses}
                             />
                           </div>
+                          )}
                           <div className="space-y-1.5">
                             <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                               <i className="fas fa-receipt text-xs"></i>
@@ -1691,15 +2210,97 @@ const ClearanceGenerate: React.FC = () => {
                           </div>
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Validity Period *</label>
-                            <select
-                              name="validity_period"
-                              value={formData.validity_period}
-                              onChange={handleInputChange}
-                              className={inputClasses}
-                            >
-                              <option value="6 Months">6 Months</option>
-                              <option value="1 Year">1 Year</option>
-                            </select>
+                            <div className="relative group">
+                              <input
+                                type="text"
+                                name="validity_period"
+                                value={formData.validity_period}
+                                onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
+                                className={`${inputClasses} pr-12 transition-all duration-200`}
+                                placeholder="e.g., 6 Months, 1 Year, Custom Period"
+                              />
+                              <button
+                                type="button"
+                                aria-label="Toggle validity period dropdown"
+                                className={`absolute inset-y-0 right-0 px-3 flex items-center justify-center transition-all duration-200 ${
+                                  isDark 
+                                    ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50' 
+                                    : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                                } rounded-r-lg`}
+                                onClick={() => document.getElementById('validity-dropdown-other')?.click()}
+                              >
+                                <i className="fas fa-chevron-down text-sm"></i>
+                              </button>
+                              <select
+                                id="validity-dropdown-other"
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleInputChange({
+                                      target: { name: 'validity_period', value: e.target.value }
+                                    } as React.ChangeEvent<HTMLInputElement>);
+                                    (e.target as HTMLSelectElement).value = '';
+                                  }
+                                }}
+                                className={`absolute inset-y-0 right-0 opacity-0 w-full cursor-pointer appearance-none pointer-events-none`}
+                              >
+                                <option value="">Select a period</option>
+                                <option value="6 Months">📅 6 Months</option>
+                                <option value="1 Year">📅 1 Year</option>
+                              </select>
+                              {/* Enhanced Dropdown Menu */}
+                              <div className="hidden group-hover:block absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-1 z-50 transition-all duration-200">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleInputChange({
+                                      target: { name: 'validity_period', value: '6 Months' }
+                                    } as React.ChangeEvent<HTMLInputElement>);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all duration-150 flex items-center gap-3 ${
+                                    isDark
+                                      ? 'text-slate-300 hover:bg-blue-600/20 hover:text-blue-400'
+                                      : 'text-gray-700 hover:bg-blue-100 hover:text-blue-700'
+                                  }`}
+                                >
+                                  <i className="fas fa-calendar text-blue-500"></i>
+                                  <span>6 Months</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleInputChange({
+                                      target: { name: 'validity_period', value: '1 Year' }
+                                    } as React.ChangeEvent<HTMLInputElement>);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all duration-150 flex items-center gap-3 ${
+                                    isDark
+                                      ? 'text-slate-300 hover:bg-blue-600/20 hover:text-blue-400'
+                                      : 'text-gray-700 hover:bg-blue-100 hover:text-blue-700'
+                                  }`}
+                                >
+                                  <i className="fas fa-calendar text-blue-500"></i>
+                                  <span>1 Year</span>
+                                </button>
+                                <div className={`my-1 border-t ${ isDark ? 'border-slate-700' : 'border-gray-200' }`}></div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const customInput = document.querySelector('input[name="validity_period"]') as HTMLInputElement;
+                                    if (customInput) customInput.focus();
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all duration-150 flex items-center gap-3 ${
+                                    isDark
+                                      ? 'text-slate-400 hover:bg-slate-700/50 hover:text-blue-400'
+                                      : 'text-gray-600 hover:bg-gray-100 hover:text-blue-700'
+                                  }`}
+                                >
+                                  <i className="fas fa-pencil-alt text-slate-500"></i>
+                                  <span>Custom Validity</span>
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </>
                       )}

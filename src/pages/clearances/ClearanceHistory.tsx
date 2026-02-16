@@ -9,6 +9,79 @@ import {
   ClearancePreview
 } from './templates';
 
+// Custom Tooltip Component for Notes
+const NotesTooltip: React.FC<{ 
+  children: React.ReactNode; 
+  content: string; 
+  isDark: boolean 
+}> = ({ children, content, isDark }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    if (content && content !== '-') {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top - 8
+      });
+      setIsVisible(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsVisible(false);
+  };
+
+  return (
+    <>
+      <div 
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="relative cursor-help"
+      >
+        {children}
+      </div>
+      
+      {isVisible && (
+        <div
+          className={`fixed z-50 px-3 py-2 text-sm rounded-lg shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full max-w-xs ${
+            isDark 
+              ? 'bg-slate-800 text-slate-200 border border-slate-600' 
+              : 'bg-gray-900 text-white'
+          }`}
+          style={{ 
+            left: `${position.x}px`, 
+            top: `${position.y}px`,
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          <div className="break-words whitespace-pre-wrap">
+            {content}
+          </div>
+          {/* Tooltip Arrow */}
+          <div 
+            className={`absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 ${
+              isDark ? 'bg-slate-800 border-r border-b border-slate-600' : 'bg-gray-900'
+            }`}
+            style={{ 
+              clipPath: 'polygon(0 0, 100% 100%, 0 100%)',
+              transform: 'translateX(-50%) rotate(45deg)'
+            }}
+          />
+        </div>
+      )}
+      
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-100%) scale(0.95); }
+          to { opacity: 1; transform: translateX(-50%) translateY(-100%) scale(1); }
+        }
+      `}</style>
+    </>
+  );
+};
+
 interface Clearance {
   id: number;
   or_number: string;
@@ -25,6 +98,7 @@ interface Clearance {
   validity_expiry: string;
   issued_by_name: string;
   status: string;
+  notes: string;
   created_at: string;
 }
 
@@ -155,18 +229,26 @@ const ClearanceHistory: React.FC = () => {
     
     setIsDeleting(true);
     try {
+      console.log('🗑️  Attempting to delete clearance:', selectedClearance.or_number);
+      console.log('   User info:', { id: user?.id, name: user?.name });
+      
       await axios.delete(`${config.api.baseURL}/api/clearances/${selectedClearance.id}`, {
         data: {
           deleted_by_user_id: user?.id,
           deleted_by_name: user?.name,
         }
       });
+      console.log('✅ Clearance deleted successfully');
+      
       setShowDeleteModal(false);
       setSelectedClearance(null);
-      fetchClearances();
-      fetchStats();
+      
+      // Refresh the data
+      await fetchClearances();
+      await fetchStats();
     } catch (error) {
-      console.error('Error deleting clearance:', error);
+      console.error('❌ Error deleting clearance:', error);
+      alert('Error deleting clearance. Please try again.');
     } finally {
       setIsDeleting(false);
     }
@@ -325,10 +407,12 @@ const ClearanceHistory: React.FC = () => {
             className={inputClasses}
           >
             <option value="">All Formats</option>
-            <option value="A">Format A - Individual No CR</option>
-            <option value="B">Format B - Individual Has CR</option>
-            <option value="C">Format C - Family No CR</option>
-            <option value="D">Format D - Family Has CR</option>
+            <option value="A">Format A - Individual No Criminal Record</option>
+            <option value="B">Format B - Individual Has Criminal Record</option>
+            <option value="C">Format C - Family No Criminal Record</option>
+            <option value="D">Format D - Family Has Criminal Record</option>
+            <option value="E">Format E - Local Employment</option>
+            <option value="F">Format F - Bail Bond Application</option>
           </select>
 
           <select
@@ -341,18 +425,9 @@ const ClearanceHistory: React.FC = () => {
             <option value="true">Has Criminal Record</option>
           </select>
 
-          <select
-            value={issuedByFilter}
-            onChange={(e) => setIssuedByFilter(e.target.value)}
-            className={inputClasses}
-          >
-            <option value="">All Issuers</option>
-            {issuers.map((issuer) => (
-              <option key={issuer.issued_by_user_id} value={issuer.issued_by_user_id}>
-                {issuer.issued_by_name}
-              </option>
-            ))}
-          </select>
+      
+          
+          
         </div>
 
         <div className="flex items-center gap-3 mt-4 flex-wrap">
@@ -393,6 +468,18 @@ const ClearanceHistory: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/clearances/archived')}
+            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+              isDark ? 'bg-orange-600 text-white hover:bg-orange-700' : 'bg-orange-500 text-white hover:bg-orange-600'
+            }`}
+          >
+            <i className="fas fa-archive mr-2"></i>
+            Archived Clearances
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleExportExcel}
             className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
               isDark ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-500 text-white hover:bg-emerald-600'
@@ -428,8 +515,8 @@ const ClearanceHistory: React.FC = () => {
                 <th className={`text-left py-3 px-2 text-sm font-bold uppercase tracking-wide w-[13%] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   Format
                 </th>
-                <th className={`text-left py-3 px-2 text-sm font-bold uppercase tracking-wide w-[7%] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  CR
+                <th className={`text-left py-3 px-2 text-sm font-bold uppercase tracking-wide w-[15%] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Notes
                 </th>
                 <th className={`text-left py-3 px-2 text-sm font-bold uppercase tracking-wide w-[15%] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   Purpose
@@ -507,14 +594,12 @@ const ClearanceHistory: React.FC = () => {
                         {FORMAT_LABELS[clearance.format_type]}
                       </span>
                     </td>
-                    <td className="py-3 px-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                        clearance.has_criminal_record
-                          ? isDark ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-700'
-                          : isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {clearance.has_criminal_record ? 'Yes' : 'No'}
-                      </span>
+                    <td className={`py-3 px-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                      <NotesTooltip content={clearance.notes || ''} isDark={isDark}>
+                        <div className="truncate max-w-[150px]">
+                          {clearance.notes || '-'}
+                        </div>
+                      </NotesTooltip>
                     </td>
                     <td className={`py-3 px-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`} title={clearance.purpose}>
                       {clearance.purpose}

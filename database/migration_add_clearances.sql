@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS clearances (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp',
+    deleted_by_user_id INT NULL COMMENT 'User ID who deleted this record',
+    deleted_by_name VARCHAR(255) NULL COMMENT 'Name of user who deleted this record',
     
     -- Indexes
     INDEX idx_or_number (or_number),
