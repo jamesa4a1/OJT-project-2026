@@ -30,13 +30,13 @@ const Caselist = () => {
   // Function to delete a case permanently
   const handleDeleteCase = async (docketNo) => {
     setIsDeleting(docketNo);
-    console.log('Attempting to delete case:', docketNo);
+    console.log('Attempting to permanently delete case:', docketNo);
     try {
-      const response = await axios.delete('http://localhost:5000/delete-case', {
+      const response = await axios.delete('http://localhost:5000/permanent-delete-case', {
         data: { docket_no: docketNo },
       });
 
-      console.log('Delete response received:', response.data);
+      console.log('Permanent delete response received:', response.data);
       if (response.data) {
         // Remove the deleted case from the current list
         setCases((prevCases) => prevCases.filter((c) => c.DOCKET_NO !== docketNo));
@@ -46,7 +46,7 @@ const Caselist = () => {
         setNotification({
           type: 'success',
           title: 'Case Permanently Deleted!',
-          message: `Case ${docketNo} has been permanently deleted.`,
+          message: `Case ${docketNo} has been permanently deleted from the database.`,
           icon: 'fa-trash-alt',
         });
 

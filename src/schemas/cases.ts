@@ -14,9 +14,7 @@ export const CaseCreateSchema = z.object({
     .max(100, 'Docket number must be less than 100 characters'),
   dateFiled: z
     .string()
-    .datetime({ message: 'Invalid date format' })
-    .or(z.date())
-    .pipe(z.coerce.date()),
+    .min(1, 'Date filed is required'),
   complainant: z
     .string()
     .min(1, 'Complainant name is required')
@@ -35,27 +33,15 @@ export const CaseCreateSchema = z.object({
     .max(200, 'Offense must be less than 200 characters'),
   dateOfCommission: z
     .string()
-    .datetime({ message: 'Invalid date format' })
-    .or(z.date())
-    .pipe(z.coerce.date()),
-  dateResolved: z
-    .string()
-    .datetime({ message: 'Invalid date format' })
-    .or(z.date())
-    .pipe(z.coerce.date())
-    .optional(),
+    .min(1, 'Date of commission is required'),
+  dateResolved: z.string().optional(),
   resolvingProsecutor: z.string().max(200, 'Name must be less than 200 characters').optional(),
   criminalCaseNo: z.string().max(100, 'Case number must be less than 100 characters').optional(),
   branch: z
     .string()
     .min(1, 'Branch is required')
     .max(100, 'Branch must be less than 100 characters'),
-  dateFiledInCourt: z
-    .string()
-    .datetime({ message: 'Invalid date format' })
-    .or(z.date())
-    .pipe(z.coerce.date())
-    .optional(),
+  dateFiledInCourt: z.string().optional(),
   remarksDecision: z.string().max(1000, 'Remarks must be less than 1000 characters').optional(),
   penalty: z.string().max(500, 'Penalty must be less than 500 characters').optional(),
   indexCards: z.string().max(500, 'Index cards must be less than 500 characters').optional(),

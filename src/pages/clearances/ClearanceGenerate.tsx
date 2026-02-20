@@ -93,6 +93,12 @@ const ClearanceGenerate: React.FC = () => {
 
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [hasCriminalRecord, setHasCriminalRecord] = useState(false);
+  
+  // State for custom purposes
+  const [customPurposes, setCustomPurposes] = useState<{ name: string; fee: number }[]>([]);
+  const [showAddPurposeModal, setShowAddPurposeModal] = useState(false);
+  const [newPurposeName, setNewPurposeName] = useState('');
+  const [newPurposeFee, setNewPurposeFee] = useState<number>(115);
 
   // Load clearance data if editing
   useEffect(() => {
@@ -203,7 +209,11 @@ const ClearanceGenerate: React.FC = () => {
     const { name, value } = e.target;
     
     if (name === 'purpose') {
-      const selectedPurpose = PURPOSE_OPTIONS.find((p: { name: string; fee: number }) => p.name === value);
+      // Search in both PURPOSE_OPTIONS and customPurposes
+      let selectedPurpose = PURPOSE_OPTIONS.find((p: { name: string; fee: number }) => p.name === value);
+      if (!selectedPurpose) {
+        selectedPurpose = customPurposes.find((p: { name: string; fee: number }) => p.name === value);
+      }
       setFormData((prev: FormData) => ({
         ...prev,
         purpose: value,
@@ -216,6 +226,40 @@ const ClearanceGenerate: React.FC = () => {
     if (errors[name as keyof FormData]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+  };
+  
+  // Handler for adding a new purpose
+  const handleAddPurpose = () => {
+    if (!newPurposeName.trim()) {
+      alert('Please enter a purpose name');
+      return;
+    }
+    
+    const newPurpose = { name: newPurposeName.trim(), fee: newPurposeFee };
+    
+    // Check if purpose already exists
+    const exists = PURPOSE_OPTIONS.some(p => p.name === newPurpose.name) || 
+                   customPurposes.some(p => p.name === newPurpose.name);
+    
+    if (exists) {
+      alert('This purpose already exists');
+      return;
+    }
+    
+    // Add to custom purposes
+    setCustomPurposes([...customPurposes, newPurpose]);
+    
+    // Set as selected purpose
+    setFormData((prev: FormData) => ({
+      ...prev,
+      purpose: newPurpose.name,
+      purpose_fee: newPurpose.fee,
+    }));
+    
+    // Reset modal
+    setNewPurposeName('');
+    setNewPurposeFee(115);
+    setShowAddPurposeModal(false);
   };
 
   // Handle Enter key to move to next field
@@ -1535,14 +1579,38 @@ const ClearanceGenerate: React.FC = () => {
                       {formData.format_type !== 'F' && (
                       <>
                       <div className="space-y-1.5">
-                        <label className={labelClasses}>Purpose *</label>
+                        <div className="flex items-center justify-between">
+                          <label className={labelClasses}>Purpose *</label>
+                          <motion.button
+                            type="button"
+                            onClick={() => setShowAddPurposeModal(true)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Add new purpose"
+                            className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-all duration-200 ${
+                              isDark
+                                ? 'bg-blue-900/40 border-blue-700 hover:bg-blue-900/60 text-blue-300 hover:text-blue-200'
+                                : 'bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-600 hover:text-blue-700'
+                            }`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </motion.button>
+                        </div>
                         <select
                           name="purpose"
                           value={formData.purpose}
                           onChange={handleInputChange}
                           className={`${inputClasses} ${errors.purpose ? 'border-red-500' : ''}`}
                         >
+                          <option value="">Select a purpose</option>
                           {PURPOSE_OPTIONS.map((opt: { name: string; fee: number }) => (
+                            <option key={opt.name} value={opt.name}>
+                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
+                            </option>
+                          ))}
+                          {customPurposes.map((opt: { name: string; fee: number }) => (
                             <option key={opt.name} value={opt.name}>
                               {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
                             </option>
@@ -1948,14 +2016,38 @@ const ClearanceGenerate: React.FC = () => {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className={labelClasses}>Purpose *</label>
+                        <div className="flex items-center justify-between">
+                          <label className={labelClasses}>Purpose *</label>
+                          <motion.button
+                            type="button"
+                            onClick={() => setShowAddPurposeModal(true)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Add new purpose"
+                            className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-all duration-200 ${
+                              isDark
+                                ? 'bg-blue-900/40 border-blue-700 hover:bg-blue-900/60 text-blue-300 hover:text-blue-200'
+                                : 'bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-600 hover:text-blue-700'
+                            }`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </motion.button>
+                        </div>
                         <select
                           name="purpose"
                           value={formData.purpose}
                           onChange={handleInputChange}
                           className={`${inputClasses} ${errors.purpose ? 'border-red-500' : ''}`}
                         >
+                          <option value="">Select a purpose</option>
                           {PURPOSE_OPTIONS.map((opt: { name: string; fee: number }) => (
+                            <option key={opt.name} value={opt.name}>
+                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
+                            </option>
+                          ))}
+                          {customPurposes.map((opt: { name: string; fee: number }) => (
                             <option key={opt.name} value={opt.name}>
                               {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
                             </option>
@@ -2366,6 +2458,133 @@ const ClearanceGenerate: React.FC = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Add Purpose Modal */}
+      <AnimatePresence>
+        {showAddPurposeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowAddPurposeModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-md rounded-2xl shadow-2xl ${
+                isDark
+                  ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700'
+                  : 'bg-gradient-to-br from-white to-slate-50 border border-slate-200'
+              }`}
+            >
+              {/* Modal Header */}
+              <div className={`px-6 py-4 border-b ${
+                isDark
+                  ? 'border-slate-700 bg-slate-800/50'
+                  : 'border-slate-200 bg-white/50'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Add New Purpose
+                  </h3>
+                  <motion.button
+                    type="button"
+                    onClick={() => setShowAddPurposeModal(false)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                      isDark
+                        ? 'hover:bg-slate-700 text-slate-400 hover:text-white'
+                        : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="px-6 py-4 space-y-4">
+                <div className="space-y-2">
+                  <label className={`block text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    Purpose Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newPurposeName}
+                    onChange={(e) => setNewPurposeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddPurpose();
+                      }
+                    }}
+                    placeholder="Enter purpose name"
+                    className={`w-full px-3 py-2 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
+                      isDark
+                        ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className={`block text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    Fee (PHP) *
+                  </label>
+                  <input
+                    type="number"
+                    value={newPurposeFee}
+                    onChange={(e) => setNewPurposeFee(Math.max(0, parseInt(e.target.value) || 0))}
+                    min="0"
+                    placeholder="Enter fee amount"
+                    className={`w-full px-3 py-2 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
+                      isDark
+                        ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className={`px-6 py-4 flex gap-3 border-t ${
+                isDark
+                  ? 'border-slate-700 bg-slate-800/30'
+                  : 'border-slate-200 bg-slate-50/50'
+              }`}>
+                <motion.button
+                  type="button"
+                  onClick={() => setShowAddPurposeModal(false)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                    isDark
+                      ? 'bg-slate-700 hover:bg-slate-600 text-white'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-900'
+                  }`}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={handleAddPurpose}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                >
+                  Add Purpose
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -9,6 +9,7 @@ const db = mysql.createConnection({
   user: 'root',
   password: '',
   database: 'ocp_docketing'
+  
 });
 
 db.connect((err) => {

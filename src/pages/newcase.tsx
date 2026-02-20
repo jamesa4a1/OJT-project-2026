@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useValidation } from '../hooks/useValidation';
 import { CaseCreateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
+import config from '../config';
 
 interface CaseFormData {
   DOCKET_NO: string;
@@ -87,8 +88,26 @@ const Newcase: React.FC = () => {
     setSuccess('');
 
     try {
+      // Map uppercase keys to camelCase for API
+      const camelCaseData = {
+        docketNo: formData.DOCKET_NO,
+        dateFiled: formData.DATE_FILED,
+        complainant: formData.COMPLAINANT,
+        respondent: formData.RESPONDENT,
+        addressOfRespondent: formData.ADDRESS_OF_RESPONDENT,
+        offense: formData.OFFENSE,
+        dateOfCommission: formData.DATE_OF_COMMISSION,
+        dateResolved: formData.DATE_RESOLVED || undefined,
+        resolvingProsecutor: formData.RESOLVING_PROSECUTOR || undefined,
+        criminalCaseNo: formData.CRIM_CASE_NO || undefined,
+        branch: formData.BRANCH,
+        dateFiledInCourt: formData.DATEFILED_IN_COURT || undefined,
+        remarksDecision: formData.REMARKS_DECISION || undefined,
+        penalty: formData.PENALTY || undefined,
+      };
+
       // Validate with Zod
-      const validatedData = await validate(formData);
+      const validatedData = await validate(camelCaseData);
       if (!validatedData.success) {
         setIsLoading(false);
         return;
@@ -96,13 +115,16 @@ const Newcase: React.FC = () => {
 
       const formDataToSend = new FormData();
       Object.keys(validatedData.data as any).forEach((key) => {
-        formDataToSend.append(key, (validatedData.data as any)[key]);
+        const value = (validatedData.data as any)[key];
+        if (value !== undefined && value !== null && value !== '') {
+          formDataToSend.append(key, value);
+        }
       });
       if (indexCardImage) {
         formDataToSend.append('indexCardImage', indexCardImage);
       }
 
-      const response = await axios.post('http://localhost:5000/add-case', formDataToSend, {
+      const response = await axios.post(`${config.api.baseURL}/add-case`, formDataToSend, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -128,10 +150,10 @@ const Newcase: React.FC = () => {
       });
       removeImage();
 
-      // Navigate after short delay
+      // Auto-dismiss success message after 4 seconds
       setTimeout(() => {
-        navigate('/caselist');
-      }, 1500);
+        setSuccess('');
+      }, 4000);
     } catch (error: any) {
       console.error('Error adding case:', error);
       const errorMessage = error.response?.data?.message || 'Failed to add case. Please try again.';

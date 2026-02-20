@@ -96,7 +96,7 @@ const exportCasesToExcel = () => {
   });
 };
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3002'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -862,7 +862,7 @@ app.get("/cases", (req, res) => {
     });
   }
   
-  db.query("SELECT * FROM cases WHERE is_deleted = 0", (err, results) => {
+  db.query("SELECT * FROM cases", (err, results) => {
     if (err) {
       console.error("Error fetching cases:", err);
       return res.status(500).json({
@@ -889,30 +889,30 @@ app.get("/admin/all-cases-diagnostic", (req, res) => {
   }
   
   // Get active cases count
-  db.query("SELECT COUNT(*) as active_count FROM cases WHERE is_deleted = 0", (err, activeResults) => {
+  db.query("SELECT COUNT(*) as active_count FROM cases", (err, activeResults) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
     
-    // Get deleted cases count
-    db.query("SELECT COUNT(*) as deleted_count FROM cases WHERE is_deleted = 1", (err, deletedResults) => {
+    // Get terminated cases count
+    db.query("SELECT COUNT(*) as terminated_count FROM terminated_cases", (err, terminatedResults) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
       
-      // Get all cases with their deletion status
-      db.query("SELECT id, DOCKET_NO, is_deleted FROM cases ORDER BY id", (err, allCases) => {
+      // Get all cases 
+      db.query("SELECT id, DOCKET_NO FROM cases ORDER BY id", (err, allCases) => {
         if (err) {
           return res.status(500).json({ error: err.message });
         }
         
-        console.log(`🔍 Diagnostic Report: Active=${activeResults[0].active_count}, Deleted=${deletedResults[0].deleted_count}, Total=${allCases.length}`);
+        console.log(`🔍 Diagnostic Report: Active=${activeResults[0].active_count}, Terminated=${terminatedResults[0].terminated_count}, Total Active Cases=${allCases.length}`);
         
         res.json({
           summary: {
             active_count: activeResults[0].active_count,
-            deleted_count: deletedResults[0].deleted_count,
-            total_count: allCases.length
+            terminated_count: terminatedResults[0].terminated_count,
+            total_active_count: allCases.length
           },
           cases: allCases
         });
@@ -936,20 +936,20 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
     const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     db.query(sql, [
-      validatedData.DOCKET_NO, 
-      validatedData.DATE_FILED, 
-      validatedData.COMPLAINANT, 
-      validatedData.RESPONDENT, 
-      validatedData.ADDRESS_OF_RESPONDENT, 
-      validatedData.OFFENSE, 
-      validatedData.DATE_OF_COMMISSION, 
-      validatedData.DATE_RESOLVED, 
-      validatedData.RESOLVING_PROSECUTOR, 
-      validatedData.CRIM_CASE_NO, 
-      validatedData.BRANCH, 
-      validatedData.DATEFILED_IN_COURT, 
-      validatedData.REMARKS_DECISION, 
-      validatedData.PENALTY, 
+      validatedData.docketNo, 
+      validatedData.dateFiled, 
+      validatedData.complainant, 
+      validatedData.respondent, 
+      validatedData.addressOfRespondent, 
+      validatedData.offense, 
+      validatedData.dateOfCommission, 
+      validatedData.dateResolved || null, 
+      validatedData.resolvingProsecutor || null, 
+      validatedData.criminalCaseNo || 'N/A', 
+      validatedData.branch, 
+      validatedData.dateFiledInCourt || null, 
+      validatedData.remarksDecision || null, 
+      validatedData.penalty || null, 
       INDEX_CARDS
     ], (err, result) => {
       if (err) {
@@ -990,7 +990,7 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
 app.get("/get-case", (req, res) => {
 const { docket_no, respondent, resolving_prosecutor, remarks, start_date, end_date } = req.query;
 
-  let sql = "SELECT * FROM cases WHERE is_deleted = 0";
+  let sql = "SELECT * FROM cases";
   let values = [];
 
   if (!docket_no && !respondent && !resolving_prosecutor && !remarks && !start_date && !end_date) {
@@ -1212,7 +1212,7 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
 });
 
 
-//delete case (soft delete)
+//delete case (move to terminated_cases table)
 
 app.delete("/delete-case", (req, res) => {
   console.log("Delete request received with body:", req.body); // Debugging log
@@ -1224,37 +1224,82 @@ app.delete("/delete-case", (req, res) => {
       return res.status(400).json({ message: "Docket number is required for deletion." });
   }
 
-  const deleteQuery = "UPDATE cases SET is_deleted = 1, deleted_at = NOW() WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+  // First, get the case data to move
+  const selectQuery = "SELECT * FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
 
-  db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, result) => {
+  db.query(selectQuery, [docket_no.trim().toLowerCase()], (err, results) => {
       if (err) {
-          console.error("Error deleting case:", err);
-          return res.status(500).json({ message: "Error deleting case.", error: err.message });
+          console.error("Error finding case:", err);
+          return res.status(500).json({ message: "Error finding case.", error: err.message });
       }
 
-      if (result.affectedRows === 0) {
+      if (results.length === 0) {
           console.warn("No matching case found for deletion.");
           return res.status(404).json({ message: "No matching case found." });
       }
 
-      // Sync Excel file after deleting case
-      exportCasesToExcel()
-        .then(() => {
-          console.log("Excel file synced after case deletion");
-        })
-        .catch(excelErr => {
-          console.error("Error syncing Excel file:", excelErr);
-        });
+      const caseData = results[0];
 
-      console.log("Case deleted successfully.");
-      return res.json({ message: "Case deleted successfully!" });
+      // Insert into terminated_cases table
+      const insertQuery = `INSERT INTO terminated_cases (
+        DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
+        OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, status, RESOLVING_PROSECUTOR,
+        CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY,
+        INDEX_CARDS, created_at, created_by, updated_at, updated_by,
+        terminated_at, termination_reason
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'Case Terminated')`;
+
+      const insertValues = [
+        caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, caseData.RESPONDENT,
+        caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, caseData.DATE_OF_COMMISSION,
+        caseData.DATE_RESOLVED, caseData.status, caseData.RESOLVING_PROSECUTOR,
+        caseData.CRIM_CASE_NO, caseData.BRANCH, caseData.DATEFILED_IN_COURT,
+        caseData.REMARKS_DECISION, caseData.PENALTY, caseData.INDEX_CARDS,
+        caseData.created_at, caseData.created_by, caseData.updated_at, caseData.updated_by
+      ];
+
+      db.query(insertQuery, insertValues, (err, insertResult) => {
+          if (err) {
+              console.error("Error moving case to terminated_cases:", err);
+              return res.status(500).json({ message: "Error terminating case.", error: err.message });
+          }
+
+          // Delete from cases table
+          const deleteQuery = "DELETE FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+          db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, deleteResult) => {
+              if (err) {
+                  console.error("Error removing case from cases table:", err);
+                  return res.status(500).json({ message: "Error completing case termination.", error: err.message });
+              }
+
+              // Log the movement
+              const logQuery = `INSERT INTO case_movements (docket_no, movement_type, moved_from_table, 
+                              moved_to_table, reason) VALUES (?, 'TERMINATED', 'cases', 'terminated_cases', 'Case terminated by user')`;
+              db.query(logQuery, [docket_no], (err) => {
+                  if (err) console.warn("Could not log case movement:", err.message);
+              });
+
+              // Sync Excel file after terminating case
+              exportCasesToExcel()
+                .then(() => {
+                  console.log("Excel file synced after case termination");
+                })
+                .catch(excelErr => {
+                  console.error("Error syncing Excel file:", excelErr);
+                });
+
+              console.log("Case terminated successfully.");
+              return res.json({ message: "Case terminated successfully!" });
+          });
+      });
   });
 });
 
-// Get deleted cases
+// Get terminated cases
 app.get("/deleted-cases", (req, res) => {
-  db.query("SELECT * FROM cases WHERE is_deleted = 1 ORDER BY deleted_at DESC", (err, results) => {
+  db.query("SELECT * FROM terminated_cases ORDER BY terminated_at DESC", (err, results) => {
     if (err) {
+      console.error("Error fetching terminated cases:", err);
       res.status(500).send(err);
     } else {
       res.json(results);
@@ -1262,7 +1307,7 @@ app.get("/deleted-cases", (req, res) => {
   });
 });
 
-// Restore deleted case
+// Restore terminated case
 app.patch("/restore-case", (req, res) => {
   try {
     console.log("Restore request received with body:", req.body);
@@ -1274,35 +1319,139 @@ app.patch("/restore-case", (req, res) => {
         return res.status(400).json({ message: "Docket number is required for restoration." });
     }
 
-    const restoreQuery = "UPDATE cases SET is_deleted = 0, deleted_at = NULL WHERE DOCKET_NO = ? AND is_deleted = 1";
+    // Get case data from terminated_cases table
+    const selectQuery = "SELECT * FROM terminated_cases WHERE DOCKET_NO = ?";
 
-    db.query(restoreQuery, [docket_no], (err, result) => {
+    db.query(selectQuery, [docket_no], (err, results) => {
         if (err) {
-            console.error("Error restoring case:", err);
-            return res.status(500).json({ message: "Error restoring case.", error: err.message });
+            console.error("Error finding terminated case:", err);
+            return res.status(500).json({ message: "Error finding terminated case.", error: err.message });
         }
 
-        if (result.affectedRows === 0) {
-            console.warn("No matching deleted case found for restoration.");
-            return res.status(404).json({ message: "No matching deleted case found." });
+        if (results.length === 0) {
+            console.warn("No matching terminated case found for restoration.");
+            return res.status(404).json({ message: "No matching terminated case found." });
         }
 
-        // Sync Excel file after restoring case
-        exportCasesToExcel()
-          .then(() => {
-            console.log("Excel file synced after case restoration");
-          })
-          .catch(excelErr => {
-            console.error("Error syncing Excel file:", excelErr);
-          });
+        const caseData = results[0];
 
-        console.log("Case restored successfully.");
-        return res.json({ message: "Case restored successfully!" });
+        // Insert back into cases table
+        const insertQuery = `INSERT INTO cases (
+          DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
+          OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, status, RESOLVING_PROSECUTOR,
+          CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY,
+          INDEX_CARDS, created_at, created_by, updated_at, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NULL)`;
+
+        const insertValues = [
+          caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, caseData.RESPONDENT,
+          caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, caseData.DATE_OF_COMMISSION,
+          caseData.DATE_RESOLVED, caseData.status, caseData.RESOLVING_PROSECUTOR,
+          caseData.CRIM_CASE_NO, caseData.BRANCH, caseData.DATEFILED_IN_COURT,
+          caseData.REMARKS_DECISION, caseData.PENALTY, caseData.INDEX_CARDS,
+          caseData.created_at, caseData.created_by
+        ];
+
+        db.query(insertQuery, insertValues, (err, insertResult) => {
+            if (err) {
+                console.error("Error restoring case:", err);
+                return res.status(500).json({ message: "Error restoring case.", error: err.message });
+            }
+
+            // Remove from terminated_cases table
+            const deleteQuery = "DELETE FROM terminated_cases WHERE DOCKET_NO = ?";
+            db.query(deleteQuery, [docket_no], (err, deleteResult) => {
+                if (err) {
+                    console.error("Error removing from terminated_cases:", err);
+                    return res.status(500).json({ message: "Error completing case restoration.", error: err.message });
+                }
+
+                // Log the movement
+                const logQuery = `INSERT INTO case_movements (docket_no, movement_type, moved_from_table,
+                                moved_to_table, reason) VALUES (?, 'RESTORED', 'terminated_cases', 'cases', 'Case restored by user')`;
+                db.query(logQuery, [docket_no], (err) => {
+                    if (err) console.warn("Could not log case movement:", err.message);
+                });
+
+                // Sync Excel file after restoring case
+                exportCasesToExcel()
+                  .then(() => {
+                    console.log("Excel file synced after case restoration");
+                  })
+                  .catch(excelErr => {
+                    console.error("Error syncing Excel file:", excelErr);
+                  });
+
+                console.log("Case restored successfully.");
+                return res.json({ message: "Case restored successfully!" });
+            });
+        });
     });
   } catch (error) {
     console.error("Unexpected error in restore-case endpoint:", error);
     res.status(500).json({ message: "Unexpected error occurred", error: error.message });
   }
+});
+
+// Permanently delete case (hard delete)
+app.delete("/permanent-delete-case", (req, res) => {
+  console.log("Permanent delete request received with body:", req.body);
+
+  const { docket_no } = req.body;
+
+  if (!docket_no) {
+    console.error("No docket number provided.");
+    return res.status(400).json({ message: "Docket number is required for permanent deletion." });
+  }
+
+  // Check if the case exists in terminated_cases table
+  const checkQuery = "SELECT * FROM terminated_cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+  
+  db.query(checkQuery, [docket_no.trim().toLowerCase()], (err, results) => {
+    if (err) {
+      console.error("Error checking terminated case:", err);
+      return res.status(500).json({ message: "Error checking terminated case.", error: err.message });
+    }
+
+    if (results.length === 0) {
+      console.warn("No matching terminated case found for permanent deletion.");
+      return res.status(404).json({ message: "No matching terminated case found." });
+    }
+
+    // Permanently delete from terminated_cases table
+    const deleteQuery = "DELETE FROM terminated_cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+    
+    db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, result) => {
+      if (err) {
+        console.error("Error permanently deleting case:", err);
+        return res.status(500).json({ message: "Error permanently deleting case.", error: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        console.warn("No matching terminated case found for permanent deletion.");
+        return res.status(404).json({ message: "No matching terminated case found." });
+      }
+
+      // Log the movement
+      const logQuery = `INSERT INTO case_movements (docket_no, movement_type, moved_from_table,
+                      moved_to_table, reason) VALUES (?, 'PERMANENTLY_DELETED', 'terminated_cases', NULL, 'Permanently deleted by user')`;
+      db.query(logQuery, [docket_no], (err) => {
+          if (err) console.warn("Could not log case movement:", err.message);
+      });
+
+      // Sync Excel file after permanently deleting case
+      exportCasesToExcel()
+        .then(() => {
+          console.log("Excel file synced after permanent case deletion");
+        })
+        .catch(excelErr => {
+          console.error("Error syncing Excel file:", excelErr);
+        });
+
+      console.log(`Case ${docket_no} permanently deleted from database.`);
+      return res.json({ message: "Case permanently deleted successfully!" });
+    });
+  });
 });
 
 // Auto-delete configuration endpoint
@@ -1346,8 +1495,8 @@ app.post("/configure-auto-delete", (req, res) => {
     activeSchedules.autoDelete = schedule.scheduleJob(cronExpression, () => {
       console.log("⏰ Auto-delete scheduled time reached! Deleting cases...");
       
-      // Permanently delete all soft-deleted cases
-      const deleteQuery = `DELETE FROM cases WHERE is_deleted = 1`;
+      // Permanently delete all terminated cases
+      const deleteQuery = `DELETE FROM terminated_cases`;
       
       db.query(deleteQuery, (err, results) => {
         if (err) {
@@ -1355,7 +1504,7 @@ app.post("/configure-auto-delete", (req, res) => {
           return;
         }
         
-        console.log(`✅ Permanently deleted ${results.affectedRows} soft-deleted cases`);
+        console.log(`✅ Permanently deleted ${results.affectedRows} terminated cases`);
         
         // Update Excel file after deletion
         exportCasesToExcel()
@@ -2164,6 +2313,19 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 // END FORMAT MANAGEMENT API ENDPOINTS
 // =====================================================
 
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
+  
+  // Generate initial Excel file on server start
+  exportCasesToExcel()
+    .then(() => {
+      console.log("Initial Excel file generated on server start");
+    })
+    .catch(err => {
+      console.error("Error generating initial Excel file:", err);
+    });
+});
+
 // ==================== EXCEL EXPORT ENDPOINTS ====================
 
 // Download Excel file (auto-downloads to user's computer)
@@ -2275,7 +2437,7 @@ app.post("/bulk-update-cases", express.json(), (req, res) => {
       const docketNo = mappedData.DOCKET_NO;
       
       // First, check if a case with this DOCKET_NO already exists (and is not deleted)
-      db.query('SELECT id FROM cases WHERE DOCKET_NO = ? AND is_deleted = 0', [docketNo], (err, existingRows) => {
+      db.query('SELECT id FROM cases WHERE DOCKET_NO = ?', [docketNo], (err, existingRows) => {
         if (err) {
           console.error(`Error checking existing case:`, err);
           errors.push(`Row ${index + 1}: Database error`);
@@ -2547,7 +2709,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         }
 
         // Check if case exists by DOCKET_NO (always use DOCKET_NO, not ID) and is not deleted
-        const checkQuery = "SELECT id FROM cases WHERE DOCKET_NO = ? AND is_deleted = 0";
+        const checkQuery = "SELECT id FROM cases WHERE DOCKET_NO = ?";
 
         const checkResult = await new Promise((resolve, reject) => {
           db.query(checkQuery, [caseData.DOCKET_NO], (err, results) => {
@@ -2778,136 +2940,7 @@ app.get("/api/clearances", (req, res) => {
   );
 });
 
-// ============================================
-// IMPORTANT: Specific clearance routes MUST come before /:id route
-// Otherwise Express matches "archived", "stats", "issuers" as :id
-// ============================================
-
-// Get clearance statistics
-app.get("/api/clearances/stats/overview", (req, res) => {
-  const queries = {
-    total: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL`,
-    thisMonth: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND MONTH(date_issued) = MONTH(CURRENT_DATE) AND YEAR(date_issued) = YEAR(CURRENT_DATE)`,
-    noCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = FALSE`,
-    hasCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = TRUE`,
-    byFormat: `SELECT format_type, COUNT(*) as count FROM clearances WHERE deleted_at IS NULL GROUP BY format_type`
-  };
-  
-  const results = {};
-  let completed = 0;
-  const totalQueries = Object.keys(queries).length;
-  
-  Object.entries(queries).forEach(([key, query]) => {
-    db.query(query, (err, result) => {
-      if (err) {
-        console.error(`Error fetching ${key} stats:`, err);
-        results[key] = key === 'byFormat' ? [] : 0;
-      } else {
-        results[key] = key === 'byFormat' ? result : result[0].count;
-      }
-      
-      completed++;
-      if (completed === totalQueries) {
-        res.json(results);
-      }
-    });
-  });
-});
-
-// Get users who have issued clearances (for filter dropdown)
-app.get("/api/clearances/issuers", (req, res) => {
-  db.query(
-    `SELECT DISTINCT issued_by_user_id, issued_by_name FROM clearances WHERE deleted_at IS NULL ORDER BY issued_by_name`,
-    (err, results) => {
-      if (err) {
-        console.error("Error fetching issuers:", err);
-        return res.status(500).json({ error: "Failed to fetch issuers" });
-      }
-      res.json(results);
-    }
-  );
-});
-
-// Get archived clearances (paginated)
-app.get("/api/clearances/archived", (req, res) => {
-  const { 
-    page = 1, 
-    limit = 10, 
-    search = '', 
-    format_type = '', 
-    date_from = '', 
-    date_to = '' 
-  } = req.query;
-
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  
-  let whereConditions = ['deleted_at IS NOT NULL'];
-  let params = [];
-  
-  if (search) {
-    whereConditions.push(`(
-      CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) LIKE ? OR
-      or_number LIKE ?
-    )`);
-    params.push(`%${search}%`, `%${search}%`);
-  }
-  
-  if (format_type) {
-    whereConditions.push('format_type = ?');
-    params.push(format_type);
-  }
-  
-  if (date_from) {
-    whereConditions.push('date_issued >= ?');
-    params.push(date_from);
-  }
-  
-  if (date_to) {
-    whereConditions.push('date_issued <= ?');
-    params.push(date_to);
-  }
-  
-  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
-  
-  // Get total count
-  db.query(
-    `SELECT COUNT(*) as total FROM clearances ${whereClause}`,
-    params,
-    (err, countResults) => {
-      if (err) {
-        console.error("Error counting archived clearances:", err);
-        return res.status(500).json({ error: "Failed to fetch archived clearances" });
-      }
-      
-      const total = countResults[0].total;
-      const totalPages = Math.ceil(total / parseInt(limit));
-      
-      // Get paginated clearances
-      db.query(
-        `SELECT * FROM clearances ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
-        [...params, parseInt(limit), offset],
-        (err, clearances) => {
-          if (err) {
-            console.error("Error fetching archived clearances:", err);
-            return res.status(500).json({ error: "Failed to fetch archived clearances" });
-          }
-          
-          res.json({
-            clearances,
-            pagination: {
-              page: parseInt(page),
-              limit: parseInt(limit),
-              total,
-              totalPages
-            }
-          });
-        }
-      );
-    }
-  );
-});
-
-// Get single clearance by ID (MUST be after specific routes like /archived, /stats, /issuers)
+// Get single clearance by ID
 app.get("/api/clearances/:id", (req, res) => {
   const { id } = req.params;
   
@@ -3164,6 +3197,130 @@ app.post("/api/clearances/:id/log-download", (req, res) => {
   );
 });
 
+// Get clearance statistics
+app.get("/api/clearances/stats/overview", (req, res) => {
+  const queries = {
+    total: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL`,
+    thisMonth: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND MONTH(date_issued) = MONTH(CURRENT_DATE) AND YEAR(date_issued) = YEAR(CURRENT_DATE)`,
+    noCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = FALSE`,
+    hasCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = TRUE`,
+    byFormat: `SELECT format_type, COUNT(*) as count FROM clearances WHERE deleted_at IS NULL GROUP BY format_type`
+  };
+  
+  const results = {};
+  let completed = 0;
+  const totalQueries = Object.keys(queries).length;
+  
+  Object.entries(queries).forEach(([key, query]) => {
+    db.query(query, (err, result) => {
+      if (err) {
+        console.error(`Error fetching ${key} stats:`, err);
+        results[key] = key === 'byFormat' ? [] : 0;
+      } else {
+        results[key] = key === 'byFormat' ? result : result[0].count;
+      }
+      
+      completed++;
+      if (completed === totalQueries) {
+        res.json(results);
+      }
+    });
+  });
+});
+
+// Get users who have issued clearances (for filter dropdown)
+app.get("/api/clearances/issuers", (req, res) => {
+  db.query(
+    `SELECT DISTINCT issued_by_user_id, issued_by_name FROM clearances WHERE deleted_at IS NULL ORDER BY issued_by_name`,
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching issuers:", err);
+        return res.status(500).json({ error: "Failed to fetch issuers" });
+      }
+      res.json(results);
+    }
+  );
+});
+
+// Get archived clearances (paginated)
+app.get("/api/clearances/archived", (req, res) => {
+  const { 
+    page = 1, 
+    limit = 10, 
+    search = '', 
+    format_type = '', 
+    date_from = '', 
+    date_to = '' 
+  } = req.query;
+
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  
+  let whereConditions = ['deleted_at IS NOT NULL'];
+  let params = [];
+  
+  if (search) {
+    whereConditions.push(`(
+      CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) LIKE ? OR
+      or_number LIKE ?
+    )`);
+    params.push(`%${search}%`, `%${search}%`);
+  }
+  
+  if (format_type) {
+    whereConditions.push('format_type = ?');
+    params.push(format_type);
+  }
+  
+  if (date_from) {
+    whereConditions.push('date_issued >= ?');
+    params.push(date_from);
+  }
+  
+  if (date_to) {
+    whereConditions.push('date_issued <= ?');
+    params.push(date_to);
+  }
+  
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+  
+  // Get total count
+  db.query(
+    `SELECT COUNT(*) as total FROM clearances ${whereClause}`,
+    params,
+    (err, countResults) => {
+      if (err) {
+        console.error("Error counting archived clearances:", err);
+        return res.status(500).json({ error: "Failed to fetch archived clearances" });
+      }
+      
+      const total = countResults[0].total;
+      const totalPages = Math.ceil(total / parseInt(limit));
+      
+      // Get paginated clearances
+      db.query(
+        `SELECT * FROM clearances ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
+        [...params, parseInt(limit), offset],
+        (err, clearances) => {
+          if (err) {
+            console.error("Error fetching archived clearances:", err);
+            return res.status(500).json({ error: "Failed to fetch archived clearances" });
+          }
+          
+          res.json({
+            clearances,
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total,
+              totalPages
+            }
+          });
+        }
+      );
+    }
+  );
+});
+
 // Restore archived clearance
 app.patch("/api/clearances/:id/restore", (req, res) => {
   const { id } = req.params;
@@ -3195,32 +3352,6 @@ app.patch("/api/clearances/:id/restore", (req, res) => {
       res.json({
         success: true,
         message: "Clearance restored successfully"
-      });
-    }
-  );
-});
-
-// Permanently delete archived clearance (hard delete)
-app.delete("/api/clearances/:id/permanent", (req, res) => {
-  const { id } = req.params;
-  const { deleted_by_user_id, deleted_by_name } = req.body;
-  
-  db.query(
-    `DELETE FROM clearances WHERE id = ?`,
-    [id],
-    (err, result) => {
-      if (err) {
-        console.error("Error permanently deleting clearance:", err);
-        return res.status(500).json({ error: "Failed to permanently delete clearance" });
-      }
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: "Clearance not found" });
-      }
-      
-      res.json({
-        success: true,
-        message: "Clearance permanently deleted"
       });
     }
   );
@@ -3912,21 +4043,4 @@ app.post("/api/clearances/search/advanced", (req, res) => {
       );
     }
   );
-});
-
-// =====================================================
-// START SERVER
-// =====================================================
-
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-  
-  // Generate initial Excel file on server start
-  exportCasesToExcel()
-    .then(() => {
-      console.log("Initial Excel file generated on server start");
-    })
-    .catch(err => {
-      console.error("Error generating initial Excel file:", err);
-    });
 });
