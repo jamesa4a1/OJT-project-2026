@@ -1,0 +1,51 @@
+Server running on port 5000
+✅ Connected to MySQL database.
+Users table ready.
+✅ Excel file updated: C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\uploads\cases.xlsx
+Initial Excel file generated on server start
+Admin account already exists.
+📝 Update case request received: {
+  "id": 142,
+  "updated_fields": {
+    "DATE_FILED": "2024-01-09T16:00:00.000Z",
+    "COMPLAINANT": "PNP Tagbilaran",
+    "RESPONDENT": "John Doe",
+    "ADDRESS_OF_RESPONDENT": "loon",
+    "OFFENSE": "rob",
+    "DATE_OF_COMMISSION": "0000-00-00",
+    "DATE_RESOLVED": "2024-03-14T16:00:00.000Z",
+    "RESOLVING_PROSECUTOR": "Prosecutor Martinez",
+    "REMARKS_DECISION": "Dismissed",
+    "PENALTY": "Fine of P5000",
+    "CRIM_CASE_NO": "CRIM-2024-001",
+    "BRANCH": "Branch 1",
+    "DATEFILED_IN_COURT": "2024-02-04T16:00:00.000Z"
+  }
+}
+✅ Validation passed. ID: 142 Fields: []
+🚪 Logout request received for userId: 1
+✅ User 1 logged out successfully. Rows affected: 1
+✅ Login successful: james@gmail.com (is_active = 1)
+📊 /cases endpoint: Returning 102 active cases
+📊 /cases endpoint: Returning 102 active cases
+📊 /cases endpoint: Returning 102 active cases
+📊 /cases endpoint: Returning 102 active cases
+📝 Update case request received: {
+  "id": 142,
+  "updated_fields": {
+    "DATE_FILED": "2024-01-09T16:00:00.000Z",
+    "COMPLAINANT": "PNP Tagbilaran",
+    "RESPONDENT": "John Doe",
+    "ADDRESS_OF_RESPONDENT": "loon",
+    "OFFENSE": "robbery",
+    "DATE_OF_COMMISSION": "0000-00-00",
+    "DATE_RESOLVED": "2024-03-14T16:00:00.000Z",
+    "RESOLVING_PROSECUTOR": "Prosecutor Martinez",
+    "REMARKS_DECISION": "Dismissed",
+    "PENALTY": "Fine of P5000",
+    "CRIM_CASE_NO": "CRIM-2024-001",
+    "BRANCH": "Branch 1",
+    "DATEFILED_IN_COURT": "2024-02-04T16:00:00.000Z"
+  }
+}
+✅ Validation passed. ID: 142 Fields: []

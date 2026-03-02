@@ -24,6 +24,7 @@ const Deletecase = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
 
   // Fetch all cases on component mount
@@ -38,7 +39,7 @@ const Deletecase = () => {
     // Apply status filter
     if (statusFilter === 'pending') {
       filtered = filtered.filter((c) => {
-        const status = (c.REMARKS_DECISION || '').toLowerCase();
+        const status = (c.REMARKS_DECISION || 'pending').toLowerCase();
         return status === 'pending';
       });
     } else if (statusFilter === 'dismissed') {
@@ -206,6 +207,8 @@ const Deletecase = () => {
         setSelectedImage(null);
         setImagePreview(null);
         setError('');
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000); // Hide after 3 seconds
         fetchAllCases(); // Refresh to get updated data
       }
     } catch (err) {
@@ -215,9 +218,24 @@ const Deletecase = () => {
         if (err.response.status === 503) {
           setError('❌ Database connection failed. Please ensure MySQL/XAMPP is running and the database is accessible.');
         } else if (err.response.status === 400) {
-          const errorMsg = err.response.data?.errors 
-            ? err.response.data.errors.map(e => `${e.field}: ${e.message}`).join(', ')
-            : err.response.data?.message || 'Invalid data provided';
+          let errorMsg = 'Invalid data provided';
+          
+          if (err.response.data?.errors) {
+            if (Array.isArray(err.response.data.errors)) {
+              errorMsg = err.response.data.errors.map(e => `${e.field}: ${e.message}`).join(', ');
+            } else if (typeof err.response.data.errors === 'string') {
+              errorMsg = err.response.data.errors;
+            } else if (typeof err.response.data.errors === 'object') {
+              errorMsg = Object.entries(err.response.data.errors)
+                .map(([field, message]) => `${field}: ${message}`)
+                .join(', ');
+            }
+          } else if (err.response.data?.message) {
+            errorMsg = err.response.data.message;
+          } else if (err.response.data?.error) {
+            errorMsg = err.response.data.error;
+          }
+          
           setError('❌ Validation error: ' + errorMsg);
         } else {
           setError('❌ ' + (err.response.data?.message || 'Error updating case. Please try again.'));
@@ -472,7 +490,8 @@ const Deletecase = () => {
                       </td>
                       <td className={`px-4 py-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {(() => {
-                          const decision = (caseItem.REMARKS_DECISION || '').toLowerCase();
+                          // Default to 'pending' if REMARKS_DECISION is empty, null, or undefined
+                          const decision = (caseItem.REMARKS_DECISION || 'pending').toLowerCase();
                           if (decision === 'pending')
                             return (
                               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
@@ -503,13 +522,14 @@ const Deletecase = () => {
                                 Convicted
                               </span>
                             );
+                          // If it's some other value, display it as-is but still default to Pending if empty
                           return (
                             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                               isDark
                                 ? 'bg-slate-700 text-slate-200'
                                 : 'bg-slate-100 text-slate-700'
                             }`}>
-                              {caseItem.REMARKS_DECISION || 'N/A'}
+                              {caseItem.REMARKS_DECISION || 'Pending'}
                             </span>
                           );
                         })()}
@@ -573,39 +593,39 @@ const Deletecase = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm ml-32"
               onClick={() => setShowViewModal(false)}
             >
               <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className={`rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden ${
+                initial={{ opacity: 0, scale: 0.95, x: -30 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: -30 }}
+                className={`rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden ${
                   isDark ? 'bg-slate-800' : 'bg-white'
                 }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Modal Header */}
-                <div className={`p-6 border-b ${isDark ? 'bg-blue-600 border-blue-700' : 'bg-gradient-to-r from-blue-500 to-blue-600 border-slate-200'}`}>
+                <div className={`p-4 border-b ${isDark ? 'bg-blue-600 border-blue-700' : 'bg-gradient-to-r from-blue-500 to-blue-600 border-slate-200'}`}>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
                       <i className="fas fa-file-alt"></i>
                       Case Details
                     </h3>
                     <button
                       onClick={() => setShowViewModal(false)}
-                      className="w-10 h-10 rounded-full bg-white/20 text-white hover:bg-white/30 
+                      className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 
                                transition-colors flex items-center justify-center cursor-pointer border-none"
                     >
-                      <i className="fas fa-times"></i>
+                      <i className="fas fa-times text-sm"></i>
                     </button>
                   </div>
-                  <p className={`mt-1 ${isDark ? 'text-blue-200' : 'text-blue-100'}`}>Docket No: {selectedCase.DOCKET_NO}</p>
+                  <p className={`mt-1 text-sm ${isDark ? 'text-blue-200' : 'text-blue-100'}`}>Docket No: {selectedCase.DOCKET_NO}</p>
                 </div>
 
                 {/* Modal Content */}
-                <div className={`p-6 overflow-y-auto max-h-[60vh] ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`p-4 ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {[
                       { label: 'Docket Number', value: selectedCase.DOCKET_NO, icon: 'fa-hashtag' },
                       {
@@ -637,10 +657,9 @@ const Deletecase = () => {
                         value: formatDate(selectedCase.DATEFILED_IN_COURT),
                         icon: 'fa-landmark',
                       },
-                      { label: 'Remarks', value: selectedCase.REMARKS, icon: 'fa-comment' },
                       {
-                        label: 'Remarks Decision',
-                        value: selectedCase.REMARKS_DECISION,
+                        label: 'Decision',
+                        value: selectedCase.REMARKS_DECISION || 'Pending',
                         icon: 'fa-balance-scale',
                       },
                       {
@@ -651,34 +670,55 @@ const Deletecase = () => {
                     ].map((item, idx) => (
                       <div
                         key={idx}
-                        className={`p-4 rounded-xl transition-colors ${
+                        className={`p-3 rounded-lg transition-colors ${
                           isDark
                             ? 'bg-slate-700 hover:bg-slate-600'
                             : 'bg-slate-50 hover:bg-slate-100'
                         }`}
                       >
-                        <p className={`text-xs uppercase flex items-center gap-2 mb-1 ${
+                        <p className={`text-xs uppercase flex items-center gap-1 mb-1 ${
                           isDark ? 'text-slate-400' : 'text-slate-500'
                         }`}>
-                          <i className={`fas ${item.icon} text-blue-500`}></i>
+                          <i className={`fas ${item.icon} text-blue-500 text-xs`}></i>
                           {item.label}
                         </p>
-                        <p className={`font-medium ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.value || 'N/A'}</p>
+                        <p className={`font-medium text-sm leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.value || 'N/A'}>
+                          {item.value && item.value.length > 30 ? `${item.value.substring(0, 30)}...` : (item.value || 'N/A')}
+                        </p>
                       </div>
                     ))}
                   </div>
 
-                  {/* Index Cards */}
-                  {selectedCase.INDEX_CARDS && selectedCase.INDEX_CARDS !== 'N/A' && (
-                    <div className={`mt-4 p-4 rounded-xl ${
+                  {/* Remarks Section - Full Width */}
+                  {selectedCase.REMARKS && selectedCase.REMARKS !== 'N/A' && (
+                    <div className={`mt-3 p-3 rounded-lg ${
                       isDark
                         ? 'bg-slate-700'
                         : 'bg-slate-50'
                     }`}>
-                      <p className={`text-xs uppercase flex items-center gap-2 mb-2 ${
+                      <p className={`text-xs uppercase flex items-center gap-1 mb-1 ${
                         isDark ? 'text-slate-400' : 'text-slate-500'
                       }`}>
-                        <i className="fas fa-id-card text-blue-500"></i>
+                        <i className="fas fa-comment text-blue-500 text-xs"></i>
+                        Remarks
+                      </p>
+                      <p className={`font-medium text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                        {selectedCase.REMARKS}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Index Cards */}
+                  {selectedCase.INDEX_CARDS && selectedCase.INDEX_CARDS !== 'N/A' && (
+                    <div className={`mt-3 p-3 rounded-lg ${
+                      isDark
+                        ? 'bg-slate-700'
+                        : 'bg-slate-50'
+                    }`}>
+                      <p className={`text-xs uppercase flex items-center gap-1 mb-1 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
+                        <i className="fas fa-id-card text-blue-500 text-xs"></i>
                         Index Cards
                       </p>
                       <p className={`font-medium break-all text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
@@ -686,35 +726,6 @@ const Deletecase = () => {
                       </p>
                     </div>
                   )}
-                </div>
-
-                {/* Modal Footer */}
-                <div className={`p-6 border-t flex gap-4 ${
-                  isDark
-                    ? 'bg-slate-800 border-slate-700'
-                    : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <button
-                    onClick={() => setShowViewModal(false)}
-                    className={`flex-1 py-3 rounded-xl font-semibold border-none cursor-pointer transition-colors ${
-                      isDark
-                        ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                    }`}
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowViewModal(false);
-                      handleDeleteClick(selectedCase);
-                    }}
-                    className="flex-1 py-3 rounded-xl font-semibold bg-red-500 text-white 
-                             hover:bg-red-600 transition-colors border-none cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <i className="fas fa-trash-alt"></i>
-                    Delete This Case
-                  </button>
                 </div>
               </motion.div>
             </motion.div>
@@ -1229,7 +1240,43 @@ const Deletecase = () => {
             selectedCase?.DOCKET_NO ? `Index-Card-${selectedCase.DOCKET_NO}.jpg` : 'index-card.jpg'
           }
         />
-      </motion.div>
+
+      {/* Success Message Popup */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            transition={{ duration: 0.4, type: "spring", stiffness: 200, damping: 20 }}
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999] 
+                       px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 
+                       bg-gradient-to-r from-green-500 to-emerald-600 text-white
+                       border-2 border-green-400/30 backdrop-blur-sm
+                       min-w-[320px] max-w-[90vw] mx-4"
+          >
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <i className="fas fa-check-circle text-xl"></i>
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-lg mb-1">Success!</p>
+              <p className="text-sm opacity-90">Case updated successfully!</p>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowSuccess(false)}
+              className="flex-shrink-0 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 
+                         flex items-center justify-center transition-colors"
+            >
+              <i className="fas fa-times text-sm"></i>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
     </div>
   );
 };

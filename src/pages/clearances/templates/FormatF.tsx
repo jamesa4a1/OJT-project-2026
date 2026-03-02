@@ -450,7 +450,7 @@ export const getFormatFHtml = (formData: FormData, fullName: string, generatedOR
     <!-- SIGNATURE -->
     <div style="text-align: right; margin-top: 14pt; margin-right: 0.3in;">
       <p style="font-size: 13pt; font-weight: bold; margin-bottom: 20pt; text-transform: uppercase; color: ${colorValue};">FOR THE CITY PROSECUTOR:</p>
-      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 2pt; margin-top: 35pt; margin-right: 0.3in; color: ${colorValue};">REGIE C. POCON</p>
+      <p style="font-size: 13pt; font-weight: bold; margin-bottom: 2pt; margin-top: 35pt; margin-right: 0.4in; color: ${colorValue};">REGIE C. POCON</p>
       <p style="font-size: 13pt; font-style: normal; margin-top: 0pt; margin-right: 0.15in; color: ${colorValue};">Administrative Officer V</p>
     </div>
 

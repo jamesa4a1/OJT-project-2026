@@ -737,39 +737,51 @@ const ArchivedClearances: React.FC = () => {
         <AnimatePresence>
           {successMessage && (
             <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              initial={{ opacity: 0, y: -50, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              className="fixed top-4 right-4 z-50"
+              exit={{ opacity: 0, y: -50, scale: 0.9 }}
+              className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999]"
             >
-              <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
+              <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 backdrop-blur-sm border-2 min-w-[320px] max-w-[90vw] mx-4 ${
                 actionType === 'restore'
-                  ? isDark ? 'bg-emerald-900/20 border border-emerald-500/50' : 'bg-emerald-50 border border-emerald-200'
-                  : isDark ? 'bg-red-900/20 border border-red-500/50' : 'bg-red-50 border border-red-200'
+                  ? isDark ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300' : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-800'
+                  : isDark ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-500/30 text-red-300' : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300 text-red-800'
               }`}>
-                <div className={`flex-shrink-0 ${
+                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
                   actionType === 'restore'
-                    ? isDark ? 'text-emerald-400' : 'text-emerald-600'
-                    : isDark ? 'text-red-400' : 'text-red-600'
+                    ? isDark ? 'bg-emerald-500/30 text-emerald-400' : 'bg-emerald-200 text-emerald-600'
+                    : isDark ? 'bg-red-500/30 text-red-400' : 'bg-red-200 text-red-600'
                 }`}>
                   <i className={`fas ${actionType === 'restore' ? 'fa-check-circle' : 'fa-trash-alt'} text-xl`}></i>
                 </div>
-                <div>
-                  <p className={`font-semibold text-sm ${
+                <div className="flex-1">
+                  <p className={`font-bold text-base mb-1 ${
                     actionType === 'restore'
                       ? isDark ? 'text-emerald-300' : 'text-emerald-800'
                       : isDark ? 'text-red-300' : 'text-red-800'
                   }`}>
                     {actionType === 'restore' ? 'Restored Successfully!' : 'Deleted Successfully!'}
                   </p>
-                  <p className={`text-xs ${
+                  <p className={`text-sm ${
                     actionType === 'restore'
-                      ? isDark ? 'text-emerald-200/70' : 'text-emerald-700/70'
-                      : isDark ? 'text-red-200/70' : 'text-red-700/70'
+                      ? isDark ? 'text-emerald-200/80' : 'text-emerald-700/80'
+                      : isDark ? 'text-red-200/80' : 'text-red-700/80'
                   }`}>
                     {successMessage}
                   </p>
                 </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setSuccessMessage('')}
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                    actionType === 'restore'
+                      ? isDark ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400' : 'bg-emerald-200 hover:bg-emerald-300 text-emerald-600'
+                      : isDark ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400' : 'bg-red-200 hover:bg-red-300 text-red-600'
+                  }`}
+                >
+                  <i className="fas fa-times text-sm"></i>
+                </motion.button>
               </div>
             </motion.div>
           )}

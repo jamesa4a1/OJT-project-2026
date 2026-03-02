@@ -151,7 +151,7 @@ const FormatDBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
               <span style={{ marginLeft: '8pt' }}>: {crimCase?.status || ''}</span>
             </div>
             {index < (data.criminal_cases?.length || 0) - 1 && (
-              <div style={{ marginBottom: '18pt' }}></div>
+              <div style={{ marginBottom: '24pt' }}></div>
             )}
           </div>
         ))}
@@ -381,7 +381,7 @@ export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR
             <span style="width: 1.8in; display: inline-block;">Status</span>
             <span style="margin-left: 12pt;">: ${crimCase?.status || ''}</span>
           </div>
-          ${index < formData.criminal_cases!.length - 1 ? '<div style="margin-bottom: 4pt;"></div>' : ''}
+          ${index < formData.criminal_cases!.length - 1 ? '<div style="margin-bottom: 12pt;"></div>' : ''}
         </div>
       `;
     });

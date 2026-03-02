@@ -104,7 +104,7 @@ const Footer = () => {
 
             {/* Developer Credit */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-500">Developed with</span>
+              <span className="text-slate-500">Developed</span>
 
               <span className="text-slate-400">
                 by <span className="text-blue-400 font-medium">James.Jeff.Josh</span>

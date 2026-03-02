@@ -380,7 +380,7 @@ const Details = () => {
                     <div
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
-                      {caseDetails.REMARKS_DECISION || 'N/A'}
+                      {caseDetails.REMARKS_DECISION || 'Pending'}
                     </div>
                   </div>
                   <div>

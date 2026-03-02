@@ -9,7 +9,7 @@ const XLSX = require("xlsx");
 const schedule = require("node-schedule");
 const { validateRequest } = require("./middleware/validateRequest");
 const { UserLoginSchema, UserRegisterSchema, UserUpdateSchema } = require("./schemas/users");
-const { CaseCreateSchema, CaseUpdateSchema, CaseSearchSchema } = require("./schemas/cases");
+const { CaseCreateSchema, CaseUpdateSchema, CaseEditSchema, CaseSearchSchema } = require("./schemas/cases");
 const { ApiResponse } = require("./utils/apiResponse");
 
 const app = express();
@@ -936,20 +936,20 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
     const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     db.query(sql, [
-      validatedData.docketNo, 
-      validatedData.dateFiled, 
-      validatedData.complainant, 
-      validatedData.respondent, 
-      validatedData.addressOfRespondent, 
-      validatedData.offense, 
-      validatedData.dateOfCommission, 
-      validatedData.dateResolved || null, 
-      validatedData.resolvingProsecutor || null, 
-      validatedData.criminalCaseNo || 'N/A', 
-      validatedData.branch, 
-      validatedData.dateFiledInCourt || null, 
-      validatedData.remarksDecision || null, 
-      validatedData.penalty || null, 
+      validatedData.DOCKET_NO, 
+      validatedData.DATE_FILED, 
+      validatedData.COMPLAINANT, 
+      validatedData.RESPONDENT, 
+      validatedData.ADDRESS_OF_RESPONDENT, 
+      validatedData.OFFENSE, 
+      validatedData.DATE_OF_COMMISSION, 
+      validatedData.DATE_RESOLVED || null, 
+      validatedData.RESOLVING_PROSECUTOR || null, 
+      validatedData.CRIM_CASE_NO || 'N/A', 
+      validatedData.BRANCH, 
+      validatedData.DATEFILED_IN_COURT || null, 
+      validatedData.REMARKS_DECISION || null, 
+      validatedData.PENALTY || null, 
       INDEX_CARDS
     ], (err, result) => {
       if (err) {
@@ -973,11 +973,14 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
     });
   } catch (error) {
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
-      const errors = error.errors.map(err => ({
-        field: err.path.join('.'),
-        message: err.message,
-      }));
+    if (error.name === 'ZodError' || error.issues) {
+      const zodErrors = error.errors || error.issues || [];
+      const errors = Array.isArray(zodErrors)
+        ? zodErrors.map(err => ({
+            field: err.path ? err.path.join('.') : 'unknown',
+            message: err.message || 'Validation error',
+          }))
+        : [{ field: 'unknown', message: 'Validation failed' }];
       return res.status(400).json(ApiResponse.error("Validation failed", 400, { errors }));
     }
     
@@ -1059,23 +1062,50 @@ app.post("/update-case", async (req, res) => {
   
   try {
     // Validate the request body with Zod
-    const validatedData = await CaseUpdateSchema.parseAsync(req.body);
+    const validatedData = await CaseEditSchema.parseAsync(req.body);
     const { id, updated_fields } = validatedData;
     
-    console.log("✅ Validation passed. ID:", id, "Fields:", Object.keys(updated_fields));
+    console.log("✅ Validation passed. ID:", id, "Fields:", Object.keys(updated_fields || {}));
 
-    if (Object.keys(updated_fields).length === 0) {
+    if (!updated_fields || Object.keys(updated_fields).length === 0) {
       return res.status(400).json(ApiResponse.error("No fields to update", 400));
     }
+
+    // Helper function to format dates for MySQL (YYYY-MM-DD)
+    const formatDateForMySQL = (value, fieldName) => {
+      if (!value || value === '0000-00-00' || value.startsWith('0000-')) {
+        return null;
+      }
+      
+      // Check if this is a date field
+      const dateFields = ['DATE_FILED', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'DATEFILED_IN_COURT'];
+      if (dateFields.includes(fieldName) && typeof value === 'string') {
+        // Handle ISO date strings like '2024-01-09T16:00:00.000Z'
+        if (value.includes('T')) {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0]; // Returns 'YYYY-MM-DD'
+          }
+        }
+        // Already in YYYY-MM-DD format or similar
+        return value.split('T')[0];
+      }
+      
+      return value;
+    };
 
     let updateQuery = "UPDATE cases SET ";
     const updateValues = [];
 
-    const fields = Object.keys(updated_fields);
+    const fields = Object.keys(updated_fields).filter(field => updated_fields[field] !== undefined);
     fields.forEach((field, index) => {
       updateQuery += `${field} = ?`;
       if (index < fields.length - 1) updateQuery += ", ";
-      updateValues.push(updated_fields[field]);
+      
+      // Format the value (handles dates and invalid values)
+      let value = formatDateForMySQL(updated_fields[field], field);
+      
+      updateValues.push(value);
     });
 
     updateQuery += " WHERE id = ?";
@@ -1087,7 +1117,7 @@ app.post("/update-case", async (req, res) => {
     db.query(updateQuery, updateValues, (err, result) => {
       if (err) {
         console.error("Error updating case:", err);
-        return res.status(500).json(ApiResponse.error("Error updating case", 500));
+        return res.status(500).json(ApiResponse.error("Error updating case: " + err.message, 500));
       }
       if (result.affectedRows === 0) {
         return res.status(404).json(ApiResponse.error("No matching case found", 404));
@@ -1105,12 +1135,14 @@ app.post("/update-case", async (req, res) => {
       return res.json(ApiResponse.success("Case updated successfully"));
     });
   } catch (error) {
+    console.error("Error in update-case endpoint:", error);
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
-      const errors = error.errors.map(err => ({
-        field: err.path.join('.'),
-        message: err.message,
-      }));
+    if (error.name === 'ZodError' || error.issues) {
+      const zodErrors = error.errors || error.issues || [];
+      const errors = Array.isArray(zodErrors) ? zodErrors.map(err => ({
+        field: err.path ? err.path.join('.') : 'unknown',
+        message: err.message || 'Validation error',
+      })) : [{ field: 'unknown', message: 'Validation failed' }];
       return res.status(400).json(ApiResponse.error("Validation failed", 400, { errors }));
     }
     
@@ -2218,16 +2250,22 @@ app.put("/api/formats/:id", (req, res) => {
       updated_at: new Date().toISOString(),
     };
 
-    if (writeFormatsToFile(formats)) {
-      // Also sync the TSX template file
-      writeTemplateTSXFile(formats[formatIndex]);
-      res.json(formats[formatIndex]);
-    } else {
-      res.status(500).json({ message: "Failed to update format" });
+    // Write formats file
+    const filesWritten = writeFormatsToFile(formats);
+    if (!filesWritten) {
+      return res.status(500).json({ message: "Failed to save format to file" });
     }
+
+    // Also sync the TSX template file
+    const templateWritten = writeTemplateTSXFile(formats[formatIndex]);
+    if (!templateWritten) {
+      console.warn(`Warning: Template file write failed for Format ${formats[formatIndex].format_key}, but format was saved`);
+    }
+    
+    res.json(formats[formatIndex]);
   } catch (error) {
     console.error("Error updating format:", error);
-    res.status(500).json({ message: "Failed to update format" });
+    res.status(500).json({ message: "Failed to update format: " + error.message });
   }
 });
 
@@ -2847,6 +2885,147 @@ app.get("/api/clearances/purposes", (req, res) => {
   );
 });
 
+// ============================================
+// SPECIFIC ROUTES MUST COME BEFORE PARAMETRIZED ROUTES (:id)
+// ============================================
+
+// Get clearance statistics
+app.get("/api/clearances/stats/overview", (req, res) => {
+  const queries = {
+    total: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL`,
+    thisMonth: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND MONTH(date_issued) = MONTH(CURRENT_DATE) AND YEAR(date_issued) = YEAR(CURRENT_DATE)`,
+    noCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = FALSE`,
+    hasCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = TRUE`,
+    byFormat: `SELECT format_type, COUNT(*) as count FROM clearances WHERE deleted_at IS NULL GROUP BY format_type`
+  };
+  
+  const results = {};
+  let completed = 0;
+  const totalQueries = Object.keys(queries).length;
+  
+  Object.entries(queries).forEach(([key, query]) => {
+    db.query(query, (err, result) => {
+      if (err) {
+        console.error(`Error fetching ${key} stats:`, err);
+        results[key] = key === 'byFormat' ? [] : 0;
+      } else {
+        results[key] = key === 'byFormat' ? result : result[0].count;
+      }
+      
+      completed++;
+      if (completed === totalQueries) {
+        res.json(results);
+      }
+    });
+  });
+});
+
+// Get users who have issued clearances (for filter dropdown)
+app.get("/api/clearances/issuers", (req, res) => {
+  db.query(
+    `SELECT DISTINCT issued_by_user_id, issued_by_name FROM clearances WHERE deleted_at IS NULL ORDER BY issued_by_name`,
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching issuers:", err);
+        return res.status(500).json({ error: "Failed to fetch issuers" });
+      }
+      res.json(results);
+    }
+  );
+});
+
+// Get archived clearances (paginated)
+app.get("/api/clearances/archived", (req, res) => {
+  console.log('\n🔷 ROUTE HIT: /api/clearances/archived');
+  const { 
+    page = 1, 
+    limit = 10, 
+    search = '', 
+    format_type = '', 
+    date_from = '', 
+    date_to = '' 
+  } = req.query;
+
+  console.log('📦 ARCHIVED REQUEST:', { page, limit, search, format_type, date_from, date_to });
+
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  
+  let whereConditions = ['deleted_at IS NOT NULL'];
+  let params = [];
+  
+  if (search) {
+    whereConditions.push(`(
+      CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) LIKE ? OR
+      or_number LIKE ?
+    )`);
+    params.push(`%${search}%`, `%${search}%`);
+  }
+  
+  if (format_type) {
+    whereConditions.push('format_type = ?');
+    params.push(format_type);
+  }
+  
+  if (date_from) {
+    whereConditions.push('date_issued >= ?');
+    params.push(date_from);
+  }
+  
+  if (date_to) {
+    whereConditions.push('date_issued <= ?');
+    params.push(date_to);
+  }
+  
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+  
+  console.log('📦 WHERE CLAUSE:', whereClause);
+  console.log('📦 PARAMS:', params);
+  
+  // Get total count
+  db.query(
+    `SELECT COUNT(*) as total FROM clearances ${whereClause}`,
+    params,
+    (err, countResults) => {
+      if (err) {
+        console.error("Error counting archived clearances:", err);
+        return res.status(500).json({ error: "Failed to fetch archived clearances" });
+      }
+      
+      const total = countResults[0].total;
+      console.log('📦 Total archived clearances found:', total);
+      const totalPages = Math.ceil(total / parseInt(limit));
+      
+      // Get paginated clearances
+      db.query(
+        `SELECT * FROM clearances ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
+        [...params, parseInt(limit), offset],
+        (err, clearances) => {
+          if (err) {
+            console.error("Error fetching archived clearances:", err);
+            return res.status(500).json({ error: "Failed to fetch archived clearances" });
+          }
+          
+          console.log('📦 Archived clearances returned:', clearances.length);
+          
+          res.json({
+            clearances,
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total,
+              totalPages
+            }
+          });
+        }
+      );
+    }
+  );
+});
+
+// ============================================
+// GENERAL LIST ROUTE
+// ============================================
+
 // Get all clearances with filtering and pagination
 app.get("/api/clearances", (req, res) => {
   const { 
@@ -2943,6 +3122,7 @@ app.get("/api/clearances", (req, res) => {
 // Get single clearance by ID
 app.get("/api/clearances/:id", (req, res) => {
   const { id } = req.params;
+  console.log('\n🔶 ROUTE HIT: /api/clearances/:id with id =', id);
   
   db.query(
     `SELECT * FROM clearances WHERE id = ? AND deleted_at IS NULL`,
@@ -3051,101 +3231,113 @@ app.post("/api/clearances", async (req, res) => {
 
 // Update clearance
 app.put("/api/clearances/:id", (req, res) => {
-  const { id } = req.params;
-  const {
-    format_type,
-    first_name,
-    middle_name,
-    last_name,
-    suffix,
-    alias,
-    age,
-    civil_status,
-    nationality,
-    address,
-    has_criminal_record,
-    case_numbers,
-    crime_description,
-    legal_statute,
-    date_of_commission,
-    date_information_filed,
-    case_status,
-    court_branch,
-    purpose,
-    purpose_fee,
-    issued_upon_request_by,
-    date_issued,
-    prc_id_number,
-    validity_period,
-    validity_expiry,
-    notes,
-    updated_by_user_id,
-    updated_by_name
-  } = req.body;
-  
-  // First get old values for audit log
-  db.query(`SELECT * FROM clearances WHERE id = ?`, [id], (err, oldResults) => {
-    if (err) {
-      console.error("Error fetching clearance for update:", err);
-      return res.status(500).json({ error: "Failed to update clearance" });
+  try {
+    const { id } = req.params;
+    const {
+      format_type,
+      first_name,
+      middle_name,
+      last_name,
+      suffix,
+      alias,
+      age,
+      civil_status,
+      nationality,
+      address,
+      has_criminal_record,
+      case_numbers,
+      crime_description,
+      legal_statute,
+      date_of_commission,
+      date_information_filed,
+      case_status,
+      court_branch,
+      purpose,
+      purpose_fee,
+      issued_upon_request_by,
+      date_issued,
+      prc_id_number,
+      validity_period,
+      validity_expiry,
+      notes,
+      updated_by_user_id,
+      updated_by_name
+    } = req.body;
+    
+    // Validate required fields
+    if (!first_name || !last_name || !date_issued || !validity_expiry) {
+      return res.status(400).json({ error: "Missing required fields: first_name, last_name, date_issued, validity_expiry are required" });
     }
     
-    if (oldResults.length === 0) {
-      return res.status(404).json({ error: "Clearance not found" });
-    }
-    
-    const oldValues = oldResults[0];
-    
-    const query = `
-      UPDATE clearances SET
-        format_type = ?, first_name = ?, middle_name = ?, last_name = ?, suffix = ?, alias = ?,
-        age = ?, civil_status = ?, nationality = ?, address = ?, has_criminal_record = ?,
-        case_numbers = ?, crime_description = ?, legal_statute = ?, date_of_commission = ?,
-        date_information_filed = ?, case_status = ?, court_branch = ?, purpose = ?, purpose_fee = ?,
-        issued_upon_request_by = ?, date_issued = ?, prc_id_number = ?, validity_period = ?,
-        validity_expiry = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND deleted_at IS NULL
-    `;
-    
-    db.query(query, [
-      format_type, first_name, middle_name || null, last_name, suffix || null, alias || null,
-      age, civil_status, nationality || 'Filipino', address, has_criminal_record || false,
-      case_numbers || null, crime_description || null, legal_statute || null, date_of_commission || null,
-      date_information_filed || null, case_status || null, court_branch || null, purpose, purpose_fee || 0,
-      issued_upon_request_by || null, date_issued, prc_id_number || null, validity_period || '6 Months',
-      validity_expiry, notes || null, id
-    ], (err, result) => {
+    // First get old values for audit log
+    db.query(`SELECT * FROM clearances WHERE id = ?`, [id], (err, oldResults) => {
       if (err) {
-        console.error("Error updating clearance:", err);
-        return res.status(500).json({ error: "Failed to update clearance: " + err.message });
+        console.error("Error fetching clearance for update:", err);
+        return res.status(500).json({ error: "Failed to fetch clearance: " + err.message });
       }
       
-      if (result.affectedRows === 0) {
+      if (oldResults.length === 0) {
         return res.status(404).json({ error: "Clearance not found" });
       }
       
-      // Log the update in audit log
-      db.query(
-        `INSERT INTO clearance_audit_log (clearance_id, action, action_by_user_id, action_by_name, old_values, new_values)
-         VALUES (?, 'UPDATE', ?, ?, ?, ?)`,
-        [id, updated_by_user_id, updated_by_name, JSON.stringify(oldValues), JSON.stringify(req.body)],
-        (auditErr) => {
-          if (auditErr) console.error("Error logging audit:", auditErr);
-        }
-      );
+      const oldValues = oldResults[0];
       
-      res.json({
-        success: true,
-        message: "Clearance updated successfully"
+      const query = `
+        UPDATE clearances SET
+          format_type = ?, first_name = ?, middle_name = ?, last_name = ?, suffix = ?, alias = ?,
+          age = ?, civil_status = ?, nationality = ?, address = ?, has_criminal_record = ?,
+          case_numbers = ?, crime_description = ?, legal_statute = ?, date_of_commission = ?,
+          date_information_filed = ?, case_status = ?, court_branch = ?, purpose = ?, purpose_fee = ?,
+          issued_upon_request_by = ?, date_issued = ?, prc_id_number = ?, validity_period = ?,
+          validity_expiry = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND deleted_at IS NULL
+      `;
+      
+      db.query(query, [
+        format_type, first_name, middle_name || null, last_name, suffix || null, alias || null,
+        age, civil_status, nationality || 'Filipino', address, has_criminal_record || false,
+        case_numbers || null, crime_description || null, legal_statute || null, date_of_commission || null,
+        date_information_filed || null, case_status || null, court_branch || null, purpose, purpose_fee || 0,
+        issued_upon_request_by || null, date_issued, prc_id_number || null, validity_period || '6 Months',
+        validity_expiry, notes || null, id
+      ], (err, result) => {
+        if (err) {
+          console.error("Error updating clearance:", err);
+          return res.status(500).json({ error: "Failed to update clearance: " + err.message });
+        }
+        
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ error: "Clearance not found or already deleted" });
+        }
+        
+        // Log the update in audit log
+        db.query(
+          `INSERT INTO clearance_audit_log (clearance_id, action, action_by_user_id, action_by_name, old_values, new_values)
+           VALUES (?, 'UPDATE', ?, ?, ?, ?)`,
+          [id, updated_by_user_id || null, updated_by_name || 'Unknown', JSON.stringify(oldValues), JSON.stringify(req.body)],
+          (auditErr) => {
+            if (auditErr) console.error("Error logging audit:", auditErr);
+          }
+        );
+        
+        res.json({
+          success: true,
+          message: "Clearance updated successfully"
+        });
       });
     });
-  });
+  } catch (error) {
+    console.error("Error in clearance update:", error);
+    res.status(500).json({ error: "Internal server error: " + error.message });
+  }
 });
 
 // Soft delete clearance
 app.delete("/api/clearances/:id", (req, res) => {
   const { id } = req.params;
   const { deleted_by_user_id, deleted_by_name } = req.body;
+  
+  console.log('🗑️  DELETE REQUEST:', { id, deleted_by_user_id, deleted_by_name });
   
   db.query(
     `UPDATE clearances SET deleted_at = CURRENT_TIMESTAMP, deleted_by_user_id = ?, deleted_by_name = ? WHERE id = ?`,
@@ -3155,6 +3347,8 @@ app.delete("/api/clearances/:id", (req, res) => {
         console.error("Error deleting clearance:", err);
         return res.status(500).json({ error: "Failed to delete clearance" });
       }
+      
+      console.log('✅ Delete result:', { affectedRows: result.affectedRows });
       
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: "Clearance not found" });
@@ -3178,6 +3372,47 @@ app.delete("/api/clearances/:id", (req, res) => {
   );
 });
 
+// Permanently delete an archived clearance (hard delete)
+app.delete("/api/clearances/:id/permanent", (req, res) => {
+  const { id } = req.params;
+  const { deleted_by_user_id, deleted_by_name } = req.body;
+  
+  console.log('🔴 PERMANENT DELETE REQUEST:', { id, deleted_by_user_id, deleted_by_name });
+  
+  // First, log the permanent deletion in audit log
+  db.query(
+    `INSERT INTO clearance_audit_log (clearance_id, action, action_by_user_id, action_by_name)
+     VALUES (?, 'PERMANENT_DELETE', ?, ?)`,
+    [id, deleted_by_user_id || 0, deleted_by_name || 'Unknown'],
+    (auditErr) => {
+      if (auditErr) console.error("Error logging audit for permanent delete:", auditErr);
+    }
+  );
+  
+  // Permanently delete the clearance record
+  db.query(
+    `DELETE FROM clearances WHERE id = ?`,
+    [id],
+    (err, result) => {
+      if (err) {
+        console.error("Error permanently deleting clearance:", err);
+        return res.status(500).json({ error: "Failed to permanently delete clearance" });
+      }
+      
+      console.log('✅ Permanent delete result:', { affectedRows: result.affectedRows });
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Clearance not found" });
+      }
+      
+      res.json({
+        success: true,
+        message: "Clearance permanently deleted successfully"
+      });
+    }
+  );
+});
+
 // Log clearance download
 app.post("/api/clearances/:id/log-download", (req, res) => {
   const { id } = req.params;
@@ -3193,130 +3428,6 @@ app.post("/api/clearances/:id/log-download", (req, res) => {
         return res.status(500).json({ error: "Failed to log download" });
       }
       res.json({ success: true });
-    }
-  );
-});
-
-// Get clearance statistics
-app.get("/api/clearances/stats/overview", (req, res) => {
-  const queries = {
-    total: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL`,
-    thisMonth: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND MONTH(date_issued) = MONTH(CURRENT_DATE) AND YEAR(date_issued) = YEAR(CURRENT_DATE)`,
-    noCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = FALSE`,
-    hasCriminalRecord: `SELECT COUNT(*) as count FROM clearances WHERE deleted_at IS NULL AND has_criminal_record = TRUE`,
-    byFormat: `SELECT format_type, COUNT(*) as count FROM clearances WHERE deleted_at IS NULL GROUP BY format_type`
-  };
-  
-  const results = {};
-  let completed = 0;
-  const totalQueries = Object.keys(queries).length;
-  
-  Object.entries(queries).forEach(([key, query]) => {
-    db.query(query, (err, result) => {
-      if (err) {
-        console.error(`Error fetching ${key} stats:`, err);
-        results[key] = key === 'byFormat' ? [] : 0;
-      } else {
-        results[key] = key === 'byFormat' ? result : result[0].count;
-      }
-      
-      completed++;
-      if (completed === totalQueries) {
-        res.json(results);
-      }
-    });
-  });
-});
-
-// Get users who have issued clearances (for filter dropdown)
-app.get("/api/clearances/issuers", (req, res) => {
-  db.query(
-    `SELECT DISTINCT issued_by_user_id, issued_by_name FROM clearances WHERE deleted_at IS NULL ORDER BY issued_by_name`,
-    (err, results) => {
-      if (err) {
-        console.error("Error fetching issuers:", err);
-        return res.status(500).json({ error: "Failed to fetch issuers" });
-      }
-      res.json(results);
-    }
-  );
-});
-
-// Get archived clearances (paginated)
-app.get("/api/clearances/archived", (req, res) => {
-  const { 
-    page = 1, 
-    limit = 10, 
-    search = '', 
-    format_type = '', 
-    date_from = '', 
-    date_to = '' 
-  } = req.query;
-
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  
-  let whereConditions = ['deleted_at IS NOT NULL'];
-  let params = [];
-  
-  if (search) {
-    whereConditions.push(`(
-      CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) LIKE ? OR
-      or_number LIKE ?
-    )`);
-    params.push(`%${search}%`, `%${search}%`);
-  }
-  
-  if (format_type) {
-    whereConditions.push('format_type = ?');
-    params.push(format_type);
-  }
-  
-  if (date_from) {
-    whereConditions.push('date_issued >= ?');
-    params.push(date_from);
-  }
-  
-  if (date_to) {
-    whereConditions.push('date_issued <= ?');
-    params.push(date_to);
-  }
-  
-  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
-  
-  // Get total count
-  db.query(
-    `SELECT COUNT(*) as total FROM clearances ${whereClause}`,
-    params,
-    (err, countResults) => {
-      if (err) {
-        console.error("Error counting archived clearances:", err);
-        return res.status(500).json({ error: "Failed to fetch archived clearances" });
-      }
-      
-      const total = countResults[0].total;
-      const totalPages = Math.ceil(total / parseInt(limit));
-      
-      // Get paginated clearances
-      db.query(
-        `SELECT * FROM clearances ${whereClause} ORDER BY deleted_at DESC LIMIT ? OFFSET ?`,
-        [...params, parseInt(limit), offset],
-        (err, clearances) => {
-          if (err) {
-            console.error("Error fetching archived clearances:", err);
-            return res.status(500).json({ error: "Failed to fetch archived clearances" });
-          }
-          
-          res.json({
-            clearances,
-            pagination: {
-              page: parseInt(page),
-              limit: parseInt(limit),
-              total,
-              totalPages
-            }
-          });
-        }
-      );
     }
   );
 });

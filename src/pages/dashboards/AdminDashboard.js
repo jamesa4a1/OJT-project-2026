@@ -648,100 +648,106 @@ const AdminDashboard = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Total Cases Card */}
           <motion.div
-            whileHover={{ scale: 1.02, y: -2 }}
-            className={`relative rounded-2xl p-5 overflow-hidden transition-all duration-300 ${
+            whileHover={{ scale: 1.03, y: -4 }}
+            className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50' 
-                : 'bg-white border border-slate-100 shadow-lg hover:shadow-xl'
+                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-blue-500/50' 
+                : 'bg-gradient-to-br from-white to-slate-50 border border-slate-100 shadow-lg hover:shadow-2xl hover:border-blue-300'
             }`}
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full -mr-8 -mt-8" />
-            <div className="relative flex items-start justify-between">
-              <div className="flex-1">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
+            <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/5 rounded-full -mr-10 -mt-10" />
+            <div className="relative p-6 flex flex-col h-full">
+              <div className="flex items-start justify-between mb-2">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
                   isDark ? 'bg-blue-500/20' : 'bg-blue-100'
                 }`}>
-                  <i className={`fas fa-folder-open ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
+                  <i className={`fas fa-folder-open text-xl ${isDark ? 'text-blue-400' : 'text-blue-600'}`}></i>
                 </div>
-                <p className={`text-3xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                <ProgressRing 
+                  progress={100} 
+                  color="blue" 
+                  isDark={isDark}
+                />
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-start text-center">
+                <p className={`text-6xl font-bold m-0 mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {stats.total}
                 </p>
-                <p className={`text-sm m-0 mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <p className={`text-sm font-medium m-0 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   Total Cases
                 </p>
               </div>
-              <ProgressRing 
-                progress={100} 
-                color="blue" 
-                isDark={isDark}
-              />
             </div>
           </motion.div>
 
           {/* Pending Cases Card */}
           <motion.div
-            whileHover={{ scale: 1.02, y: -2 }}
-            className={`relative rounded-2xl p-5 overflow-hidden transition-all duration-300 ${
+            whileHover={{ scale: 1.03, y: -4 }}
+            className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50' 
-                : 'bg-white border border-slate-100 shadow-lg hover:shadow-xl'
+                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-orange-500/50' 
+                : 'bg-gradient-to-br from-white to-slate-50 border border-slate-100 shadow-lg hover:shadow-2xl hover:border-orange-300'
             }`}
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full -mr-8 -mt-8" />
-            <div className="relative flex items-start justify-between">
-              <div className="flex-1">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
+            <div className="absolute top-0 right-0 w-28 h-28 bg-orange-500/5 rounded-full -mr-10 -mt-10" />
+            <div className="relative p-6 flex flex-col h-full">
+              <div className="flex items-start justify-between mb-2">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
                   isDark ? 'bg-orange-500/20' : 'bg-orange-100'
                 }`}>
-                  <i className={`fas fa-hourglass-half ${isDark ? 'text-orange-400' : 'text-orange-500'}`}></i>
+                  <i className={`fas fa-hourglass-half text-xl ${isDark ? 'text-orange-400' : 'text-orange-500'}`}></i>
                 </div>
-                <p className={`text-3xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                <ProgressRing 
+                  progress={stats.total > 0 ? (stats.pending / stats.total) * 100 : 0} 
+                  color="orange" 
+                  isDark={isDark}
+                />
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-start text-center">
+                <p className={`text-6xl font-bold m-0 mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {stats.pending}
                 </p>
-                <p className={`text-sm m-0 mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <p className={`text-sm font-medium m-0 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   Pending
                 </p>
               </div>
-              <ProgressRing 
-                progress={stats.total > 0 ? (stats.pending / stats.total) * 100 : 0} 
-                color="orange" 
-                isDark={isDark}
-              />
             </div>
           </motion.div>
 
           {/* This Month Card */}
           <motion.div
-            whileHover={{ scale: 1.02, y: -2 }}
-            className={`relative rounded-2xl p-5 overflow-hidden transition-all duration-300 ${
+            whileHover={{ scale: 1.03, y: -4 }}
+            className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50' 
-                : 'bg-white border border-slate-100 shadow-lg hover:shadow-xl'
+                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-violet-500/50' 
+                : 'bg-gradient-to-br from-white to-slate-50 border border-slate-100 shadow-lg hover:shadow-2xl hover:border-violet-300'
             }`}
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/10 rounded-full -mr-8 -mt-8" />
-            <div className="relative flex items-start justify-between">
-              <div className="flex-1">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
+            <div className="absolute top-0 right-0 w-28 h-28 bg-violet-500/5 rounded-full -mr-10 -mt-10" />
+            <div className="relative p-6 flex flex-col h-full">
+              <div className="flex items-start justify-between mb-2">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
                   isDark ? 'bg-violet-500/20' : 'bg-violet-100'
                 }`}>
-                  <i className={`fas fa-calendar-days ${isDark ? 'text-violet-400' : 'text-violet-600'}`}></i>
+                  <i className={`fas fa-calendar-days text-xl ${isDark ? 'text-violet-400' : 'text-violet-600'}`}></i>
                 </div>
-                <p className={`text-3xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                <ProgressRing 
+                  progress={stats.total > 0 ? (stats.thisMonth / stats.total) * 100 : 0} 
+                  color="violet" 
+                  isDark={isDark}
+                />
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-start text-center">
+                <p className={`text-6xl font-bold m-0 mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {stats.thisMonth}
                 </p>
-                <p className={`text-sm m-0 mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <p className={`text-sm font-medium m-0 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   This Month
                 </p>
               </div>
-              <ProgressRing 
-                progress={stats.total > 0 ? (stats.thisMonth / stats.total) * 100 : 0} 
-                color="violet" 
-                isDark={isDark}
-              />
             </div>
           </motion.div>
         </div>

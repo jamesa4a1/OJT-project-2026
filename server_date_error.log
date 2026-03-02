@@ -1,0 +1,48 @@
+Error in update-case endpoint: ZodError: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "updated_fields",
+      "DATE_OF_COMMISSION"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\server.js:1062:50
+    at Layer.handleRequest (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\route.js:157:13)
+    at Route.dispatch (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\route.js:117:3)
+    at handle (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:435:11)
+    at Layer.handleRequest (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\layer.js:152:17)
+    at C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:295:15
+    at processParams (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:582:12)
+    at next (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:291:5)
+    at read (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\body-parser\lib\read.js:42:5)
+TypeError: Cannot read properties of undefined (reading 'map')
+    at C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\server.js:1138:35
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+Error in update-case endpoint: ZodError: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "updated_fields",
+      "DATE_OF_COMMISSION"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\server.js:1062:50
+    at Layer.handleRequest (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\route.js:157:13)
+    at Route.dispatch (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\route.js:117:3)
+    at handle (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:435:11)
+    at Layer.handleRequest (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\lib\layer.js:152:17)
+    at C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:295:15
+    at processParams (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:582:12)
+    at next (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\router\index.js:291:5)
+    at read (C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\node_modules\body-parser\lib\read.js:42:5)
+TypeError: Cannot read properties of undefined (reading 'map')
+    at C:\Users\HP User\Desktop\OJT PROJECT 2026(1)\server.js:1138:35
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

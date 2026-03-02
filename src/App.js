@@ -5,6 +5,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import Navbar from './components/navbar';
 import Footer from './components/footer';
 import DashboardLayout from './components/DashboardLayout';
+import { ToastProvider } from './components/ui/ToastContainer';
 //pages
 import Cases from './pages/cases';
 import Caselist from './pages/caselist';
@@ -347,16 +348,18 @@ function App() {
   return (
     <HeroUIProvider>
       <AuthProvider>
-        <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
-          <Router>
-            <div
-              className={`flex flex-col min-h-screen transition-all duration-500 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-white to-blue-50'}`}
-              data-theme={theme}
-            >
-              <AnimatedRoutes />
-            </div>
-          </Router>
-        </ThemeContext.Provider>
+        <ToastProvider>
+          <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+            <Router>
+              <div
+                className={`flex flex-col min-h-screen transition-all duration-500 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-white to-blue-50'}`}
+                data-theme={theme}
+              >
+                <AnimatedRoutes />
+              </div>
+            </Router>
+          </ThemeContext.Provider>
+        </ToastProvider>
       </AuthProvider>
     </HeroUIProvider>
   );

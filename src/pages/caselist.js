@@ -229,35 +229,35 @@ const Caselist = () => {
       <AnimatePresence>
         {notification && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-            className="fixed top-0 left-1/2 transform -translate-x-1/2 z-50"
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999]"
           >
             <div
-              className={`rounded-b-2xl px-6 py-4 shadow-lg backdrop-blur-xl border-b-2 ${
+              className={`rounded-2xl px-6 py-4 shadow-2xl backdrop-blur-xl border-2 ${
                 notification.type === 'success'
-                  ? 'bg-teal-500/95 border-teal-400'
-                  : 'bg-red-500/95 border-red-400'
-              } flex items-center gap-3 min-w-max`}
+                  ? 'bg-gradient-to-r from-teal-500 to-emerald-600 border-teal-400/30'
+                  : 'bg-gradient-to-r from-red-500 to-red-600 border-red-400/30'
+              } flex items-center gap-3 min-w-[320px] max-w-[90vw] mx-4`}
             >
               <div
-                className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-                  notification.type === 'success' ? 'bg-white/30' : 'bg-white/30'
+                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                  notification.type === 'success' ? 'bg-white/20' : 'bg-white/20'
                 }`}
               >
                 <i className={`fas ${notification.icon} text-white text-sm`}></i>
               </div>
               <div className="flex-1">
-                <p className="text-white font-semibold text-sm m-0">{notification.title}</p>
-                <p className="text-white/90 text-xs m-0">{notification.message}</p>
+                <p className="text-white font-bold text-base m-0">{notification.title}</p>
+                <p className="text-white/90 text-sm m-0 mt-1">{notification.message}</p>
               </div>
               <motion.button
                 whileHover={{ scale: 1.15 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setNotification(null)}
-                className="flex-shrink-0 w-5 h-5 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white/90 hover:text-white border-none cursor-pointer transition-colors"
+                className="flex-shrink-0 w-7 h-7 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white/90 hover:text-white border-none cursor-pointer transition-colors"
               >
                 <i className="fas fa-times text-xs"></i>
               </motion.button>

@@ -146,6 +146,7 @@ const ClearanceHistory: React.FC = () => {
   const [selectedClearance, setSelectedClearance] = useState<Clearance | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({
@@ -242,6 +243,10 @@ const ClearanceHistory: React.FC = () => {
       
       setShowDeleteModal(false);
       setSelectedClearance(null);
+      
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 4000);
       
       // Refresh the data
       await fetchClearances();
@@ -1059,7 +1064,7 @@ const ClearanceHistory: React.FC = () => {
               </h3>
               <p className={`mb-6 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                 Are you sure you want to delete clearance <strong className={isDark ? 'text-white' : 'text-slate-800'}>{selectedClearance.or_number}</strong>? 
-                This action cannot be undone.
+                It will be moved to Archived Clearances where you can restore or permanently delete it.
               </p>
 
               <div className="flex gap-3">
@@ -1094,6 +1099,50 @@ const ClearanceHistory: React.FC = () => {
                 </motion.button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Toast Notification */}
+      <AnimatePresence>
+        {showSuccessMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999]"
+          >
+            <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 backdrop-blur-sm border-2 min-w-[320px] max-w-[90vw] mx-4 ${
+              isDark ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30' : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300'
+            }`}>
+              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                isDark ? 'bg-blue-500/30 text-blue-400' : 'bg-blue-200 text-blue-600'
+              }`}>
+                <i className="fas fa-archive text-xl"></i>
+              </div>
+              <div className="flex-1">
+                <p className={`font-bold text-base mb-1 ${
+                  isDark ? 'text-blue-300' : 'text-blue-800'
+                }`}>
+                  Moved to Archived!
+                </p>
+                <p className={`text-sm ${
+                  isDark ? 'text-blue-200/80' : 'text-blue-700/80'
+                }`}>
+                  Clearance has been moved to Archived Clearances
+                </p>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowSuccessMessage(false)}
+                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  isDark ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400' : 'bg-blue-200 hover:bg-blue-300 text-blue-600'
+                }`}
+              >
+                <i className="fas fa-times text-sm"></i>
+              </motion.button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
