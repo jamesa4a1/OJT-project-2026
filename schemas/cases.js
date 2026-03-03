@@ -17,6 +17,7 @@ const CaseCreateSchema = z.object({
   DATEFILED_IN_COURT: z.string().nullable().optional(),
   REMARKS_DECISION: z.string().nullable().optional(),
   PENALTY: z.string().nullable().optional(),
+  DECISION_DATE: z.string().nullable().optional(),
   INDEX_CARDS: z.string().nullable().optional(),
 });
 
@@ -36,6 +37,7 @@ const CaseUpdateSchema = z.object({
   DATEFILED_IN_COURT: z.string().nullable().optional(),
   REMARKS_DECISION: z.string().max(1000, 'Remarks must be less than 1000 characters').nullable().optional(),
   PENALTY: z.string().max(500, 'Penalty must be less than 500 characters').nullable().optional(),
+  DECISION_DATE: z.string().nullable().optional(),
   INDEX_CARDS: z.string().nullable().optional(),
 });
 

@@ -20,6 +20,7 @@ interface CaseFormData {
   DATEFILED_IN_COURT: string;
   REMARKS_DECISION: string;
   PENALTY: string;
+  DECISION_DATE: string;
 }
 
 const Newcase: React.FC = () => {
@@ -29,6 +30,8 @@ const Newcase: React.FC = () => {
   const [indexCardImage, setIndexCardImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showFullImage, setShowFullImage] = useState<boolean>(false);
+  const [isRemarksOther, setIsRemarksOther] = useState<boolean>(false);
+  const [customRemarks, setCustomRemarks] = useState<string>('');
   const [formData, setFormData] = useState<CaseFormData>({
     DOCKET_NO: '',
     DATE_FILED: '',
@@ -44,13 +47,32 @@ const Newcase: React.FC = () => {
     DATEFILED_IN_COURT: '',
     REMARKS_DECISION: '',
     PENALTY: '',
+    DECISION_DATE: '',
   });
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ): void => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name.toUpperCase()]: value } as CaseFormData);
+    
+    if (name === 'REMARKS_DECISION') {
+      if (value === 'Other') {
+        setIsRemarksOther(true);
+        setFormData({ ...formData, [name.toUpperCase()]: customRemarks } as CaseFormData);
+      } else {
+        setIsRemarksOther(false);
+        setCustomRemarks('');
+        setFormData({ ...formData, [name.toUpperCase()]: value } as CaseFormData);
+      }
+    } else {
+      setFormData({ ...formData, [name.toUpperCase()]: value } as CaseFormData);
+    }
+  };
+
+  const handleCustomRemarksChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const value = e.target.value;
+    setCustomRemarks(value);
+    setFormData({ ...formData, REMARKS_DECISION: value } as CaseFormData);
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -96,6 +118,7 @@ const Newcase: React.FC = () => {
         DATEFILED_IN_COURT: formData.DATEFILED_IN_COURT || null,
         REMARKS_DECISION: formData.REMARKS_DECISION || null,
         PENALTY: formData.PENALTY || null,
+        DECISION_DATE: formData.DECISION_DATE || null,
       };
 
       const formDataToSend = new FormData();
@@ -138,7 +161,10 @@ const Newcase: React.FC = () => {
         DATEFILED_IN_COURT: '',
         REMARKS_DECISION: '',
         PENALTY: '',
+        DECISION_DATE: '',
       });
+      setIsRemarksOther(false);
+      setCustomRemarks('');
       removeImage();
     } catch (error: any) {
       console.error('Error adding case:', error);
@@ -463,32 +489,56 @@ const Newcase: React.FC = () => {
                 <h3 className="text-lg font-bold text-slate-800 m-0">Resolution & Image Upload</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Remarks Decision</label>
                   <select
                     name="REMARKS_DECISION"
-                    value={formData.REMARKS_DECISION || 'Pending'}
+                    value={isRemarksOther ? 'Other' : (formData.REMARKS_DECISION || 'Pending')}
                     onChange={handleChange}
                     className={`${inputClass} cursor-pointer font-semibold`}
                   >
                     <option value="Pending">Pending</option>
                     <option value="Dismissed">Dismissed</option>
                     <option value="Convicted">Convicted</option>
+                    <option value="Other">Other (Custom)</option>
                   </select>
+                  {isRemarksOther && (
+                    <input
+                      type="text"
+                      value={customRemarks}
+                      onChange={handleCustomRemarksChange}
+                      className={`${inputClass} mt-2`}
+                      placeholder="Enter custom remarks decision"
+                      required
+                    />
+                  )}
                 </div>
-                <div>
-                  <label className={labelClass}>Penalty</label>
-                  <input
-                    type="text"
-                    name="PENALTY"
-                    value={formData.PENALTY}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Penalty imposed"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelClass}>Penalty</label>
+                    <input
+                      type="text"
+                      name="PENALTY"
+                      value={formData.PENALTY}
+                      onChange={handleChange}
+                      className={inputClass}
+                      placeholder="Penalty imposed"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Decision Date</label>
+                    <input
+                      type="date"
+                      name="DECISION_DATE"
+                      value={formData.DECISION_DATE}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
-                <div className="col-span-full md:col-span-2">
+
+                <div className="col-span-full">
                   <label className={labelClass}>
                     <i className="fas fa-image text-blue-500"></i>
                     Index Card Image

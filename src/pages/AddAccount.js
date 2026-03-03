@@ -13,7 +13,7 @@ const AddAccount = () => {
     confirmPassword: '',
     role: 'Clerk',
   });
-  const [status, setStatus] = useState({ type: '', message: '' });
+  const [status, setStatus] = useState({ type: '', message: '', details: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -33,17 +33,39 @@ const AddAccount = () => {
     fetchUsers();
   }, []);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('ocpToken');
+    const headers = { 'Content-Type': 'application/json' };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  };
+
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const response = await fetch('http://localhost:5000/api/users', {
+        headers: getAuthHeaders(),
+      });
+
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
           setUsers(data.users);
         }
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setUsers([]);
+        setStatus({
+          type: 'error',
+          message: data.message || 'Unauthorized. Please log out and log in again as Admin.',
+        });
       }
     } catch (error) {
       console.error('Error fetching users:', error);
+      setStatus({ type: 'error', message: 'Unable to fetch users. Please check server connection.' });
     }
   };
 
@@ -52,7 +74,7 @@ const AddAccount = () => {
     try {
       const response = await fetch(`http://localhost:5000/api/user/${user.id}/toggle-status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
       const data = await response.json();
       if (data.success) {
@@ -124,7 +146,7 @@ const AddAccount = () => {
     try {
       const response = await fetch(`http://localhost:5000/api/user/${editUser.id}/role`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ role: editRole }),
       });
       const data = await response.json();
@@ -158,6 +180,7 @@ const AddAccount = () => {
     try {
       const response = await fetch(`http://localhost:5000/api/user/${selectedUser.id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       const data = await response.json();
 
@@ -191,6 +214,58 @@ const AddAccount = () => {
     }
   };
 
+  const validatePassword = (password) => {
+    const errors = [];
+    if (password.length < 12) errors.push('at least 12 characters');
+    if (!/[A-Z]/.test(password)) errors.push('one uppercase letter');
+    if (!/[a-z]/.test(password)) errors.push('one lowercase letter');
+    if (!/[0-9]/.test(password)) errors.push('one number');
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"|,.<>\/?]/.test(password)) errors.push('one special character (!@#$%^&*()_+-=[]{};\':"|,.<>/?)');
+    if (/(.)\1{2,}/.test(password)) errors.push('no more than 2 consecutive identical characters');
+    return errors;
+  };
+
+  const getPasswordStrength = (password) => {
+    if (!password) return { level: 0, label: '', color: '', percent: 0 };
+    
+    let strength = 0;
+    const checks = [
+      password.length >= 12,
+      password.length >= 15,
+      /[A-Z]/.test(password),
+      /[a-z]/.test(password),
+      /[0-9]/.test(password),
+      /[!@#$%^&*()_+\-=\[\]{};':"|,.<>\/?]/.test(password),
+      !/(.)\1{2,}/.test(password)
+    ];
+    
+    strength = checks.filter(Boolean).length;
+    
+    let label = '';
+    let color = '';
+    let percent = 0;
+    
+    if (strength <= 2) {
+      label = 'Weak';
+      color = 'bg-red-500';
+      percent = 25;
+    } else if (strength <= 4) {
+      label = 'Fair';
+      color = 'bg-yellow-500';
+      percent = 50;
+    } else if (strength <= 6) {
+      label = 'Good';
+      color = 'bg-blue-500';
+      percent = 75;
+    } else {
+      label = 'Strong';
+      color = 'bg-green-500';
+      percent = 100;
+    }
+    
+    return { level: strength, label, color, percent };
+  };
+
   const validateForm = () => {
     if (!formData.name.trim()) {
       setStatus({ type: 'error', message: 'Name is required' });
@@ -204,8 +279,9 @@ const AddAccount = () => {
       setStatus({ type: 'error', message: 'Please enter a valid email' });
       return false;
     }
-    if (formData.password.length < 6) {
-      setStatus({ type: 'error', message: 'Password must be at least 6 characters' });
+    const passwordErrors = validatePassword(formData.password);
+    if (passwordErrors.length > 0) {
+      setStatus({ type: 'error', message: `Password must contain: ${passwordErrors.join(', ')}` });
       return false;
     }
     if (formData.password !== formData.confirmPassword) {
@@ -250,7 +326,36 @@ const AddAccount = () => {
           setStatus({ type: '', message: '' });
         }, 3000);
       } else {
-        setStatus({ type: 'error', message: data.message || 'Failed to create account' });
+        // Handle validation errors with details
+        let errorMessage = data.message || 'Failed to create account';
+        let errors = [];
+        
+        // Extract detailed errors from Zod validation
+        if (data.data && data.data.errors && Array.isArray(data.data.errors)) {
+          errors = data.data.errors.map(err => err.message);
+          if (errors.length > 0) {
+            errorMessage = 'Validation failed:';
+          }
+        }
+        
+        // Map common error messages to user-friendly version
+        const friendlyErrors = errors.map(err => {
+          if (err.includes('uppercase')) return 'Password must contain at least one uppercase letter';
+          if (err.includes('lowercase')) return 'Password must contain at least one lowercase letter';
+          if (err.includes('number')) return 'Password must contain at least one number';
+          if (err.includes('special character')) return 'Password must contain at least one special character';
+          if (err.includes('characters')) return 'Password must be at least 12 characters long';
+          if (err.includes('not a common')) return 'This password is too common, please choose a stronger one';
+          if (err.includes('Email')) return 'Please enter a valid email address';
+          if (err.includes('already registered')) return 'Email is already registered';
+          return err;
+        });
+        
+        setStatus({ 
+          type: 'error', 
+          message: errorMessage,
+          details: friendlyErrors
+        });
       }
     } catch (error) {
       console.error('Error:', error);
@@ -304,7 +409,7 @@ const AddAccount = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`mb-3 p-3 rounded-xl flex items-center gap-3 shadow-lg ${
+              className={`mb-3 p-4 rounded-xl shadow-lg ${
                 status.type === 'success'
                   ? isDark
                     ? 'bg-green-500/20 border border-green-500/30 text-green-300'
@@ -314,22 +419,36 @@ const AddAccount = () => {
                     : 'bg-red-50 border border-red-200 text-red-700'
               }`}
             >
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  status.type === 'success'
-                    ? isDark
-                      ? 'bg-green-500/30 text-green-400'
-                      : 'bg-green-200 text-green-600'
-                    : isDark
-                      ? 'bg-red-500/30 text-red-400'
-                      : 'bg-red-200 text-red-600'
-                }`}
-              >
-                <i
-                  className={`fas ${status.type === 'success' ? 'fa-check' : 'fa-exclamation'} text-lg`}
-                ></i>
+              <div className="flex items-start gap-3">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    status.type === 'success'
+                      ? isDark
+                        ? 'bg-green-500/30 text-green-400'
+                        : 'bg-green-200 text-green-600'
+                      : isDark
+                        ? 'bg-red-500/30 text-red-400'
+                        : 'bg-red-200 text-red-600'
+                  }`}
+                >
+                  <i
+                    className={`fas ${status.type === 'success' ? 'fa-check' : 'fa-exclamation'} text-lg`}
+                  ></i>
+                </div>
+                <div className="flex-1">
+                  <span className="font-semibold block">{status.message}</span>
+                  {status.details && status.details.length > 0 && (
+                    <ul className="mt-2 text-sm space-y-1 list-inside">
+                      {status.details.map((detail, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-lg leading-none mt-0.5">•</span>
+                          <span>{detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-              <span className="font-medium">{status.message}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -415,7 +534,7 @@ const AddAccount = () => {
                           ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
                           : 'border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                       }`}
-                      placeholder="Min. 6 characters"
+                      placeholder="Min. 12 characters with uppercase, lowercase, number & special char"
                       disabled={isSubmitting}
                     />
                     <button
@@ -430,6 +549,51 @@ const AddAccount = () => {
                       <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                     </button>
                   </div>
+                  {formData.password && (
+                    <div className="space-y-2 mt-3">
+                      {/* Strength Meter */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>Strength:</span>
+                          <span className={`font-semibold ${
+                            getPasswordStrength(formData.password).label === 'Weak' ? (isDark ? 'text-red-400' : 'text-red-600') :
+                            getPasswordStrength(formData.password).label === 'Fair' ? (isDark ? 'text-yellow-400' : 'text-yellow-600') :
+                            getPasswordStrength(formData.password).label === 'Good' ? (isDark ? 'text-blue-400' : 'text-blue-600') :
+                            (isDark ? 'text-green-400' : 'text-green-600')
+                          }`}>
+                            {getPasswordStrength(formData.password).label}
+                          </span>
+                        </div>
+                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                          <div 
+                            className={`h-full transition-all duration-300 ${getPasswordStrength(formData.password).color}`}
+                            style={{ width: `${getPasswordStrength(formData.password).percent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Requirements Checklist */}
+                      <div className={`p-2.5 rounded-lg text-xs space-y-1 ${
+                        isDark ? 'bg-slate-700/50 border border-slate-600' : 'bg-slate-50 border border-slate-200'
+                      }`}>
+                        <div className={formData.password.length >= 12 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-slate-400' : 'text-slate-500')}>
+                          <i className={`fas ${formData.password.length >= 12 ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>At least 12 characters
+                        </div>
+                        <div className={/[A-Z]/.test(formData.password) ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-slate-400' : 'text-slate-500')}>
+                          <i className={`fas ${/[A-Z]/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>One uppercase letter
+                        </div>
+                        <div className={/[a-z]/.test(formData.password) ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-slate-400' : 'text-slate-500')}>
+                          <i className={`fas ${/[a-z]/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>One lowercase letter
+                        </div>
+                        <div className={/[0-9]/.test(formData.password) ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-slate-400' : 'text-slate-500')}>
+                          <i className={`fas ${/[0-9]/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>One number
+                        </div>
+                        <div className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-slate-400' : 'text-slate-500')}>
+                          <i className={`fas ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>One special character
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>

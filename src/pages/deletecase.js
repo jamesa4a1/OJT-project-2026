@@ -22,10 +22,46 @@ const Deletecase = () => {
   const [selectedCase, setSelectedCase] = useState(null);
   const [editedCase, setEditedCase] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isCustomDecision, setIsCustomDecision] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const navigate = useNavigate();
+
+  // Helper function to construct proper image URL
+  const getImageUrl = (imagePath) => {
+    if (!imagePath || imagePath === 'N/A' || imagePath.trim() === '') {
+      return null;
+    }
+    // If it's a data URL (newly selected file), return as is
+    if (imagePath.startsWith('data:')) {
+      return imagePath;
+    }
+    // If it's already a proper uploads path
+    if (imagePath.startsWith('/uploads/')) {
+      return `http://localhost:5000${imagePath}`;
+    }
+    // If it starts with uploads (without leading slash)
+    if (imagePath.startsWith('uploads/')) {
+      return `http://localhost:5000/${imagePath}`;
+    }
+    // Old format paths like "INDEX CARDS\filename.pdf" - these files don't exist
+    // Try to construct a URL anyway, but it will likely fail
+    return `http://localhost:5000/${imagePath.replace(/\\/g, '/')}`;
+  };
+
+  // Check if the path looks like a valid image path (new format)
+  const isValidImagePath = (imagePath) => {
+    if (!imagePath || imagePath === 'N/A') return false;
+    // New format paths start with /uploads/ or uploads/
+    if (imagePath.startsWith('/uploads/') || imagePath.startsWith('uploads/')) return true;
+    // Data URLs are valid
+    if (imagePath.startsWith('data:')) return true;
+    // Old format paths with backslashes are likely invalid
+    if (imagePath.includes('\\') || imagePath.includes('INDEX CARDS')) return false;
+    return true;
+  };
 
   // Fetch all cases on component mount
   useEffect(() => {
@@ -117,6 +153,7 @@ const Deletecase = () => {
 
   const handleViewClick = (caseItem) => {
     setSelectedCase(caseItem);
+    setImageLoadError(false);
     setShowViewModal(true);
   };
 
@@ -124,15 +161,27 @@ const Deletecase = () => {
     setSelectedCase(caseItem);
     setEditedCase(caseItem);
     setSelectedImage(null);
+    setImageLoadError(false);
+    
+    // Check if current decision is custom (not one of the predefined options)
+    const currentDecision = caseItem.REMARKS_DECISION || 'Pending';
+    const predefinedOptions = ['Pending', 'Dismissed', 'Convicted'];
+    setIsCustomDecision(!predefinedOptions.includes(currentDecision));
+    
     // Set imagePreview with proper path handling
     const imagePath = caseItem.INDEX_CARDS;
     console.log('INDEX_CARDS from database:', imagePath);
-    if (imagePath && imagePath !== 'N/A' && imagePath.trim() !== '') {
+    if (imagePath && imagePath !== 'N/A' && imagePath.trim() !== '' && isValidImagePath(imagePath)) {
       setImagePreview(imagePath);
     } else {
       setImagePreview(null);
     }
     setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setIsCustomDecision(false);
   };
 
   const handleFieldChange = (field, value) => {
@@ -143,6 +192,7 @@ const Deletecase = () => {
     const file = e.target.files[0];
     if (file) {
       setSelectedImage(file);
+      setImageLoadError(false); // Reset error when new image is selected
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -191,6 +241,7 @@ const Deletecase = () => {
             RESOLVING_PROSECUTOR: editedCase.RESOLVING_PROSECUTOR,
             REMARKS_DECISION: editedCase.REMARKS_DECISION,
             PENALTY: editedCase.PENALTY,
+            DECISION_DATE: editedCase.DECISION_DATE,
             CRIM_CASE_NO: editedCase.CRIM_CASE_NO,
             BRANCH: editedCase.BRANCH,
             DATEFILED_IN_COURT: editedCase.DATEFILED_IN_COURT,
@@ -201,7 +252,7 @@ const Deletecase = () => {
       }
 
       if (response.status === 200) {
-        setShowEditModal(false);
+        closeEditModal();
         setSelectedCase(null);
         setEditedCase({});
         setSelectedImage(null);
@@ -253,16 +304,36 @@ const Deletecase = () => {
   const handleDelete = async () => {
     if (!selectedCase) return;
     setIsLoading(true);
+    setError('');
     try {
       await axios.delete('http://localhost:5000/delete-case', {
         data: { docket_no: selectedCase.DOCKET_NO },
       });
-      // Remove from local state
-      setCases((prev) => prev.filter((c) => c.id !== selectedCase.id));
+      
+      // Refresh the entire cases list from server after successful deletion
+      await fetchAllCases();
+      
       setShowConfirm(false);
       setSelectedCase(null);
+      
+      // Show success message
+      setError(''); // Clear any previous errors
+      
     } catch (err) {
-      setError('Error deleting case. Please try again.');
+      console.error('Delete error:', err);
+      
+      if (err.response && err.response.status === 404) {
+        // Case not found - probably already deleted
+        setError('Case not found. It may have already been deleted. Refreshing list...');
+        // Refresh the list anyway to show current state
+        await fetchAllCases();
+      } else if (err.response && err.response.data && err.response.data.message) {
+        // Server returned a specific error message
+        setError(`Error: ${err.response.data.message}`);
+      } else {
+        // Generic error
+        setError('Error deleting case. Please try again.');
+      }
     }
     setIsLoading(false);
   };
@@ -441,17 +512,18 @@ const Deletecase = () => {
               <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>No cases found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-hidden">
+              <table className="w-full table-fixed">
                 <thead>
                   <tr className={`bg-gradient-to-r ${isDark ? 'from-slate-700 to-slate-800' : 'from-slate-700 to-slate-800'} text-white`}>
-                    <th className="px-4 py-4 text-left font-semibold">Docket No</th>
-                    <th className="px-4 py-4 text-left font-semibold">Date Filed</th>
-                    <th className="px-4 py-4 text-left font-semibold">Complainant</th>
-                    <th className="px-4 py-4 text-left font-semibold">Respondent</th>
-                    <th className="px-4 py-4 text-left font-semibold">Offense</th>
-                    <th className="px-4 py-4 text-left font-semibold">Decision</th>
-                    <th className="px-4 py-4 text-center font-semibold">Actions</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[12%]">Docket No</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[8%]">Date Filed</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[14%]">Complainant</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[14%]">Respondent</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[18%]">Offense</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[10%]">Decision</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[10%]">Decision Date</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[14%]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -467,34 +539,36 @@ const Deletecase = () => {
                           : 'border-slate-100 hover:bg-red-50/50'
                       } ${index % 2 === 0 ? (isDark ? 'bg-slate-800' : 'bg-white') : (isDark ? 'bg-slate-700/40' : 'bg-slate-50/50')}`}
                     >
-                      <td className="px-4 py-4">
-                        <span className={`font-mono font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                      <td className="px-2 py-3">
+                        <span className={`font-mono font-semibold text-xs truncate block ${isDark ? 'text-slate-200' : 'text-slate-800'}`} title={caseItem.DOCKET_NO || 'N/A'}>
                           {caseItem.DOCKET_NO || 'N/A'}
                         </span>
                       </td>
-                      <td className={`px-4 py-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      <td className={`px-2 py-3 text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {formatDate(caseItem.DATE_FILED)}
                       </td>
-                      <td className={`px-4 py-4 font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                      <td className={`px-2 py-3 text-xs font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`} title={caseItem.COMPLAINANT || 'N/A'}>
                         {caseItem.COMPLAINANT || 'N/A'}
                       </td>
-                      <td className={`px-4 py-4 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{caseItem.RESPONDENT || 'N/A'}</td>
-                      <td className="px-4 py-4">
-                        <span className={`px-3 py-1 rounded-full text-sm ${
+                      <td className={`px-2 py-3 text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`} title={caseItem.RESPONDENT || 'N/A'}>
+                        {caseItem.RESPONDENT || 'N/A'}
+                      </td>
+                      <td className="px-2 py-3">
+                        <span className={`px-2 py-1 rounded-md text-xs truncate block max-w-full ${
                           isDark
                             ? 'bg-slate-700 text-slate-200'
                             : 'bg-slate-100 text-slate-700'
-                        }`}>
+                        }`} title={caseItem.OFFENSE || 'N/A'}>
                           {caseItem.OFFENSE || 'N/A'}
                         </span>
                       </td>
-                      <td className={`px-4 py-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      <td className="px-2 py-3 text-center">
                         {(() => {
                           // Default to 'pending' if REMARKS_DECISION is empty, null, or undefined
                           const decision = (caseItem.REMARKS_DECISION || 'pending').toLowerCase();
                           if (decision === 'pending')
                             return (
-                              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
                                 isDark
                                   ? 'bg-yellow-900/30 text-yellow-300'
                                   : 'bg-yellow-100 text-yellow-700'
@@ -504,7 +578,7 @@ const Deletecase = () => {
                             );
                           if (decision === 'dismissed')
                             return (
-                              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
                                 isDark
                                   ? 'bg-blue-900/30 text-blue-300'
                                   : 'bg-blue-100 text-blue-700'
@@ -514,7 +588,7 @@ const Deletecase = () => {
                             );
                           if (decision === 'convicted')
                             return (
-                              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
                                 isDark
                                   ? 'bg-green-900/30 text-green-300'
                                   : 'bg-green-100 text-green-700'
@@ -524,26 +598,29 @@ const Deletecase = () => {
                             );
                           // If it's some other value, display it as-is but still default to Pending if empty
                           return (
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                            <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block truncate max-w-full ${
                               isDark
                                 ? 'bg-slate-700 text-slate-200'
                                 : 'bg-slate-100 text-slate-700'
-                            }`}>
+                            }`} title={caseItem.REMARKS_DECISION || 'Pending'}>
                               {caseItem.REMARKS_DECISION || 'Pending'}
                             </span>
                           );
                         })()}
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className={`px-2 py-3 text-center text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                        {formatDate(caseItem.DECISION_DATE)}
+                      </td>
+                      <td className="px-2 py-3">
+                        <div className="flex items-center justify-center gap-1">
                           {/* View Button */}
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleViewClick(caseItem)}
-                            className="w-10 h-10 rounded-xl bg-blue-500 text-white hover:bg-blue-600 
-                                     transition-all duration-300 shadow-lg shadow-blue-500/30
-                                     flex items-center justify-center cursor-pointer border-none"
+                            className="w-8 h-8 rounded-lg bg-blue-500 text-white hover:bg-blue-600 
+                                     transition-all duration-300 shadow-md shadow-blue-500/30
+                                     flex items-center justify-center cursor-pointer border-none text-sm"
                             title="View Details"
                           >
                             <i className="fas fa-eye"></i>
@@ -554,9 +631,9 @@ const Deletecase = () => {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleEditClick(caseItem)}
-                            className="w-10 h-10 rounded-xl bg-green-500 text-white hover:bg-green-600 
-                                     transition-all duration-300 shadow-lg shadow-green-500/30
-                                     flex items-center justify-center cursor-pointer border-none"
+                            className="w-8 h-8 rounded-lg bg-green-500 text-white hover:bg-green-600 
+                                     transition-all duration-300 shadow-md shadow-green-500/30
+                                     flex items-center justify-center cursor-pointer border-none text-sm"
                             title="Edit Case"
                           >
                             <i className="fas fa-edit"></i>
@@ -568,9 +645,9 @@ const Deletecase = () => {
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
                               onClick={() => handleDeleteClick(caseItem)}
-                              className="w-10 h-10 rounded-xl bg-red-500 text-white hover:bg-red-600 
-                                       transition-all duration-300 shadow-lg shadow-red-500/30
-                                       flex items-center justify-center cursor-pointer border-none"
+                              className="w-8 h-8 rounded-lg bg-red-500 text-white hover:bg-red-600 
+                                       transition-all duration-300 shadow-md shadow-red-500/30
+                                       flex items-center justify-center cursor-pointer border-none text-sm"
                               title="Delete Case"
                             >
                               <i className="fas fa-trash-alt"></i>
@@ -600,13 +677,13 @@ const Deletecase = () => {
                 initial={{ opacity: 0, scale: 0.95, x: -30 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.95, x: -30 }}
-                className={`rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden ${
+                className={`rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden ${
                   isDark ? 'bg-slate-800' : 'bg-white'
                 }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Modal Header */}
-                <div className={`p-4 border-b ${isDark ? 'bg-blue-600 border-blue-700' : 'bg-gradient-to-r from-blue-500 to-blue-600 border-slate-200'}`}>
+                <div className={`p-5 border-b flex-shrink-0 ${isDark ? 'bg-blue-600 border-blue-700' : 'bg-gradient-to-r from-blue-500 to-blue-600 border-slate-200'}`}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                       <i className="fas fa-file-alt"></i>
@@ -620,12 +697,12 @@ const Deletecase = () => {
                       <i className="fas fa-times text-sm"></i>
                     </button>
                   </div>
-                  <p className={`mt-1 text-sm ${isDark ? 'text-blue-200' : 'text-blue-100'}`}>Docket No: {selectedCase.DOCKET_NO}</p>
+                  <p className={`mt-2 text-sm font-semibold ${isDark ? 'text-blue-100' : 'text-blue-50'}`}>Docket No: {selectedCase.DOCKET_NO}</p>
                 </div>
 
-                {/* Modal Content */}
-                <div className={`p-4 ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {/* Modal Content - Scrollable */}
+                <div className={`flex-1 overflow-y-auto p-5 ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {[
                       { label: 'Docket Number', value: selectedCase.DOCKET_NO, icon: 'fa-hashtag' },
                       {
@@ -663,6 +740,12 @@ const Deletecase = () => {
                         icon: 'fa-balance-scale',
                       },
                       {
+                        label: 'Decision Date',
+                        value: selectedCase.DECISION_DATE ? formatDate(selectedCase.DECISION_DATE) : '',
+                        icon: 'fa-calendar-day',
+                        blankIfEmpty: true,
+                      },
+                      {
                         label: 'Penalty',
                         value: selectedCase.PENALTY,
                         icon: 'fa-exclamation-triangle',
@@ -670,20 +753,20 @@ const Deletecase = () => {
                     ].map((item, idx) => (
                       <div
                         key={idx}
-                        className={`p-3 rounded-lg transition-colors ${
+                        className={`p-4 rounded-xl transition-all border shadow-sm hover:shadow-md ${
                           isDark
-                            ? 'bg-slate-700 hover:bg-slate-600'
-                            : 'bg-slate-50 hover:bg-slate-100'
+                            ? 'bg-slate-700 hover:bg-slate-600 border-slate-600'
+                            : 'bg-gradient-to-br from-slate-50 to-slate-100 hover:from-blue-50 hover:to-slate-100 border-slate-200'
                         }`}
                       >
-                        <p className={`text-xs uppercase flex items-center gap-1 mb-1 ${
-                          isDark ? 'text-slate-400' : 'text-slate-500'
+                        <p className={`text-xs uppercase font-semibold flex items-center gap-1.5 mb-2 ${
+                          isDark ? 'text-slate-300' : 'text-slate-600'
                         }`}>
                           <i className={`fas ${item.icon} text-blue-500 text-xs`}></i>
                           {item.label}
                         </p>
-                        <p className={`font-medium text-sm leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.value || 'N/A'}>
-                          {item.value && item.value.length > 30 ? `${item.value.substring(0, 30)}...` : (item.value || 'N/A')}
+                        <p className={`font-semibold text-sm leading-snug break-words ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.value || (item.blankIfEmpty ? '' : 'N/A')}>
+                          {item.value && item.value.length > 25 ? `${item.value.substring(0, 25)}...` : (item.value || (item.blankIfEmpty ? '' : 'N/A'))}
                         </p>
                       </div>
                     ))}
@@ -691,13 +774,13 @@ const Deletecase = () => {
 
                   {/* Remarks Section - Full Width */}
                   {selectedCase.REMARKS && selectedCase.REMARKS !== 'N/A' && (
-                    <div className={`mt-3 p-3 rounded-lg ${
+                    <div className={`mt-4 p-4 rounded-xl border shadow-sm ${
                       isDark
-                        ? 'bg-slate-700'
-                        : 'bg-slate-50'
+                        ? 'bg-slate-700 border-slate-600'
+                        : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200'
                     }`}>
-                      <p className={`text-xs uppercase flex items-center gap-1 mb-1 ${
-                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      <p className={`text-xs uppercase font-semibold flex items-center gap-1.5 mb-2 ${
+                        isDark ? 'text-slate-300' : 'text-slate-600'
                       }`}>
                         <i className="fas fa-comment text-blue-500 text-xs"></i>
                         Remarks
@@ -710,20 +793,63 @@ const Deletecase = () => {
 
                   {/* Index Cards */}
                   {selectedCase.INDEX_CARDS && selectedCase.INDEX_CARDS !== 'N/A' && (
-                    <div className={`mt-3 p-3 rounded-lg ${
+                    <div className={`mt-4 p-4 rounded-xl border shadow-sm ${
                       isDark
-                        ? 'bg-slate-700'
-                        : 'bg-slate-50'
+                        ? 'bg-slate-700 border-slate-600'
+                        : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200'
                     }`}>
-                      <p className={`text-xs uppercase flex items-center gap-1 mb-1 ${
-                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      <p className={`text-xs uppercase font-semibold flex items-center gap-1.5 mb-3 ${
+                        isDark ? 'text-slate-300' : 'text-slate-600'
                       }`}>
                         <i className="fas fa-id-card text-blue-500 text-xs"></i>
-                        Index Cards
+                        Index Card Image
                       </p>
-                      <p className={`font-medium break-all text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                        {selectedCase.INDEX_CARDS}
-                      </p>
+                      
+                      {/* Check if path is valid format */}
+                      {isValidImagePath(selectedCase.INDEX_CARDS) && !imageLoadError ? (
+                        <>
+                          <p className={`text-xs mb-2 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <i className="fas fa-expand-arrows-alt text-amber-500"></i>
+                            Click image to view fullscreen
+                          </p>
+                          <img
+                            src={getImageUrl(selectedCase.INDEX_CARDS)}
+                            alt="Index Card"
+                            className={`max-w-full h-auto rounded-xl border-2 max-h-64 object-contain cursor-pointer shadow-lg hover:scale-105 transition-transform ${
+                              isDark ? 'border-slate-600' : 'border-slate-300'
+                            }`}
+                            onClick={() => setShowFullscreenImage(true)}
+                            onError={(e) => {
+                              console.error('Image failed to load:', selectedCase.INDEX_CARDS);
+                              setImageLoadError(true);
+                            }}
+                          />
+                          <a
+                            href={getImageUrl(selectedCase.INDEX_CARDS)}
+                            download
+                            className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-md"
+                          >
+                            <i className="fas fa-download"></i>
+                            Download
+                          </a>
+                        </>
+                      ) : (
+                        <div className={`p-4 rounded-xl border-2 border-dashed text-center ${
+                          isDark ? 'bg-slate-600 border-slate-500' : 'bg-slate-200 border-slate-400'
+                        }`}>
+                          <i className={`fas fa-image text-4xl mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}></i>
+                          <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            Image not available
+                          </p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                            File path: {selectedCase.INDEX_CARDS}
+                          </p>
+                          <p className={`text-xs mt-2 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                            <i className="fas fa-info-circle mr-1"></i>
+                            Upload a new image using the Edit function
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -740,7 +866,7 @@ const Deletecase = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowEditModal(false)}
+              onClick={closeEditModal}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -759,7 +885,7 @@ const Deletecase = () => {
                       Edit Case
                     </h3>
                     <button
-                      onClick={() => setShowEditModal(false)}
+                      onClick={closeEditModal}
                       className="w-10 h-10 rounded-full bg-white/20 text-white hover:bg-white/30 
                                transition-colors flex items-center justify-center cursor-pointer border-none"
                     >
@@ -904,19 +1030,58 @@ const Deletecase = () => {
                       <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                         <i className="fas fa-clipboard-check text-green-500 mr-2"></i>Decision
                       </label>
-                      <select
-                        value={editedCase.REMARKS_DECISION || 'Pending'}
-                        onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
-                          isDark
-                            ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
-                            : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
-                        }`}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Dismissed">Dismissed</option>
-                        <option value="Convicted">Convicted</option>
-                      </select>
+                      {!isCustomDecision ? (
+                        <select
+                          value={editedCase.REMARKS_DECISION || 'Pending'}
+                          onChange={(e) => {
+                            if (e.target.value === 'Custom') {
+                              setIsCustomDecision(true);
+                              handleFieldChange('REMARKS_DECISION', '');
+                            } else {
+                              handleFieldChange('REMARKS_DECISION', e.target.value);
+                            }
+                          }}
+                          className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                            isDark
+                              ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
+                              : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                          }`}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Dismissed">Dismissed</option>
+                          <option value="Convicted">Convicted</option>
+                          <option value="Custom">Custom</option>
+                        </select>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={editedCase.REMARKS_DECISION || ''}
+                            onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
+                            placeholder="Enter custom decision..."
+                            className={`w-full px-4 py-3 pr-12 rounded-xl border-2 transition-all ${
+                              isDark
+                                ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 placeholder:text-slate-400'
+                                : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200 placeholder:text-slate-500'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDecision(false);
+                              handleFieldChange('REMARKS_DECISION', 'Pending');
+                            }}
+                            className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                              isDark
+                                ? 'bg-slate-600 hover:bg-slate-500 text-slate-300'
+                                : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+                            }`}
+                            title="Switch back to dropdown"
+                          >
+                            <i className="fas fa-list text-xs"></i>
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -927,6 +1092,22 @@ const Deletecase = () => {
                         type="text"
                         value={editedCase.PENALTY || ''}
                         onChange={(e) => handleFieldChange('PENALTY', e.target.value)}
+                        className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                          isDark
+                            ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
+                            : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        <i className="fas fa-calendar-check text-green-500 mr-2"></i>Decision Date
+                      </label>
+                      <input
+                        type="date"
+                        value={editedCase.DECISION_DATE?.split('T')[0] || ''}
+                        onChange={(e) => handleFieldChange('DECISION_DATE', e.target.value)}
                         className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
                           isDark
                             ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
@@ -997,18 +1178,14 @@ const Deletecase = () => {
                             : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
                         }`}
                       />
-                      {imagePreview && (
+                      {imagePreview && isValidImagePath(imagePreview) && !imageLoadError ? (
                         <div className="mt-3">
                           <p className={`text-xs mb-2 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                             <i className="fas fa-expand-arrows-alt text-amber-500"></i>
                             Click image to view fullscreen
                           </p>
                           <motion.img
-                            src={
-                              imagePreview.startsWith('data:')
-                                ? imagePreview
-                                : `http://localhost:5000${imagePreview.startsWith('/') ? imagePreview : '/' + imagePreview}`
-                            }
+                            src={getImageUrl(imagePreview)}
                             alt="Index Card Preview"
                             className={`max-w-full h-auto rounded-xl border-2 max-h-64 object-contain cursor-pointer shadow-lg ${
                               isDark ? 'border-slate-600' : 'border-slate-200'
@@ -1021,14 +1198,25 @@ const Deletecase = () => {
                             whileTap={{ scale: 0.98 }}
                             onError={(e) => {
                               console.error('Image failed to load:', imagePreview);
-                              console.error('Constructed URL:', e.target.src);
-                              e.target.onerror = null;
-                              e.target.src = '';
+                              setImageLoadError(true);
                             }}
                             style={{ display: 'block' }}
                           />
                         </div>
-                      )}
+                      ) : imagePreview && (!isValidImagePath(imagePreview) || imageLoadError) ? (
+                        <div className={`mt-3 p-4 rounded-lg border-2 border-dashed text-center ${
+                          isDark ? 'bg-slate-600 border-slate-500' : 'bg-slate-100 border-slate-300'
+                        }`}>
+                          <i className={`fas fa-image text-3xl mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}></i>
+                          <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            Current image not available
+                          </p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                            <i className="fas fa-upload mr-1"></i>
+                            Choose a new file above to upload
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1040,7 +1228,7 @@ const Deletecase = () => {
                     : 'bg-slate-50 border-slate-200'
                 }`}>
                   <button
-                    onClick={() => setShowEditModal(false)}
+                    onClick={closeEditModal}
                     className={`flex-1 py-3 rounded-xl font-semibold border-none cursor-pointer transition-colors ${
                       isDark
                         ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
@@ -1230,11 +1418,11 @@ const Deletecase = () => {
           isOpen={showFullscreenImage}
           onClose={() => setShowFullscreenImage(false)}
           imageUrl={
-            imagePreview
-              ? imagePreview.startsWith('data:')
-                ? imagePreview
-                : `http://localhost:5000${imagePreview.startsWith('/') ? imagePreview : '/' + imagePreview}`
-              : ''
+            imagePreview && isValidImagePath(imagePreview)
+              ? getImageUrl(imagePreview)
+              : selectedCase?.INDEX_CARDS && isValidImagePath(selectedCase.INDEX_CARDS)
+                ? getImageUrl(selectedCase.INDEX_CARDS)
+                : ''
           }
           imageName={
             selectedCase?.DOCKET_NO ? `Index-Card-${selectedCase.DOCKET_NO}.jpg` : 'index-card.jpg'

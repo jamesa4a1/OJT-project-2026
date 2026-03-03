@@ -5,6 +5,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const XLSX = require("xlsx");
 const schedule = require("node-schedule");
 const { validateRequest } = require("./middleware/validateRequest");
@@ -12,7 +13,15 @@ const { UserLoginSchema, UserRegisterSchema, UserUpdateSchema } = require("./sch
 const { CaseCreateSchema, CaseUpdateSchema, CaseEditSchema, CaseSearchSchema } = require("./schemas/cases");
 const { ApiResponse } = require("./utils/apiResponse");
 
+// Security middleware imports
+const { sanitizeInput } = require("./middleware/sanitize");
+const { requirePermission, requireRole, adminOnly, staffOrAdmin } = require("./middleware/rbac");
+const { authMiddleware, authorize } = require("./middleware/authMiddleware");
+const { loginLimiter } = require("./middleware/rateLimiter");
+const securityLogger = require("./utils/securityLogger");
+
 const app = express();
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_key_12345678901234567890123456789012";
 
 // Store active schedules
 let activeSchedules = {};
@@ -38,6 +47,7 @@ const exportCasesToExcel = () => {
       DATEFILED_IN_COURT AS 'Date Filed in Court',
       REMARKS_DECISION AS 'Remarks Decision',
       PENALTY AS 'Penalty',
+      DECISION_DATE AS 'Decision Date',
       INDEX_CARDS AS 'Index Cards'
     FROM cases ORDER BY id ASC`;
     
@@ -54,6 +64,7 @@ const exportCasesToExcel = () => {
         if (formattedRow['Date of Commission']) formattedRow['Date of Commission'] = new Date(formattedRow['Date of Commission']).toLocaleDateString('en-CA');
         if (formattedRow['Date Resolved']) formattedRow['Date Resolved'] = new Date(formattedRow['Date Resolved']).toLocaleDateString('en-CA');
         if (formattedRow['Date Filed in Court']) formattedRow['Date Filed in Court'] = new Date(formattedRow['Date Filed in Court']).toLocaleDateString('en-CA');
+        if (formattedRow['Decision Date']) formattedRow['Decision Date'] = new Date(formattedRow['Decision Date']).toLocaleDateString('en-CA');
         return formattedRow;
       });
       
@@ -77,6 +88,7 @@ const exportCasesToExcel = () => {
         { wch: 15 },  // Date Filed in Court
         { wch: 15 },  // Remarks Decision
         { wch: 12 },  // Penalty
+        { wch: 12 },  // Decision Date
         { wch: 50 },  // Index Cards
       ];
       
@@ -101,6 +113,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Security middleware - apply before parsing
+app.use(sanitizeInput({ strict: true }));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -386,7 +402,7 @@ handleDisconnect();
 // ==================== USER AUTHENTICATION ROUTES ====================
 
 // Register new user
-app.post("/api/auth/register", validateRequest(UserRegisterSchema), async (req, res) => {
+app.post("/api/auth/register", loginLimiter, validateRequest(UserRegisterSchema), async (req, res) => {
   const { name, email, password, role } = req.body;
   
   try {
@@ -432,7 +448,7 @@ app.post("/api/auth/register", validateRequest(UserRegisterSchema), async (req, 
 });
 
 // Get all users (Admin only)
-app.get("/api/users", (req, res) => {
+app.get("/api/users", authMiddleware, adminOnly, (req, res) => {
   db.query("SELECT id, name, email, role, profile_picture, last_login, created_at, is_active, is_online FROM users ORDER BY created_at DESC", (err, results) => {
     if (err) {
       console.error("Database error:", err);
@@ -443,7 +459,14 @@ app.get("/api/users", (req, res) => {
 });
 
 // Delete user (Admin only)
-app.delete("/api/user/:id", (req, res) => {
+app.delete("/api/user/:id", authMiddleware, adminOnly, (req, res) => {
+  // Log the deletion action
+  securityLogger.auditLog('USER_DELETED', {
+    adminId: req.user.id,
+    adminEmail: req.user.email,
+    deletedUserId: req.params.id,
+    timestamp: new Date().toISOString()
+  });
   const { id } = req.params;
   
   // Check if user exists and get their role
@@ -492,7 +515,8 @@ app.delete("/api/user/:id", (req, res) => {
 });
 
 // Toggle user active status (Admin only)
-app.put("/api/user/:id/toggle-status", (req, res) => {
+// Toggle user status (Admin only)
+app.put("/api/user/:id/toggle-status", authMiddleware, adminOnly, (req, res) => {
   const { id } = req.params;
   
   // Get user details (status and role)
@@ -554,7 +578,7 @@ app.put("/api/user/:id/toggle-status", (req, res) => {
 });
 
 // Update user role (Admin only)
-app.put("/api/user/:id/role", (req, res) => {
+app.put("/api/user/:id/role", authMiddleware, adminOnly, (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
@@ -566,6 +590,15 @@ app.put("/api/user/:id/role", (req, res) => {
   if (!validRoles.includes(role)) {
     return res.status(400).json({ success: false, message: "Invalid role" });
   }
+  
+  // Log the role change
+  securityLogger.auditLog('ROLE_CHANGED', {
+    adminId: req.user.id,
+    adminEmail: req.user.email,
+    userId: id,
+    newRole: role,
+    timestamp: new Date().toISOString()
+  });
 
   db.query("UPDATE users SET role = ? WHERE id = ?", [role, id], (err) => {
     if (err) {
@@ -578,7 +611,7 @@ app.put("/api/user/:id/role", (req, res) => {
 
 
 // Login user
-app.post("/api/auth/login", validateRequest(UserLoginSchema), (req, res) => {
+app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req, res) => {
   const { email, password } = req.body;
   
   db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
@@ -603,10 +636,15 @@ app.post("/api/auth/login", validateRequest(UserLoginSchema), (req, res) => {
     const isValidPassword = await bcrypt.compare(password, user.password);
     
     if (!isValidPassword) {
+      // Log failed login attempt
+      securityLogger.loginFailed(user.id, user.email, req.ip);
       return res.status(401).json(ApiResponse.error("Invalid credentials", 401));
     }
     
     console.log(`✅ Login successful: ${email} (is_active = ${user.is_active})`);
+    
+    // Log successful login
+    securityLogger.loginSuccess(user.id, user.email, req.ip);
     
     // Update last_login timestamp and set is_online to 1
     db.query("UPDATE users SET last_login = NOW(), is_online = 1 WHERE id = ?", [user.id]);
@@ -622,8 +660,38 @@ app.post("/api/auth/login", validateRequest(UserLoginSchema), (req, res) => {
       created_at: user.created_at
     };
     
-    res.json(ApiResponse.success("Login successful", userData));
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+    
+    res.json(ApiResponse.success("Login successful", { ...userData, token }));
   });
+});
+
+// Refresh JWT token
+app.post("/api/auth/refresh", (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json(ApiResponse.error("Token is required", 400));
+  }
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+    
+    // Generate new token
+    const newToken = jwt.sign(
+      { id: decoded.id, email: decoded.email, role: decoded.role },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+    
+    res.json(ApiResponse.success("Token refreshed", { token: newToken }));
+  } catch (error) {
+    return res.status(401).json(ApiResponse.error("Invalid token", 401));
+  }
 });
 
 // Get user profile
@@ -662,6 +730,9 @@ app.post("/api/auth/logout", (req, res) => {
       return res.status(500).json({ success: false, message: "Database error" });
     }
     
+    // Log logout event
+    securityLogger.userLoggedOut(userId, req.ip);
+    
     console.log(`✅ User ${userId} logged out successfully. Rows affected:`, result.affectedRows);
     res.json({ success: true, message: "Logged out successfully" });
   });
@@ -687,7 +758,8 @@ app.get("/api/user/:id/status", (req, res) => {
 });
 
 // Update user profile
-app.put("/api/user/:id", (req, res) => {
+// Update profile (Authenticated users)
+app.put("/api/user/:id", authMiddleware, requirePermission('profile:update'), (req, res) => {
   const { id } = req.params;
   const { name, email } = req.body;
   
@@ -725,7 +797,8 @@ app.put("/api/user/:id", (req, res) => {
 });
 
 // Change password
-app.put("/api/user/:id/password", async (req, res) => {
+// Change password (Authenticated users)
+app.put("/api/user/:id/password", authMiddleware, requirePermission('profile:update'), async (req, res) => {
   const { id } = req.params;
   const { currentPassword, newPassword } = req.body;
   
@@ -921,7 +994,7 @@ app.get("/admin/all-cases-diagnostic", (req, res) => {
   });
 });
 
-// Add a new case 
+// Add a new case (Staff or Admin)
 app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res) => {
   console.log("Received Data:", req.body); // debug
   console.log("Received File:", req.file); // debug
@@ -932,8 +1005,11 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
     
     // Get the image path if uploaded
     const INDEX_CARDS = req.file ? `/uploads/index_cards/${req.file.filename}` : 'N/A';
+    const normalizedDecision = validatedData.REMARKS_DECISION && validatedData.REMARKS_DECISION.trim()
+      ? validatedData.REMARKS_DECISION.charAt(0).toUpperCase() + validatedData.REMARKS_DECISION.slice(1).toLowerCase()
+      : 'Pending';
 
-    const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, DECISION_DATE, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     db.query(sql, [
       validatedData.DOCKET_NO, 
@@ -948,8 +1024,9 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
       validatedData.CRIM_CASE_NO || 'N/A', 
       validatedData.BRANCH, 
       validatedData.DATEFILED_IN_COURT || null, 
-      validatedData.REMARKS_DECISION || null, 
+      normalizedDecision, 
       validatedData.PENALTY || null, 
+      validatedData.DECISION_DATE || null,
       INDEX_CARDS
     ], (err, result) => {
       if (err) {
@@ -1049,6 +1126,7 @@ const { docket_no, respondent, resolving_prosecutor, remarks, start_date, end_da
 });
 
 // edit case
+// Update case (Staff or Admin)
 app.post("/update-case", async (req, res) => {
   if (!db || db.state === 'disconnected') {
     return res.status(503).json({
@@ -1071,6 +1149,16 @@ app.post("/update-case", async (req, res) => {
       return res.status(400).json(ApiResponse.error("No fields to update", 400));
     }
 
+    if (Object.prototype.hasOwnProperty.call(updated_fields, 'REMARKS_DECISION')) {
+      const rawDecision = updated_fields.REMARKS_DECISION;
+      if (!rawDecision || !String(rawDecision).trim()) {
+        updated_fields.REMARKS_DECISION = 'Pending';
+      } else {
+        const trimmedDecision = String(rawDecision).trim();
+        updated_fields.REMARKS_DECISION = trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase();
+      }
+    }
+
     // Helper function to format dates for MySQL (YYYY-MM-DD)
     const formatDateForMySQL = (value, fieldName) => {
       if (!value || value === '0000-00-00' || value.startsWith('0000-')) {
@@ -1078,7 +1166,7 @@ app.post("/update-case", async (req, res) => {
       }
       
       // Check if this is a date field
-      const dateFields = ['DATE_FILED', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'DATEFILED_IN_COURT'];
+      const dateFields = ['DATE_FILED', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'DATEFILED_IN_COURT', 'DECISION_DATE'];
       if (dateFields.includes(fieldName) && typeof value === 'string') {
         // Handle ISO date strings like '2024-01-09T16:00:00.000Z'
         if (value.includes('T')) {
@@ -1152,6 +1240,7 @@ app.post("/update-case", async (req, res) => {
 });
 
 // Update case with image upload
+// Update case with image (Staff or Admin)
 app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (req, res) => {
   if (!db || db.state === 'disconnected') {
     return res.status(503).json({
@@ -1190,7 +1279,10 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
       let value = req.body[key];
       // Normalize REMARKS_DECISION to uppercase first letter
       if (key === 'REMARKS_DECISION' && typeof value === 'string') {
-        value = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+        const trimmedDecision = value.trim();
+        value = trimmedDecision
+          ? trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase()
+          : 'Pending';
       }
       fields.push(key);
       updateValues.push(value);
@@ -1246,6 +1338,7 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
 
 //delete case (move to terminated_cases table)
 
+// Delete case (Admin only)
 app.delete("/delete-case", (req, res) => {
   console.log("Delete request received with body:", req.body); // Debugging log
 
@@ -1272,56 +1365,96 @@ app.delete("/delete-case", (req, res) => {
 
       const caseData = results[0];
 
-      // Insert into terminated_cases table
-      const insertQuery = `INSERT INTO terminated_cases (
-        DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
-        OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, status, RESOLVING_PROSECUTOR,
-        CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY,
-        INDEX_CARDS, created_at, created_by, updated_at, updated_by,
-        terminated_at, termination_reason
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'Case Terminated')`;
-
-      const insertValues = [
-        caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, caseData.RESPONDENT,
-        caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, caseData.DATE_OF_COMMISSION,
-        caseData.DATE_RESOLVED, caseData.status, caseData.RESOLVING_PROSECUTOR,
-        caseData.CRIM_CASE_NO, caseData.BRANCH, caseData.DATEFILED_IN_COURT,
-        caseData.REMARKS_DECISION, caseData.PENALTY, caseData.INDEX_CARDS,
-        caseData.created_at, caseData.created_by, caseData.updated_at, caseData.updated_by
-      ];
-
-      db.query(insertQuery, insertValues, (err, insertResult) => {
-          if (err) {
-              console.error("Error moving case to terminated_cases:", err);
-              return res.status(500).json({ message: "Error terminating case.", error: err.message });
+      // Check if the case already exists in terminated_cases table
+      const checkQuery = "SELECT COUNT(*) as count FROM terminated_cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+      
+      db.query(checkQuery, [docket_no.trim().toLowerCase()], (checkErr, checkResults) => {
+          if (checkErr) {
+              console.error("Error checking terminated_cases:", checkErr);
+              return res.status(500).json({ message: "Error checking terminated cases.", error: checkErr.message });
           }
 
-          // Delete from cases table
-          const deleteQuery = "DELETE FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
-          db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, deleteResult) => {
+          const alreadyTerminated = checkResults[0].count > 0;
+          
+          if (alreadyTerminated) {
+              // Case is already in terminated_cases, just remove from active cases
+              console.log("Case already exists in terminated_cases, just removing from active cases");
+              
+              const deleteQuery = "DELETE FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+              db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, deleteResult) => {
+                  if (err) {
+                      console.error("Error removing case from cases table:", err);
+                      return res.status(500).json({ message: "Error completing case termination.", error: err.message });
+                  }
+
+                  console.log("Case removed from active cases (already in terminated_cases).");
+                  
+                  // Sync Excel file after terminating case
+                  exportCasesToExcel()
+                    .then(() => {
+                      console.log("Excel file synced after case termination");
+                    })
+                    .catch(excelErr => {
+                      console.error("Error syncing Excel file:", excelErr);
+                    });
+
+                  return res.json({ message: "Case terminated successfully!" });
+              });
+              
+              return; // Exit early since we don't need to insert into terminated_cases
+          }
+
+          // Case is not in terminated_cases, proceed with normal insertion
+          const insertQuery = `INSERT INTO terminated_cases (
+            DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
+            OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, status, RESOLVING_PROSECUTOR,
+            CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY,
+            DECISION_DATE, INDEX_CARDS, terminated_at, terminated_by_user_id, terminated_by_name,
+            termination_reason, created_at, created_by, updated_at, updated_by
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NULL, NULL, 'Case Terminated', ?, ?, ?, ?)`;
+
+          const insertValues = [
+            caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, caseData.RESPONDENT,
+            caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, caseData.DATE_OF_COMMISSION,
+            caseData.DATE_RESOLVED, caseData.status, caseData.RESOLVING_PROSECUTOR,
+            caseData.CRIM_CASE_NO, caseData.BRANCH, caseData.DATEFILED_IN_COURT,
+            caseData.REMARKS_DECISION, caseData.PENALTY, caseData.DECISION_DATE, caseData.INDEX_CARDS,
+            caseData.created_at, caseData.created_by, caseData.updated_at, caseData.updated_by
+          ];
+
+          db.query(insertQuery, insertValues, (err, insertResult) => {
               if (err) {
-                  console.error("Error removing case from cases table:", err);
-                  return res.status(500).json({ message: "Error completing case termination.", error: err.message });
+                  console.error("Error moving case to terminated_cases:", err);
+                  return res.status(500).json({ message: "Error terminating case.", error: err.message });
               }
 
-              // Log the movement
-              const logQuery = `INSERT INTO case_movements (docket_no, movement_type, moved_from_table, 
-                              moved_to_table, reason) VALUES (?, 'TERMINATED', 'cases', 'terminated_cases', 'Case terminated by user')`;
-              db.query(logQuery, [docket_no], (err) => {
-                  if (err) console.warn("Could not log case movement:", err.message);
+              // Delete from cases table
+              const deleteQuery = "DELETE FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+              db.query(deleteQuery, [docket_no.trim().toLowerCase()], (err, deleteResult) => {
+                  if (err) {
+                      console.error("Error removing case from cases table:", err);
+                      return res.status(500).json({ message: "Error completing case termination.", error: err.message });
+                  }
+
+                  // Log the movement
+                  const logQuery = `INSERT INTO case_movements (docket_no, movement_type, moved_from_table, 
+                                  moved_to_table, reason) VALUES (?, 'TERMINATED', 'cases', 'terminated_cases', 'Case terminated by user')`;
+                  db.query(logQuery, [docket_no], (err) => {
+                      if (err) console.warn("Could not log case movement:", err.message);
+                  });
+
+                  // Sync Excel file after terminating case
+                  exportCasesToExcel()
+                    .then(() => {
+                      console.log("Excel file synced after case termination");
+                    })
+                    .catch(excelErr => {
+                      console.error("Error syncing Excel file:", excelErr);
+                    });
+
+                  console.log("Case terminated successfully.");
+                  return res.json({ message: "Case terminated successfully!" });
               });
-
-              // Sync Excel file after terminating case
-              exportCasesToExcel()
-                .then(() => {
-                  console.log("Excel file synced after case termination");
-                })
-                .catch(excelErr => {
-                  console.error("Error syncing Excel file:", excelErr);
-                });
-
-              console.log("Case terminated successfully.");
-              return res.json({ message: "Case terminated successfully!" });
           });
       });
   });
@@ -1372,15 +1505,15 @@ app.patch("/restore-case", (req, res) => {
           DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
           OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, status, RESOLVING_PROSECUTOR,
           CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY,
-          INDEX_CARDS, created_at, created_by, updated_at, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NULL)`;
+          DECISION_DATE, INDEX_CARDS, created_at, created_by, updated_at, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NULL)`;
 
         const insertValues = [
           caseData.DOCKET_NO, caseData.DATE_FILED, caseData.COMPLAINANT, caseData.RESPONDENT,
           caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, caseData.DATE_OF_COMMISSION,
           caseData.DATE_RESOLVED, caseData.status, caseData.RESOLVING_PROSECUTOR,
           caseData.CRIM_CASE_NO, caseData.BRANCH, caseData.DATEFILED_IN_COURT,
-          caseData.REMARKS_DECISION, caseData.PENALTY, caseData.INDEX_CARDS,
+          caseData.REMARKS_DECISION, caseData.PENALTY, caseData.DECISION_DATE, caseData.INDEX_CARDS,
           caseData.created_at, caseData.created_by
         ];
 
@@ -2347,6 +2480,11 @@ app.post("/api/formats/upload-logo", logoUpload.single('logo'), (req, res) => {
 // Serve static files from public directory for logos
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 
+// Test endpoint to verify security middleware is active
+app.get('/api/security-test', authMiddleware, adminOnly, (req, res) => {
+  res.json({ success: true, message: 'Security middleware is active!' });
+});
+
 // =====================================================
 // END FORMAT MANAGEMENT API ENDPOINTS
 // =====================================================
@@ -2448,6 +2586,7 @@ app.post("/bulk-update-cases", express.json(), (req, res) => {
     'Remarks': 'REMARKS',
     'Remarks Decision': 'REMARKS_DECISION',
     'Penalty': 'PENALTY',
+    'Decision Date': 'DECISION_DATE',
     'Index Cards': 'INDEX_CARDS'
   };
   
@@ -2581,6 +2720,7 @@ app.get("/cases-csv", (req, res) => {
     REMARKS AS 'Remarks',
     REMARKS_DECISION AS 'Remarks Decision',
     PENALTY AS 'Penalty',
+    DECISION_DATE AS 'Decision Date',
     INDEX_CARDS AS 'Index Cards'
   FROM cases ORDER BY id ASC`;
   
@@ -2737,6 +2877,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           DATEFILED_IN_COURT: getColumnValue(row, ['Date Filed in Court', 'DATEFILED_IN_COURT', 'Court Filing Date']),
           REMARKS_DECISION: getColumnValue(row, ['Remarks Decision', 'REMARKS_DECISION', 'Decision', 'Remarks']) || '',
           PENALTY: getColumnValue(row, ['Penalty', 'PENALTY']) || '',
+          DECISION_DATE: getColumnValue(row, ['Decision Date', 'DECISION_DATE', 'DecisionDate']),
           INDEX_CARDS: getColumnValue(row, ['Index Cards', 'INDEX_CARDS', 'IndexCards']) || 'N/A'
         };
 
@@ -2763,7 +2904,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             ADDRESS_OF_RESPONDENT = ?, OFFENSE = ?, DATE_OF_COMMISSION = ?,
             DATE_RESOLVED = ?, RESOLVING_PROSECUTOR = ?, 
             CRIM_CASE_NO = ?, BRANCH = ?, DATEFILED_IN_COURT = ?, 
-            REMARKS_DECISION = ?, PENALTY = ?, INDEX_CARDS = ?
+            REMARKS_DECISION = ?, PENALTY = ?, DECISION_DATE = ?, INDEX_CARDS = ?
             WHERE DOCKET_NO = ?`;
           
           await new Promise((resolve, reject) => {
@@ -2773,7 +2914,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
               caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
               caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
               caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
-              caseData.PENALTY, caseData.INDEX_CARDS, caseData.DOCKET_NO
+              caseData.PENALTY, caseData.DECISION_DATE, caseData.INDEX_CARDS, caseData.DOCKET_NO
             ], (updateErr) => {
               if (updateErr) reject(updateErr);
               else {
@@ -2787,8 +2928,8 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           const insertQuery = `INSERT INTO cases 
             (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
             OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, 
-            CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, INDEX_CARDS) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, DECISION_DATE, INDEX_CARDS) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
           
           await new Promise((resolve, reject) => {
             db.query(insertQuery, [
@@ -2797,7 +2938,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
               caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
               caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
               caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
-              caseData.PENALTY, caseData.INDEX_CARDS
+              caseData.PENALTY, caseData.DECISION_DATE, caseData.INDEX_CARDS
             ], (insertErr) => {
               if (insertErr) reject(insertErr);
               else {
@@ -3368,6 +3509,62 @@ app.delete("/api/clearances/:id", (req, res) => {
         success: true,
         message: "Clearance deleted successfully"
       });
+    }
+  );
+});
+
+// Permanently delete all archived clearances (hard delete all)
+// NOTE: This route MUST be before /api/clearances/:id/permanent so Express doesn't match 'archived' as :id
+app.delete("/api/clearances/archived/all", (req, res) => {
+  const { deleted_by_user_id, deleted_by_name } = req.body;
+  
+  console.log('🔴 DELETE ALL ARCHIVED CLEARANCES REQUEST:', { deleted_by_user_id, deleted_by_name });
+  
+  // Get all archived clearances before deletion for logging
+  db.query(
+    `SELECT id FROM clearances WHERE deleted_at IS NOT NULL`,
+    (selectErr, clearances) => {
+      if (selectErr) {
+        console.error("Error fetching archived clearances for deletion:", selectErr);
+        return res.status(500).json({ error: "Failed to fetch archived clearances" });
+      }
+
+      if (!clearances || clearances.length === 0) {
+        return res.status(400).json({ error: "No archived clearances to delete" });
+      }
+
+      const clearanceIds = clearances.map(c => c.id);
+
+      // Log the bulk deletion in audit log for each clearance
+      clearanceIds.forEach(id => {
+        db.query(
+          `INSERT INTO clearance_audit_log (clearance_id, action, action_by_user_id, action_by_name)
+           VALUES (?, 'PERMANENT_DELETE_BULK', ?, ?)`,
+          [id, deleted_by_user_id || 0, deleted_by_name || 'Unknown'],
+          (auditErr) => {
+            if (auditErr) console.error("Error logging audit for bulk delete:", auditErr);
+          }
+        );
+      });
+
+      // Permanently delete all archived clearances
+      db.query(
+        `DELETE FROM clearances WHERE deleted_at IS NOT NULL`,
+        (err, result) => {
+          if (err) {
+            console.error("Error permanently deleting all archived clearances:", err);
+            return res.status(500).json({ error: "Failed to permanently delete archived clearances" });
+          }
+
+          console.log('✅ Deleted all archived clearances:', { affectedRows: result.affectedRows });
+
+          res.json({
+            success: true,
+            message: `${result.affectedRows} archived clearances permanently deleted successfully`,
+            deletedCount: result.affectedRows
+          });
+        }
+      );
     }
   );
 });

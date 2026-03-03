@@ -141,11 +141,13 @@ const ArchivedClearances: React.FC = () => {
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [selectedClearance, setSelectedClearance] = useState<ArchivedClearance | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [actionType, setActionType] = useState<'delete' | 'restore' | ''>('');
+  const [actionType, setActionType] = useState<'delete' | 'restore' | 'deleteAll' | ''>('');
 
 
   const fetchArchivedClearances = useCallback(async () => {
@@ -242,6 +244,38 @@ const ArchivedClearances: React.FC = () => {
       console.error('Error restoring clearance:', error);
     } finally {
       setIsRestoring(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setIsDeletingAll(true);
+    try {
+      await axios.delete(`${config.api.baseURL}/api/clearances/archived/all`, {
+        data: {
+          deleted_by_user_id: user?.id,
+          deleted_by_name: user?.name,
+        }
+      });
+      setShowDeleteAllModal(false);
+      setActionType('deleteAll');
+      setSuccessMessage('All archived clearances deleted successfully!');
+      
+      // Auto-dismiss success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+      
+      fetchArchivedClearances();
+    } catch (error) {
+      console.error('Error deleting all archived clearances:', error);
+      setActionType('deleteAll');
+      setSuccessMessage('Error deleting all clearances. Please try again.');
+      setTimeout(() => {
+        setSuccessMessage('');
+        setActionType('');
+      }, 3000);
+    } finally {
+      setIsDeletingAll(false);
     }
   };
 
@@ -366,6 +400,21 @@ const ArchivedClearances: React.FC = () => {
             >
               <i className="fas fa-times mr-2"></i>
               Clear Filters
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowDeleteAllModal(true)}
+              disabled={archivedClearances.length === 0}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm text-white transition-colors ${
+                archivedClearances.length === 0
+                  ? 'bg-red-400 cursor-not-allowed opacity-50'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              <i className="fas fa-trash-alt mr-2"></i>
+              Delete All
             </motion.button>
           </div>
         </motion.div>
@@ -733,6 +782,95 @@ const ArchivedClearances: React.FC = () => {
           )}
         </AnimatePresence>
 
+        {/* Delete All Modal */}
+        <AnimatePresence>
+          {showDeleteAllModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              onClick={() => setShowDeleteAllModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className={`max-w-md w-full rounded-xl p-6 ${
+                  isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+                } shadow-2xl`}
+              >
+                <div className="text-center">
+                  <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4 ${
+                    isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-100 text-red-600'
+                  }`}>
+                    <i className="fas fa-triangle-exclamation text-lg"></i>
+                  </div>
+                  
+                  <h3 className={`text-lg font-semibold mb-2 ${
+                    isDark ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Delete All Archived Clearances
+                  </h3>
+                  
+                  <p className={`text-sm mb-6 ${
+                    isDark ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    Are you sure you want to permanently delete ALL ({archivedClearances.length}) archived clearances? This action cannot be undone and all records will be permanently removed from the database.
+                  </p>
+
+                  <div className={`mb-4 p-3 rounded-lg ${
+                    isDark ? 'bg-red-900/20 border border-red-700/30' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <p className={`text-sm font-semibold ${
+                      isDark ? 'text-red-300' : 'text-red-800'
+                    }`}>
+                      <i className="fas fa-exclamation-circle mr-2"></i>
+                      This is permanent and irreversible!
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 justify-center">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowDeleteAllModal(false)}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        isDark 
+                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Cancel
+                    </motion.button>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleDeleteAll}
+                      disabled={isDeletingAll}
+                      className="px-4 py-2 rounded-lg font-medium text-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isDeletingAll ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                          Deleting All...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-trash-alt mr-2"></i>
+                          Delete All ({archivedClearances.length})
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Success Toast Notification */}
         <AnimatePresence>
           {successMessage && (
@@ -752,7 +890,7 @@ const ArchivedClearances: React.FC = () => {
                     ? isDark ? 'bg-emerald-500/30 text-emerald-400' : 'bg-emerald-200 text-emerald-600'
                     : isDark ? 'bg-red-500/30 text-red-400' : 'bg-red-200 text-red-600'
                 }`}>
-                  <i className={`fas ${actionType === 'restore' ? 'fa-check-circle' : 'fa-trash-alt'} text-xl`}></i>
+                  <i className={`fas ${actionType === 'restore' ? 'fa-check-circle' : actionType === 'deleteAll' ? 'fa-trash-alt' : 'fa-trash'} text-xl`}></i>
                 </div>
                 <div className="flex-1">
                   <p className={`font-bold text-base mb-1 ${
@@ -760,7 +898,7 @@ const ArchivedClearances: React.FC = () => {
                       ? isDark ? 'text-emerald-300' : 'text-emerald-800'
                       : isDark ? 'text-red-300' : 'text-red-800'
                   }`}>
-                    {actionType === 'restore' ? 'Restored Successfully!' : 'Deleted Successfully!'}
+                    {actionType === 'restore' ? 'Restored Successfully!' : actionType === 'deleteAll' ? 'All Clearances Deleted!' : 'Deleted Successfully!'}
                   </p>
                   <p className={`text-sm ${
                     actionType === 'restore'

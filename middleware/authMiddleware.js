@@ -5,6 +5,7 @@
 
 const jwt = require('jsonwebtoken');
 const { ApiResponse } = require('../utils/apiResponse');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key_12345678901234567890123456789012';
 
 /**
  * Authenticate request using JWT token
@@ -23,7 +24,7 @@ const authMiddleware = (req, res, next) => {
     const token = authHeader.substring(7);
     
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
       req.user = decoded;
       next();
     } catch (err) {
@@ -73,7 +74,7 @@ const optionalAuth = (req, res, next) => {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
       } catch (err) {
         // Token invalid, but it's optional so we continue

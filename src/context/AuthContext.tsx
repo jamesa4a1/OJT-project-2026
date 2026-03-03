@@ -139,6 +139,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userInfo = data.data || data.user;
 
       if (data.success && userInfo) {
+        const token = userInfo.token;
         const userData: User = {
           ...userInfo,
           profilePicture: userInfo.profile_picture
@@ -148,6 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(userData);
         localStorage.setItem('ocpUser', JSON.stringify(userData));
+        if (token) {
+          localStorage.setItem('ocpToken', token);
+        }
         return { success: true, role: userData.role };
       } else {
         return { success: false, message: data.message || 'Invalid email or password.' };
@@ -208,6 +212,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     setUser(null);
     localStorage.removeItem('ocpUser');
+    localStorage.removeItem('ocpToken');
   };
 
   const register = async (userData: UserData): Promise<RegisterResult> => {

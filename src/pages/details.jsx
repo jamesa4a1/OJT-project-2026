@@ -69,6 +69,7 @@ const Details = () => {
       color: 'purple',
     },
     { label: 'Decision', key: 'REMARKS_DECISION', icon: 'fa-clipboard-check', color: 'green' },
+    { label: 'Decision Date', key: 'DECISION_DATE', icon: 'fa-calendar-check', color: 'green' },
     { label: 'Remarks', key: 'REMARKS', icon: 'fa-comment', color: 'orange' },
     { label: 'Penalty', key: 'PENALTY', icon: 'fa-balance-scale', color: 'rose' },
   ];
@@ -381,6 +382,18 @@ const Details = () => {
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
                       {caseDetails.REMARKS_DECISION || 'Pending'}
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}
+                    >
+                      <i className="fas fa-calendar-check mr-1"></i> Decision Date
+                    </label>
+                    <div
+                      className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
+                    >
+                      {caseDetails.DECISION_DATE ? new Date(caseDetails.DECISION_DATE).toLocaleDateString('en-CA') : 'N/A'}
                     </div>
                   </div>
                   <div>

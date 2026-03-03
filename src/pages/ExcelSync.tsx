@@ -38,7 +38,6 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
 
   // Expected column names constant
   const expectedColumns: string[] = [
-    'ID',
     'Docket No',
     'Date Filed',
     'Complainant',
@@ -53,6 +52,7 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
     'Date Filed in Court',
     'Remarks Decision',
     'Penalty',
+    'Decision Date',
     'Index Cards',
   ];
 

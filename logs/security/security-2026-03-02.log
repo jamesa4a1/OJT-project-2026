@@ -1,0 +1,7 @@
+{"timestamp":"2026-03-02T06:02:35.760Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-02T06:06:43.181Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-02T06:12:25.287Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-02T06:17:11.554Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-02T08:04:31.876Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-02T08:30:53.129Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-02T08:36:50.691Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}

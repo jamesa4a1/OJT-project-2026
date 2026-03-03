@@ -535,6 +535,7 @@ const Editcase = () => {
                       <option value="Pending">Pending</option>
                       <option value="Dismissed">Dismissed</option>
                       <option value="Convicted">Convicted</option>
+                      <option value="Other">Other (Custom)</option>
                     </select>
                   </div>
 
@@ -552,6 +553,22 @@ const Editcase = () => {
                       onChange={(e) => handleFieldChange('PENALTY', e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                       placeholder="Enter penalty"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <i className="fas fa-calendar-check text-amber-500 mr-2"></i>Decision Date
+                    </label>
+                    <input
+                      type="date"
+                      value={
+                        editedCase.DECISION_DATE !== undefined
+                          ? editedCase.DECISION_DATE
+                          : caseData[0].DECISION_DATE ? new Date(caseData[0].DECISION_DATE).toISOString().split('T')[0] : ''
+                      }
+                      onChange={(e) => handleFieldChange('DECISION_DATE', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
                   </div>
                 </div>
