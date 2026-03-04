@@ -6,6 +6,8 @@ import { ThemeContext } from '../../App';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 // Circular Progress Ring Component
 const ProgressRing = ({ progress, size = 48, strokeWidth = 4, color = 'blue', isDark }) => {
   const radius = (size - strokeWidth) / 2;
@@ -105,7 +107,7 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/cases');
+      const response = await fetch(`${API_BASE}/cases`);
       if (response.ok) {
         const cases = await response.json();
 
@@ -164,7 +166,7 @@ const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const response = await fetch(`${API_BASE}/api/users`);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -188,7 +190,7 @@ const AdminDashboard = () => {
     setCreateStatus({ type: '', message: '' });
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser),
@@ -221,7 +223,7 @@ const AdminDashboard = () => {
     if (!selectedUser) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/user/${selectedUser.id}`, {
+      const response = await fetch(`${API_BASE}/api/user/${selectedUser.id}`, {
         method: 'DELETE',
       });
 
@@ -240,7 +242,7 @@ const AdminDashboard = () => {
   const handleExportCSV = async () => {
     try {
       console.log('📥 Starting Excel export...');
-      const response = await fetch('http://localhost:5000/cases');
+      const response = await fetch(`${API_BASE}/cases`);
       
       if (!response.ok) {
         console.error('❌ Failed to fetch cases:', response.status);

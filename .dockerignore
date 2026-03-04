@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Nested clone (duplicate)
+OJT-project-2026/
+
+# Build output
+build/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Test files
+tests/
+*.test.js
+*.test.ts
+test-*.js
+SECURITY_TEST.js
+detailed-security-test.js
+
+# Documentation
+*.md
+deploymentguide/
+image/
+zzzNotes/
+
+# Environment files (docker-compose loads .env separately)
+.env.example
+.env.development
+.env.production
+.env.test
+
+# Misc
+run_migration.bat
+test_excel_endpoints.ps1

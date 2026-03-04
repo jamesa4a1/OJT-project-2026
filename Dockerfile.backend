@@ -5,11 +5,20 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install production dependencies only
+RUN npm install --omit=dev --legacy-peer-deps
 
-# Copy source code
-COPY . .
+# Copy backend source code (only what's needed)
+COPY server.js ./
+COPY index.js ./
+COPY handlers/ ./handlers/
+COPY middleware/ ./middleware/
+COPY schemas/ ./schemas/
+COPY utils/ ./utils/
+COPY seed.js ./
+
+# Create required directories
+RUN mkdir -p uploads/profiles uploads/index_cards logs/security
 
 # Expose port 5000
 EXPOSE 5000

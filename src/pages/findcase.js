@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const Findcase = () => {
   const [searchQuery, setSearchQuery] = useState({
     DOCKET_NO: '',
@@ -34,7 +36,7 @@ const Findcase = () => {
     const originalFileName = urlParts[urlParts.length - 1];
 
     // Create download URL using server endpoint
-    const downloadUrl = `http://localhost:5000/download/index-card/${originalFileName}`;
+    const downloadUrl = `${API_BASE}/download/index-card/${originalFileName}`;
 
     // Create a temporary link and click it
     const link = document.createElement('a');
@@ -61,7 +63,7 @@ const Findcase = () => {
   const fetchAllCases = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/cases');
+      const response = await axios.get(`${API_BASE}/cases`);
       if (Array.isArray(response.data)) {
         setAllCases(response.data);
         setCaseData(response.data); // Display all cases initially
@@ -107,7 +109,7 @@ const Findcase = () => {
     }
 
     try {
-      const response = await axios.get('http://localhost:5000/get-case', {
+      const response = await axios.get(`${API_BASE}/get-case`, {
         params: {
           docket_no: searchQuery.DOCKET_NO,
           respondent: searchQuery.RESPONDENT,
@@ -445,7 +447,7 @@ const Findcase = () => {
                           imageUrl = value;
                         } else {
                           // Local file path
-                          imageUrl = `http://localhost:5000${value}`;
+                          imageUrl = `${API_BASE}${value}`;
                         }
 
                         console.log('Image source:', isGoogleDrive ? 'Google Drive' : 'Local');

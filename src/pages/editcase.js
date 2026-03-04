@@ -7,6 +7,8 @@ import { useValidation } from '../hooks/useValidation';
 import { CaseUpdateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const Editcase = () => {
   const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: '', RESPONDENT: '' });
   const [caseData, setCaseData] = useState(null);
@@ -31,14 +33,14 @@ const Editcase = () => {
       return indexCardPath;
     }
     // Otherwise, it's a local path - prepend server URL
-    return `http://localhost:5000${indexCardPath}`;
+    return `${API_BASE}${indexCardPath}`;
   };
 
   // Fetch all cases on component mount
   useEffect(() => {
     const fetchAllCases = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/cases');
+        const response = await axios.get(`${API_BASE}/cases`);
         setAllCases(response.data);
       } catch (err) {
         console.error('Error fetching cases:', err);
@@ -59,7 +61,7 @@ const Editcase = () => {
     }
     setIsLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/get-case', {
+      const response = await axios.get(`${API_BASE}/get-case`, {
         params: { docket_no: searchQuery.DOCKET_NO, respondent: searchQuery.RESPONDENT },
       });
       setCaseData(response.data);
@@ -161,7 +163,7 @@ const Editcase = () => {
       console.log('Changed fields:', validatedData.updated_fields);
       console.log('Has image:', !!indexCardImage);
 
-      const response = await axios.post('http://localhost:5000/update-case-with-image', formData, {
+      const response = await axios.post(`${API_BASE}/update-case-with-image`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

@@ -228,7 +228,7 @@ git push origin main
 
 To pull (get latest changes):
 
-git pull
+git pull https://github.com/jamesa4a1/OJT-project-2026
 
 ## if error ((push declined due to email privacy restrictions))
 
@@ -305,3 +305,49 @@ npm run build        # Build for production
 ## run XAMP manually
 
 C:\xampp\xampp_start.exe
+
+
+# if you want to start the server
+
+docker compose up -d
+
+#to stop later
+docker-compose down
+
+latest
+
+
+Main PC: http://localhost:3000
+for the database connection: http://localhost:5000
+Other laptops: http://192.168.1.10:3000 ← Share this new URL
+
+Pro tip: IP addresses can change when you restart your router or reconnect to WiFi. If this happens again, just run ipconfig and update the .env file with the new IP.
+
+
+STEPS TO EDIT CODE AND DEPLOY CHANGES:
+
+# Step 1: Edit and test your code FIRST
+
+docker compose up -d
+
+# Step 2: if its done Stop the app
+
+docker compose down
+
+# Step 3: Rebuild frontend
+
+docker compose build frontend --no-cache
+
+# Step 4: Restart app
+
+docker compose up -d
+
+# Step 5:
+
+Test at http://localhost:3000
+
+# Step 6: If it works, push to GitHub
+
+git add .
+git commit -m "Updated frontend"
+git push origin main

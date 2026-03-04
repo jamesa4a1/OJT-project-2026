@@ -2,8 +2,9 @@
  * Centralized API Service
  * Handles all backend communication with automatic token injection and refresh
  */
+import { API_URL } from '../config/api';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = API_URL;
 
 class ApiService {
   constructor() {

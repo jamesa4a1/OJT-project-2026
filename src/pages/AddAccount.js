@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ThemeContext } from '../App';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const AddAccount = () => {
   const navigate = useNavigate();
   const { isDark } = useContext(ThemeContext) || { isDark: false };
@@ -46,7 +48,7 @@ const AddAccount = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch(`${API_BASE}/api/users`, {
         headers: getAuthHeaders(),
       });
 
@@ -72,7 +74,7 @@ const AddAccount = () => {
   const handleToggleStatus = async (user) => {
     setTogglingUser(user.id);
     try {
-      const response = await fetch(`http://localhost:5000/api/user/${user.id}/toggle-status`, {
+      const response = await fetch(`${API_BASE}/api/user/${user.id}/toggle-status`, {
         method: 'PUT',
         headers: getAuthHeaders(),
       });
@@ -144,7 +146,7 @@ const AddAccount = () => {
     if (!editUser) return;
     setIsEditing(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/user/${editUser.id}/role`, {
+      const response = await fetch(`${API_BASE}/api/user/${editUser.id}/role`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ role: editRole }),
@@ -178,7 +180,7 @@ const AddAccount = () => {
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/user/${selectedUser.id}`, {
+      const response = await fetch(`${API_BASE}/api/user/${selectedUser.id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -300,7 +302,7 @@ const AddAccount = () => {
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

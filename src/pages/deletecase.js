@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../App';
 import ImageModal from '../components/ImageModal';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const Deletecase = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const { user } = useAuth();
@@ -40,15 +42,15 @@ const Deletecase = () => {
     }
     // If it's already a proper uploads path
     if (imagePath.startsWith('/uploads/')) {
-      return `http://localhost:5000${imagePath}`;
+      return `${API_BASE}${imagePath}`;
     }
     // If it starts with uploads (without leading slash)
     if (imagePath.startsWith('uploads/')) {
-      return `http://localhost:5000/${imagePath}`;
+      return `${API_BASE}/${imagePath}`;
     }
     // Old format paths like "INDEX CARDS\filename.pdf" - these files don't exist
     // Try to construct a URL anyway, but it will likely fail
-    return `http://localhost:5000/${imagePath.replace(/\\/g, '/')}`;
+    return `${API_BASE}/${imagePath.replace(/\\/g, '/')}`;
   };
 
   // Check if the path looks like a valid image path (new format)
@@ -122,7 +124,7 @@ const Deletecase = () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await axios.get('http://localhost:5000/cases');
+      const response = await axios.get(`${API_BASE}/cases`);
       setCases(response.data);
       setFilteredCases(response.data);
     } catch (err) {
@@ -136,7 +138,7 @@ const Deletecase = () => {
         }
       } else if (err.request) {
         // Request was made but no response
-        setError('❌ Cannot connect to server. Please ensure the server is running on http://localhost:5000');
+        setError(`❌ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
       } else {
         // Something else happened
         setError('Error fetching cases: ' + err.message);
@@ -222,7 +224,7 @@ const Deletecase = () => {
           }
         });
 
-        response = await axios.post('http://localhost:5000/update-case-with-image', formData, {
+        response = await axios.post(`${API_BASE}/update-case-with-image`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
@@ -248,7 +250,7 @@ const Deletecase = () => {
           },
         };
         console.log('📤 Sending update data:', updateData);
-        response = await axios.post('http://localhost:5000/update-case', updateData);
+        response = await axios.post(`${API_BASE}/update-case`, updateData);
       }
 
       if (response.status === 200) {
@@ -292,7 +294,7 @@ const Deletecase = () => {
           setError('❌ ' + (err.response.data?.message || 'Error updating case. Please try again.'));
         }
       } else if (err.request) {
-        setError('❌ Cannot connect to server. Please ensure the server is running on http://localhost:5000');
+        setError(`❌ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
       } else {
         setError('❌ Error updating case: ' + err.message);
       }
@@ -306,7 +308,7 @@ const Deletecase = () => {
     setIsLoading(true);
     setError('');
     try {
-      await axios.delete('http://localhost:5000/delete-case', {
+      await axios.delete(`${API_BASE}/delete-case`, {
         data: { docket_no: selectedCase.DOCKET_NO },
       });
       

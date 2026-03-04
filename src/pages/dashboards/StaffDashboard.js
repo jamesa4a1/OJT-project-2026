@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const StaffDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -33,7 +35,7 @@ const StaffDashboard = () => {
   const fetchAllCases = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/cases');
+      const response = await fetch(`${API_BASE}/cases`);
       if (response.ok) {
         const cases = await response.json();
         setAllCases(cases);

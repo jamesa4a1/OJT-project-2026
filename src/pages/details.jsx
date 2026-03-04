@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../App';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const Details = () => {
   const { docketNo } = useParams();
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ const Details = () => {
       return indexCardPath;
     }
     // Otherwise, it's a local path - prepend server URL
-    return `http://localhost:5000${indexCardPath}`;
+    return `${API_BASE}${indexCardPath}`;
   };
 
   // Check if user is staff (read-only mode)
@@ -33,7 +35,7 @@ const Details = () => {
   useEffect(() => {
     const fetchCaseDetails = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/get-case?docket_no=${docketNo}`);
+        const response = await axios.get(`${API_BASE}/get-case?docket_no=${docketNo}`);
         if (response.data.length > 0) {
           setCaseDetails(response.data[0]);
         } else {

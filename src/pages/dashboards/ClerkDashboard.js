@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import * as XLSX from 'xlsx';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 // Progress Ring Component
 const ProgressRing = ({ progress, size = 80, strokeWidth = 8, color = 'blue', isDark }) => {
   const radius = (size - strokeWidth) / 2;
@@ -82,7 +84,7 @@ const ClerkDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/cases');
+      const response = await fetch(`${API_BASE}/cases`);
       if (response.ok) {
         const cases = await response.json();
 
@@ -138,7 +140,7 @@ const ClerkDashboard = () => {
   const handleExportCSV = async () => {
     try {
       console.log('📥 Starting Excel export...');
-      const response = await fetch('http://localhost:5000/cases');
+      const response = await fetch(`${API_BASE}/cases`);
       if (response.ok) {
         const cases = await response.json();
         console.log(`✅ Fetched ${cases.length} cases for export`);

@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeContext } from '../App';
 
+const API_BASE = `http://${window.location.hostname}:5000`;
+
 const Caselist = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const [cases, setCases] = useState([]);
@@ -32,7 +34,7 @@ const Caselist = () => {
     setIsDeleting(docketNo);
     console.log('Attempting to permanently delete case:', docketNo);
     try {
-      const response = await axios.delete('http://localhost:5000/permanent-delete-case', {
+      const response = await axios.delete(`${API_BASE}/permanent-delete-case`, {
         data: { docket_no: docketNo },
       });
 
@@ -82,7 +84,7 @@ const Caselist = () => {
     console.log('Attempting to restore case:', docketNo);
     try {
       console.log('Sending PATCH request to /restore-case with:', { docket_no: docketNo });
-      const response = await axios.patch('http://localhost:5000/restore-case', {
+      const response = await axios.patch(`${API_BASE}/restore-case`, {
         docket_no: docketNo,
       });
 
@@ -128,7 +130,7 @@ const Caselist = () => {
   const handleDownloadExcel = async () => {
     setIsDownloading(true);
     try {
-      const response = await axios.get('http://localhost:5000/download-excel', {
+      const response = await axios.get(`${API_BASE}/download-excel`, {
         responseType: 'blob',
       });
 
@@ -155,7 +157,7 @@ const Caselist = () => {
       console.log('Auto-delete configuration:', autoDeleteConfig);
 
       // Call API to set up automatic deletion schedule
-      const response = await axios.post('http://localhost:5000/configure-auto-delete', {
+      const response = await axios.post(`${API_BASE}/configure-auto-delete`, {
         scheduleType: autoDeleteConfig.scheduleType,
         dayOfWeek: autoDeleteConfig.dayOfWeek,
         dayOfMonth: autoDeleteConfig.dayOfMonth,
@@ -187,7 +189,7 @@ const Caselist = () => {
   useEffect(() => {
     setIsLoading(true);
     axios
-      .get('http://localhost:5000/deleted-cases')
+      .get(`${API_BASE}/deleted-cases`)
       .then((response) => {
         setCases(response.data);
         setIsLoading(false);
@@ -609,7 +611,7 @@ const Caselist = () => {
                         </div>
                         <div className="relative">
                           <img
-                            src={`http://localhost:5000${selectedCase.INDEX_CARDS}`}
+                            src={`${API_BASE}${selectedCase.INDEX_CARDS}`}
                             alt="Index Card"
                             onClick={() => setShowFullImage(true)}
                             className="w-full max-h-80 object-contain rounded-xl border-2 border-slate-200 shadow-md cursor-pointer hover:opacity-90 transition-opacity"
@@ -622,7 +624,7 @@ const Caselist = () => {
                           </div>
                         </div>
                         <a
-                          href={`http://localhost:5000${selectedCase.INDEX_CARDS}`}
+                          href={`${API_BASE}${selectedCase.INDEX_CARDS}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block text-center px-4 py-2 rounded-lg bg-blue-500 text-white font-medium
@@ -660,7 +662,7 @@ const Caselist = () => {
             <motion.img
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
-              src={`http://localhost:5000${selectedCase.INDEX_CARDS}`}
+              src={`${API_BASE}${selectedCase.INDEX_CARDS}`}
               alt="Full Size Index Card"
               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               onClick={(e) => e.stopPropagation()}

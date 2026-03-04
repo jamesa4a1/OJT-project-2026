@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_BASE = `http://${window.location.hostname}:5000`;
+const API_URL = `${API_BASE}/api`;
 
 // TypeScript Interfaces
 export interface User {
@@ -143,7 +144,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userData: User = {
           ...userInfo,
           profilePicture: userInfo.profile_picture
-            ? `http://localhost:5000${userInfo.profile_picture}`
+            ? `${API_BASE}${userInfo.profile_picture}`
             : null,
           registeredAt: userInfo.created_at,
         };
@@ -334,7 +335,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: profileData.user.name,
         email: profileData.user.email,
         profilePicture: profileData.user.profile_picture
-          ? `http://localhost:5000${profileData.user.profile_picture}`
+          ? `${API_BASE}${profileData.user.profile_picture}`
           : user.profilePicture,
       };
 
@@ -421,7 +422,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (data.success) {
         const updatedUser: User = {
           ...user,
-          profilePicture: `http://localhost:5000${data.user.profile_picture}`,
+          profilePicture: `${API_BASE}${data.user.profile_picture}`,
         };
         setUser(updatedUser);
         localStorage.setItem('ocpUser', JSON.stringify(updatedUser));
