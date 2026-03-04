@@ -471,17 +471,10 @@ app.get("/api/users", authMiddleware, adminOnly, (req, res) => {
 
 // Delete user (Admin only)
 app.delete("/api/user/:id", authMiddleware, adminOnly, (req, res) => {
-  // Log the deletion action
-  securityLogger.auditLog('USER_DELETED', {
-    adminId: req.user.id,
-    adminEmail: req.user.email,
-    deletedUserId: req.params.id,
-    timestamp: new Date().toISOString()
-  });
   const { id } = req.params;
   
-  // Check if user exists and get their role
-  db.query("SELECT role FROM users WHERE id = ?", [id], (err, results) => {
+  // Check if user exists and get their role and email
+  db.query("SELECT role, email FROM users WHERE id = ?", [id], (err, results) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).json({ success: false, message: "Database error" });
@@ -504,6 +497,9 @@ app.delete("/api/user/:id", authMiddleware, adminOnly, (req, res) => {
         }
         
         // Safe to delete this admin
+        // Log the deletion action before deleting
+        securityLogger.accountDeleted(req.user.id, id, results[0].email);
+        
         db.query("DELETE FROM users WHERE id = ?", [id], (deleteErr) => {
           if (deleteErr) {
             console.error("Error deleting user:", deleteErr);
@@ -514,6 +510,9 @@ app.delete("/api/user/:id", authMiddleware, adminOnly, (req, res) => {
       });
     } else {
       // Non-admin user, safe to delete
+      // Log the deletion action before deleting
+      securityLogger.accountDeleted(req.user.id, id, results[0].email);
+      
       db.query("DELETE FROM users WHERE id = ?", [id], (deleteErr) => {
         if (deleteErr) {
           console.error("Error deleting user:", deleteErr);
@@ -603,10 +602,11 @@ app.put("/api/user/:id/role", authMiddleware, adminOnly, (req, res) => {
   }
   
   // Log the role change
-  securityLogger.auditLog('ROLE_CHANGED', {
+  securityLogger.log('ACCOUNT_UPDATED', {
     adminId: req.user.id,
     adminEmail: req.user.email,
     userId: id,
+    action: 'ROLE_CHANGED',
     newRole: role,
     timestamp: new Date().toISOString()
   });
