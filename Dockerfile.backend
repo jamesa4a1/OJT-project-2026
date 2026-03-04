@@ -10,7 +10,6 @@ RUN npm install --omit=dev --legacy-peer-deps
 
 # Copy backend source code (only what's needed)
 COPY server.js ./
-COPY index.js ./
 COPY handlers/ ./handlers/
 COPY middleware/ ./middleware/
 COPY schemas/ ./schemas/
