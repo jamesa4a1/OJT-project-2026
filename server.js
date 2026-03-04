@@ -108,7 +108,18 @@ const exportCasesToExcel = () => {
   });
 };
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3002'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost and any local network IP on ports 3000-3002
+    const allowedPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):(3000|3001|3002)$/;
+    if (allowedPattern.test(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -731,7 +742,7 @@ app.post("/api/auth/logout", (req, res) => {
     }
     
     // Log logout event
-    securityLogger.userLoggedOut(userId, req.ip);
+    securityLogger.logout(userId);
     
     console.log(`✅ User ${userId} logged out successfully. Rows affected:`, result.affectedRows);
     res.json({ success: true, message: "Logged out successfully" });
@@ -1705,15 +1716,17 @@ app.post("/configure-auto-delete", (req, res) => {
 });
 
 // Serve static files from the React app build directory
-if (process.env.NODE_ENV === 'production') {
+// Only serve static files if not in Docker (where frontend has its own container)
+if (process.env.NODE_ENV === 'production' && !process.env.DOCKER_ENV) {
   app.use(express.static(path.join(__dirname, 'build')));
   
   // Catch all handler: send back React's index.html file for all non-API routes
-  app.get('*', (req, res) => {
+  // Express 5 uses '{*path}' instead of '*' for wildcard routes
+  app.get('/{*path}', (req, res) => {
     res.sendFile(path.join(__dirname, 'build/index.html'));
   });
 } else {
-  // Root route for development
+  // Root route for development or Docker environment
   app.get("/", (req, res) => {
     res.json({ message: "Backend server is running successfully!" });
   });
@@ -2824,6 +2837,41 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Excel file is empty' });
     }
 
+    // Helper function to convert Excel serial date to MySQL date format
+    const excelDateToMySQLDate = (excelDate) => {
+      if (!excelDate) return null;
+      
+      // If it's already a string date, try to parse and format it
+      if (typeof excelDate === 'string') {
+        // Check if it's already in YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
+          return excelDate;
+        }
+        // Try parsing other date formats
+        const parsed = new Date(excelDate);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString().split('T')[0];
+        }
+        return null;
+      }
+      
+      // If it's a number, treat it as Excel serial date
+      if (typeof excelDate === 'number') {
+        // Excel serial date: days since 1899-12-30 (Excel's epoch)
+        // Note: Excel incorrectly considers 1900 a leap year, so we adjust
+        const excelEpoch = new Date(1899, 11, 30); // December 30, 1899
+        const date = new Date(excelEpoch.getTime() + excelDate * 86400000);
+        
+        // Format as YYYY-MM-DD for MySQL
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      
+      return null;
+    };
+
     // Helper function to find column value with flexible matching
     const getColumnValue = (row, possibleNames) => {
       for (let name of possibleNames) {
@@ -2832,6 +2880,12 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         }
       }
       return null;
+    };
+
+    // Helper function to get date column value with Excel date conversion
+    const getDateColumnValue = (row, possibleNames) => {
+      const value = getColumnValue(row, possibleNames);
+      return excelDateToMySQLDate(value);
     };
 
     let added = 0;
@@ -2864,26 +2918,32 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         // Map Excel columns to database fields with flexible matching
         const caseData = {
           DOCKET_NO: getColumnValue(row, ['Docket No', 'DOCKET_NO', 'Docket Number', 'DocketNo']) || '',
-          DATE_FILED: getColumnValue(row, ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled']),
+          DATE_FILED: getDateColumnValue(row, ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled']),
           COMPLAINANT: getColumnValue(row, ['Complainant', 'COMPLAINANT', 'Complainants']) || '',
           RESPONDENT: getColumnValue(row, ['Respondent', 'RESPONDENT', 'Respondents']) || '',
           ADDRESS_OF_RESPONDENT: getColumnValue(row, ['Address of Respondent', 'ADDRESS_OF_RESPONDENT', 'Address of Respondents', 'Respondent Address']) || '',
           OFFENSE: getColumnValue(row, ['Offense', 'OFFENSE', 'Offenses']) || '',
-          DATE_OF_COMMISSION: getColumnValue(row, ['Date of Commission', 'DATE_OF_COMMISSION', 'Commission Date']),
-          DATE_RESOLVED: getColumnValue(row, ['Date Resolved', 'DATE_RESOLVED', 'Resolution Date']),
+          DATE_OF_COMMISSION: getDateColumnValue(row, ['Date of Commission', 'DATE_OF_COMMISSION', 'Commission Date']),
+          DATE_RESOLVED: getDateColumnValue(row, ['Date Resolved', 'DATE_RESOLVED', 'Resolution Date']),
           RESOLVING_PROSECUTOR: getColumnValue(row, ['Resolving Prosecutor', 'RESOLVING_PROSECUTOR', 'Prosecutor']) || '',
           CRIM_CASE_NO: getColumnValue(row, ['Criminal Case No', 'CRIM_CASE_NO', 'Case Number', 'Case No']) || '',
           BRANCH: getColumnValue(row, ['Branch', 'BRANCH']) || '',
-          DATEFILED_IN_COURT: getColumnValue(row, ['Date Filed in Court', 'DATEFILED_IN_COURT', 'Court Filing Date']),
+          DATEFILED_IN_COURT: getDateColumnValue(row, ['Date Filed in Court', 'DATEFILED_IN_COURT', 'Court Filing Date']),
           REMARKS_DECISION: getColumnValue(row, ['Remarks Decision', 'REMARKS_DECISION', 'Decision', 'Remarks']) || '',
           PENALTY: getColumnValue(row, ['Penalty', 'PENALTY']) || '',
-          DECISION_DATE: getColumnValue(row, ['Decision Date', 'DECISION_DATE', 'DecisionDate']),
+          DECISION_DATE: getDateColumnValue(row, ['Decision Date', 'DECISION_DATE', 'DecisionDate']),
           INDEX_CARDS: getColumnValue(row, ['Index Cards', 'INDEX_CARDS', 'IndexCards']) || 'N/A'
         };
 
         // Validate required fields
         if (!caseData.DOCKET_NO) {
           errors.push(`Row ${i + 2}: Missing Docket Number`);
+          continue;
+        }
+
+        // Validate DATE_FILED is required - skip if missing
+        if (!caseData.DATE_FILED) {
+          errors.push(`Row ${i + 2}: Missing or invalid Date Filed`);
           continue;
         }
 
