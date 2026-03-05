@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import * as XLSX from 'xlsx';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 
 // Progress Ring Component
 const ProgressRing = ({ progress, size = 80, strokeWidth = 8, color = 'blue', isDark }) => {

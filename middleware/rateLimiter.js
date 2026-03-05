@@ -15,6 +15,7 @@ const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   skip: (req) => {
     // Don't rate limit health checks or internal requests
     return req.path === '/health';
@@ -31,6 +32,7 @@ const loginLimiter = rateLimit({
   message: 'Too many login attempts, please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   skipSuccessfulRequests: false,
   skipFailedRequests: false
 });
@@ -44,7 +46,8 @@ const sensitiveOpLimiter = rateLimit({
   max: 10,
   message: 'Too many sensitive operations, please try again later.',
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false }
 });
 
 module.exports = {

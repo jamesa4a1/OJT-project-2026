@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ThemeContext } from '../App';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 
 const AddAccount = () => {
   const navigate = useNavigate();

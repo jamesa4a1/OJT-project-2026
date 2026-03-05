@@ -7,7 +7,7 @@ import { useValidation } from '../hooks/useValidation';
 import { CaseUpdateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 
 const Editcase = () => {
   const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: '', RESPONDENT: '' });

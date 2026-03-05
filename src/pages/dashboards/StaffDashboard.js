@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 
 const StaffDashboard = () => {
   const navigate = useNavigate();

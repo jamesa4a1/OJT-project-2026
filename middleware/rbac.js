@@ -35,6 +35,9 @@ const PERMISSIONS = {
   'users:deactivate': ['Admin'],
   'users:change_role': ['Admin'],
   
+  // Profile Permissions
+  'profile:update': ['Admin', 'Staff', 'Clerk'],
+  
   // Clearance Permissions
   'clearances:view': ['Admin', 'Staff', 'Clerk'],
   'clearances:create': ['Admin', 'Staff', 'Clerk'],

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 
 const Findcase = () => {
   const [searchQuery, setSearchQuery] = useState({

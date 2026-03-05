@@ -6,7 +6,7 @@ import { ThemeContext } from '../../App';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 
 // Circular Progress Ring Component
 const ProgressRing = ({ progress, size = 48, strokeWidth = 4, color = 'blue', isDark }) => {
@@ -71,6 +71,15 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { user, logout, register } = useAuth();
   const { isDark } = useContext(ThemeContext) || { isDark: false };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('ocpToken');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
+  };
   const [stats, setStats] = useState({
     total: 0,
     resolved: 0,
@@ -166,7 +175,9 @@ const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/users`);
+      const response = await fetch(`${API_BASE}/api/users`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -192,7 +203,7 @@ const AdminDashboard = () => {
     try {
       const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(newUser),
       });
 
@@ -225,6 +236,7 @@ const AdminDashboard = () => {
     try {
       const response = await fetch(`${API_BASE}/api/user/${selectedUser.id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
 
       const data = await response.json();

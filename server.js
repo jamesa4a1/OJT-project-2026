@@ -18,9 +18,15 @@ const { sanitizeInput } = require("./middleware/sanitize");
 const { requirePermission, requireRole, adminOnly, staffOrAdmin } = require("./middleware/rbac");
 const { authMiddleware, authorize } = require("./middleware/authMiddleware");
 const { loginLimiter } = require("./middleware/rateLimiter");
+const { ipWhitelist, getWhitelistInfo, getRealIP } = require("./middleware/ipWhitelist");
 const securityLogger = require("./utils/securityLogger");
 
 const app = express();
+
+// Trust proxy - needed so Express reads X-Forwarded-For from Nginx
+// Set to 1 (one hop) since Nginx is the only proxy in front of Express
+app.set('trust proxy', 1);
+
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_key_12345678901234567890123456789012";
 
 // Store active schedules
@@ -109,11 +115,11 @@ const exportCasesToExcel = () => {
 };
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
+    // Allow requests with no origin (mobile apps, curl, Nginx proxy, etc.)
     if (!origin) return callback(null, true);
     
-    // Allow localhost and any local network IP on ports 3000-3002
-    const allowedPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):(3000|3001|3002)$/;
+    // Allow localhost and any local network IP on ports 80, 3000-3002
+    const allowedPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:(80|3000|3001|3002))?$/;
     if (allowedPattern.test(origin)) {
       return callback(null, true);
     }
@@ -123,6 +129,16 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// IP Whitelisting - Disabled in Docker (use Windows Firewall instead)
+// Docker Desktop on Windows hides real client IPs behind NAT (all appear as 172.18.0.1)
+// IP filtering is handled by Windows Firewall rules at the OS level
+app.use(ipWhitelist({
+  enabled: false,                   // Disabled - Windows Firewall handles IP filtering
+  skipPaths: ['/api/health'],      // Health check endpoint accessible from anywhere
+  allowLocalhost: true,            // Always allow localhost
+  customIPs: []                    // Additional temporary IPs
 }));
 
 // Security middleware - apply before parsing
@@ -2497,6 +2513,136 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 app.get('/api/security-test', authMiddleware, adminOnly, (req, res) => {
   res.json({ success: true, message: 'Security middleware is active!' });
 });
+
+// =====================================================
+// IP WHITELIST MANAGEMENT API ENDPOINTS  
+// =====================================================
+
+// Get current IP whitelist information
+app.get('/api/admin/ip-whitelist', authMiddleware, adminOnly, (req, res) => {
+  try {
+    const whitelistInfo = getWhitelistInfo();
+    const clientIP = getRealIP(req);
+    
+    res.json({
+      success: true,
+      data: {
+        ...whitelistInfo,
+        yourCurrentIP: clientIP
+      }
+    });
+  } catch (error) {
+    console.error('Error getting whitelist info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get whitelist information'
+    });
+  }
+});
+
+// Add IP to whitelist
+app.post('/api/admin/ip-whitelist/add', authMiddleware, adminOnly, (req, res) => {
+  try {
+    const { ip, description } = req.body;
+    
+    if (!ip) {
+      return res.status(400).json({
+        success: false,
+        message: 'IP address is required'
+      });
+    }
+    
+    // Basic IP validation
+    const ipPattern = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+    if (!ipPattern.test(ip)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid IP address format'
+      });
+    }
+    
+    const { addIPToWhitelist } = require('./middleware/ipWhitelist');
+    const added = addIPToWhitelist(ip);
+    
+    if (added) {
+      // Log the action
+      securityLogger.log('IP_WHITELIST_ADD', {
+        adminUser: req.user.username,
+        addedIP: ip,
+        description: description || 'No description',
+        timestamp: new Date().toISOString()
+      });
+      
+      res.json({
+        success: true,
+        message: `IP ${ip} added to whitelist successfully`,
+        data: { ip, description }
+      });
+    } else {
+      res.status(409).json({
+        success: false,
+        message: `IP ${ip} already exists in whitelist`
+      });
+    }
+  } catch (error) {
+    console.error('Error adding IP to whitelist:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add IP to whitelist'
+    });
+  }
+});
+
+// Remove IP from whitelist
+app.delete('/api/admin/ip-whitelist/:ip', authMiddleware, adminOnly, (req, res) => {
+  try {
+    const ip = decodeURIComponent(req.params.ip);
+    
+    const { removeIPFromWhitelist } = require('./middleware/ipWhitelist');
+    const removed = removeIPFromWhitelist(ip);
+    
+    if (removed) {
+      // Log the action
+      securityLogger.log('IP_WHITELIST_REMOVE', {
+        adminUser: req.user.username,
+        removedIP: ip,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.json({
+        success: true,
+        message: `IP ${ip} removed from whitelist successfully`
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: `IP ${ip} not found in whitelist`
+      });
+    }
+  } catch (error) {
+    console.error('Error removing IP from whitelist:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove IP from whitelist'
+    });
+  }
+});
+
+// Get current client IP (helpful for users to know their IP)
+app.get('/api/my-ip', (req, res) => {
+  const clientIP = getRealIP(req);
+  res.json({
+    success: true,
+    data: {
+      ip: clientIP,
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
+// =====================================================
+// END IP WHITELIST MANAGEMENT API ENDPOINTS
+// =====================================================
 
 // =====================================================
 // END FORMAT MANAGEMENT API ENDPOINTS

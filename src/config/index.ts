@@ -21,7 +21,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const config: Config = {
   api: {
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+    baseURL: typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
     timeout: 30000,
   },
   app: {

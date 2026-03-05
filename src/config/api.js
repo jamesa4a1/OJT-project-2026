@@ -10,13 +10,12 @@
  */
 
 const getApiBase = () => {
-  // In browser environment, use the current hostname dynamically
+  // In browser environment, use the current origin (same port via Nginx)
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    return `http://${hostname}:5000`;
+    return window.location.origin;
   }
   // Fallback for server-side rendering or build time
-  return process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  return process.env.REACT_APP_API_URL || 'http://localhost';
 };
 
 const API_BASE = getApiBase();

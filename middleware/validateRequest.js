@@ -20,7 +20,7 @@ const validateRequest = (schema, source = 'body') => {
     } catch (error) {
       // Zod validation error
       if (error.name === 'ZodError') {
-        const errors = error.errors.map(err => ({
+        const errors = (error.errors || []).map(err => ({
           field: err.path.join('.'),
           message: err.message,
         }));

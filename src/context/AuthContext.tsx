@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = window.location.origin;
 const API_URL = `${API_BASE}/api`;
 
 // TypeScript Interfaces
@@ -90,6 +90,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDeactivated, setIsDeactivated] = useState<boolean>(false);
+
+  // Helper to get auth headers with token
+  const getAuthHeaders = (includeContentType = true): Record<string, string> => {
+    const token = localStorage.getItem('ocpToken');
+    const headers: Record<string, string> = {};
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
 
   useEffect(() => {
     // Check for saved user in localStorage on mount
@@ -301,7 +314,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Update profile info
       const profileResponse = await fetch(`${API_URL}/user/${user.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ name: updateData.name, email: updateData.email }),
       });
 
@@ -315,7 +328,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (updateData.newPassword) {
         const passwordResponse = await fetch(`${API_URL}/user/${user.id}/password`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             currentPassword: updateData.currentPassword,
             newPassword: updateData.newPassword,
@@ -414,6 +427,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const response = await fetch(`${API_URL}/user/${user.id}/upload-picture`, {
         method: 'POST',
+        headers: getAuthHeaders(false),
         body: formData,
       });
 
@@ -448,6 +462,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await fetch(`${API_URL}/user/${user.id}/picture`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
 
       const data = await response.json();

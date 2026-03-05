@@ -4,7 +4,8 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Accept build args for React environment variables
-ARG REACT_APP_API_URL=http://localhost:5000
+# Note: Use empty string to let frontend use window.location.origin (works with any host)
+ARG REACT_APP_API_URL=
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 ENV DISABLE_ESLINT_PLUGIN=true
 ENV CI=false

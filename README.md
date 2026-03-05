@@ -317,11 +317,12 @@ docker-compose down
 latest
 
 
-Main PC: http://localhost:3000
+Main PC: http://localhost
 for the database connection: http://localhost:5000
-Other laptops: http://192.168.1.10:3000 ← Share this new URL
+Other laptops: http://192.168.1.20 ← Share this new URL
 
 Pro tip: IP addresses can change when you restart your router or reconnect to WiFi. If this happens again, just run ipconfig and update the .env file with the new IP.
+
 
 
 STEPS TO EDIT CODE AND DEPLOY CHANGES:
@@ -337,6 +338,7 @@ docker compose down
 # Step 3: Rebuild frontend
 
 docker compose build frontend --no-cache
+docker compose build backend --no-cache
 
 # Step 4: Restart app
 
@@ -348,6 +350,13 @@ Test at http://localhost:3000
 
 # Step 6: If it works, push to GitHub
 
+## to Push to GitHub (after making changes):
+
+
 git add .
-git commit -m "Updated frontend"
-git push origin main
+git commit -m "Update project"
+git push origin master:main
+
+
+
+
