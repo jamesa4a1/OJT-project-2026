@@ -105,9 +105,8 @@ SESSION_SECRET=REPLACE_THIS_WITH_ANOTHER_RANDOM_STRING
 
 -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object {[char]$_})
 
-# STEP 5: Build and Run the Application
+# STEP 5: "Reset IP Whitelist"
 
-Edit whitelist.json to start clean:
 
 {
   "allowedIPs": [
@@ -189,11 +188,17 @@ Press Windows key and type PowerShell
 Right-click Windows PowerShell → Run as administrator
 Navigate to your project folder (optional, commands work from anywhere):
 
-1st step - Allow HTTP (port 80):
+1st step 
 cd C:\Users\<USERNAME>\Desktop\OJT-project-2026
 
-2nd step - Allow Backend API (port 5000):
+2nd step - 
 New-NetFirewallRule -DisplayName "OJT App - HTTP" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
 
 3rd step
 Get-NetFirewallRule -DisplayName "OJT App*"
+
+# STEP 10: make a shortcut for start-app.bat on desktop
+
+# step 11: make a shortcut for firewall.bat on desktop
+
+# step 12: make a shortcut for stop-app.bat on desktop
