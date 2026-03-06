@@ -1,84 +1,121 @@
-# Manual Deployment
+# Manual Deployment Guide (Fresh PC)
 
-To deploy the application manually, follow these steps:
+This guide deploys the OJT Docketing System on a brand-new main PC from scratch.
 
-Step-by-Step Deployment Guide for a New PC
+---
 
-# STEP 1: Install Required Software
-On the new/target PC, install these:
+## Architecture Overview
 
-Software	      Download Link	                                     Purpose
-Docker Desktop	https://www.docker.com/products/docker-desktop/  	Runs your containers
+```
+┌───────────────────────────────────────────────────────────────┐
+│  Main PC (runs Docker)     Static IP: 192.168.1.15           │
+│                                                               │
+│   ┌────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
+│   │ MySQL  │  │ Backend  │  │ Frontend │  │    Nginx     │  │
+│   │  (DB)  │◄─│ Node.js  │◄─│  React   │◄─│  (Port 80)  │◄─┼── Other PCs
+│   │ :3306  │  │  :5000   │  │  :3000   │  │ Reverse Proxy│  │
+│   └────────┘  └──────────┘  └──────────┘  └──────────────┘  │
+│                                                               │
+│   Main PC access:    http://localhost                         │
+│   Other PCs access:  http://192.168.1.15                     │
+└───────────────────────────────────────────────────────────────┘
+```
 
-Git	            https://git-scm.com/download/win	            Clone your repo
+**Key Points:**
+- Everything runs on **port 80** via Nginx (no `:3000` or `:5000` in URLs)
+- Frontend auto-detects the backend URL — no manual IP config in code
+- Works **without internet** — only local Wi-Fi network needed
+- All fonts/assets are bundled locally (no CDN dependencies)
+- Each PC uses a **static IP** — addresses never change
 
+---
 
+## STEP 1: Install Required Software
 
+| Software | Download | Purpose |
+|----------|----------|---------|
+| Docker Desktop | https://www.docker.com/products/docker-desktop/ | Runs all containers |
+| Git | https://git-scm.com/download/win | Clone the repository |
 
-# After installing Docker Desktop:
+**After installing Docker Desktop:**
+1. Open it and wait until the whale icon in system tray is steady
+2. Go to **Settings > General** → check **"Start Docker Desktop when you log in"**
 
-Open it and wait for it to fully start (whale icon in system tray is steady)
-Go to Settings > General and make sure "Start Docker Desktop when you log in" is checked if this is a production machine
+---
 
+## STEP 2: Clone the Repository
 
-# STEP 2: Clone the Repository
-Open PowerShell (or Command Prompt) and run:
+Open **PowerShell** and run:
 
-# Navigate to where you want the project (e.g., Desktop)
+```powershell
 cd C:\Users\<USERNAME>\Desktop
 
-# Clone the repository
 git clone https://github.com/jamesa4a1/OJT-project-2026.git
 
-# Enter the project folder
 cd OJT-project-2026
+```
 
-Replace <USERNAME> with the actual Windows username on the new PC.
+Replace `<USERNAME>` with the actual Windows username.
 
-# STEP 3: Find the New PC's IP Address
-In the same PowerShell window:
+---
 
+## STEP 3: Set a STATIC IP on the Main PC (IMPORTANT!)
+
+This ensures the main PC's address **never changes**, so other PCs can always find it.
+
+1. Open **Settings → Network & Internet → Wi-Fi**
+2. Click your network name → **Properties**
+3. Scroll to **IP settings → Edit**
+4. Change from **Automatic (DHCP)** → **Manual**
+5. Toggle **IPv4 → ON**
+6. Set:
+
+| Field | Value |
+|-------|-------|
+| **IP address** | `192.168.1.15` (or your preferred IP) |
+| **Subnet prefix length** | `24` |
+| **Gateway** | `192.168.1.1` |
+| **Preferred DNS** | `192.168.1.1` |
+
+7. Click **Save**
+
+**Verify it worked:**
+```powershell
 ipconfig | findstr /i "IPv4"
+```
+Should show: `IPv4 Address. . . . . . . . . . . : 192.168.1.15`
 
-You'll see something like:
-IPv4 Address. . . . . . . . . . . : 172.30.0.1       <-- IGNORE (WSL/Virtual)
-IPv4 Address. . . . . . . . . . . : 192.168.1.50     <-- USE THIS (WiFi/Ethernet)
+> **Tip:** Pick an IP above `.10` to avoid conflicts with router DHCP range. Write this IP down — other PCs will use it.
 
+---
 
-Pick the 192.168.x.x or 10.x.x.x address — this is your LAN IP. Write it down. Example: 192.168.1.50
+## STEP 4: Create the .env File
 
-# STEP 4: Create the .env File
-In the project root folder, create a file named .env with this content:
+In the project root, create a file named `.env`:
 
+```env
 # ============================================
 # ENVIRONMENT VARIABLES - Production
 # ============================================
 
-# Environment Settings
-NODE_ENV=production
-DOCKER_ENV=true
-
 # Database Configuration
 DB_ROOT_PASSWORD=YourStrongRootPassword!2026
 DB_NAME=ocp_docketing
-DB_USER=ocp_user
-DB_PASSWORD=YourStrongUserPassword!2026
 DB_HOST=db
 DB_PORT=3306
 
 # Application
 PORT=5000
+NODE_ENV=production
+DOCKER_ENV=true
 
-# Admin Account (first admin login password - change after first login)
+# Admin Account (first admin login — change after first login)
 ADMIN_DEFAULT_PASSWORD=AdminFirstLogin@2026
 
-# JWT Secret (MUST be a long random string - generate one unique to this machine)
-JWT_SECRET=REPLACE_THIS_WITH_A_64_CHAR_RANDOM_STRING_USE_POWERSHELL_BELOW
+# JWT Secret (paste generated string below)
+JWT_SECRET=REPLACE_WITH_GENERATED_STRING
 
-# CORS Configuration (replace 192.168.1.50 with YOUR actual IP from Step 3)
-ALLOWED_ORIGINS=http://localhost,http://localhost:3000,http://localhost:3002,http://192.168.1.50  <----<REPLACE THIS WITH YOUR NEW PC IP>
-
-# Frontend Configuration (leave empty - frontend auto-detects via Nginx)
+# Frontend (leave empty — auto-detects via Nginx)
 REACT_APP_API_URL=
 
 # Logging
@@ -87,27 +124,23 @@ LOG_LEVEL=info
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
+```
 
-# Session
-SESSION_SECRET=REPLACE_THIS_WITH_ANOTHER_RANDOM_STRING
-
-
-
-
-
-# Generate secure random secrets using PowerShell:
-
-# Generate JWT_SECRET (run this and paste the output into .env)
-
+**Generate the JWT secret:**
+```powershell
 -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object {[char]$_})
+```
+Copy the output and paste it as the `JWT_SECRET` value.
 
-# Generate SESSION_SECRET (run this and paste the output into .env)
+> **Note:** No `ALLOWED_ORIGINS` with IPs needed — Nginx handles all routing on port 80.
 
--join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object {[char]$_})
+---
 
-# STEP 5: "Reset IP Whitelist"
+## STEP 5: Reset IP Whitelist
 
+Edit `whitelist/whitelist.json` to start clean:
 
+```json
 {
   "allowedIPs": [
     "127.0.0.1",
@@ -118,87 +151,189 @@ SESSION_SECRET=REPLACE_THIS_WITH_ANOTHER_RANDOM_STRING
   "updatedAt": "",
   "totalIPs": 3
 }
+```
 
-You will add client PC IPs later through the admin panel or by editing this file.
+You will add other PC IPs in Step 9.
 
+---
 
-# STEP 6: Update the Batch Scripts
-Edit start-app.bat — change the path on line 3:
+## STEP 6: Update the Batch Scripts
 
+### Edit `start-app.bat` — change the path on line 3:
+```batch
 cd /d "C:\Users\<USERNAME>\Desktop\OJT-project-2026"
+```
 
-Also update the echo messages at the bottom to show the correct IP:
-
-echo   Main PC:      http://localhost
-echo   Other PCs:    http://192.168.1.50
-
-
-# Edit stop-app.bat — change the path on line 3:
-
+### Edit `stop-app.bat` — change the path on line 3:
+```batch
 cd /d "C:\Users\<USERNAME>\Desktop\OJT-project-2026"
+```
 
-Replace <USERNAME> and 192.168.1.50 with the actual values.
+Replace `<USERNAME>` with the actual Windows username.
 
+> The IP displayed at the end of `start-app.bat` is detected automatically — no need to hardcode it.
 
-# STEP 7: Build and Start the Application
-Option A — Double-click start-app.bat
+---
 
+## STEP 7: Build and Start the Application
 
-Option B : run this :
+### Option A: Double-click `start-app.bat`
 
+### Option B: Run manually:
+```powershell
 cd C:\Users\<USERNAME>\Desktop\OJT-project-2026
-
-# Build and start all containers (first time takes 5-10 minutes)
 docker compose up -d --build
+```
 
-Wait for all 4 containers to start:
-
+**First time takes 5-10 minutes.** Wait for all 4 containers:
+```
  ✔ Container ocp_mysql_db       Started
  ✔ Container ocp_backend_api    Started
  ✔ Container ocp_frontend_app   Started
  ✔ Container ocp_nginx_proxy    Started
+```
 
- Verify everything is running:
- 
- docker compose ps
+**Verify:**
+```powershell
+docker compose ps
+```
 
+---
 
- 
-# STEP 8: Verify the Application Works
-On the server PC (the one running Docker):
+## STEP 8: Configure Windows Firewall
 
-Test	URL
-Frontend	http://localhost
-Backend Health	http://localhost/api/health
-On other PCs on the same network:
+### Option A: Run `start-firewall-sync.bat` (Recommended)
+- Double-click `start-firewall-sync.bat`
+- Accept the UAC (admin) prompt
+- This auto-creates firewall rules from `whitelist.json`
+- **Keep this window open** while the app runs — it auto-updates when you add/remove IPs
 
-Test	URL
-Frontend	http://192.168.1.50
-Backend Health	http://192.168.1.50/api/health
-First login:
-
-Default admin credentials are seeded by 01_init.sql
-Password is whatever you set in ADMIN_DEFAULT_PASSWORD in .env
-
-
-# STEP 9: Configure Windows Firewall (For Network Access)
-Run PowerShell as Administrator:
-
-Press Windows key and type PowerShell
-Right-click Windows PowerShell → Run as administrator
-Navigate to your project folder (optional, commands work from anywhere):
-
-1st step 
-cd C:\Users\<USERNAME>\Desktop\OJT-project-2026
-
-2nd step - 
+### Option B: Manual firewall setup (one-time)
+Run PowerShell **as Administrator**:
+```powershell
+# Allow port 80 (Nginx) from the network
 New-NetFirewallRule -DisplayName "OJT App - HTTP" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
 
-3rd step
-Get-NetFirewallRule -DisplayName "OJT App*"
+# Verify
+Get-NetFirewallRule -DisplayName "OJT*" | Select-Object DisplayName, Enabled, Action
+```
 
-# STEP 10: make a shortcut for start-app.bat on desktop
+---
 
-# step 11: make a shortcut for firewall.bat on desktop
+## STEP 9: Add Other PCs (Static IP + Whitelist)
 
-# step 12: make a shortcut for stop-app.bat on desktop
+For **each PC** that needs to access the app:
+
+### A. Set Static IP on the Other PC
+
+On the **other PC**:
+1. First check current settings: run `ipconfig /all` in Command Prompt
+2. Open **Settings → Network & Internet → Wi-Fi → Properties**
+3. **IP settings → Edit → Manual → IPv4 ON**
+4. Set:
+
+| Field | Value |
+|-------|-------|
+| **IP address** | `192.168.1.13` (unique number for each PC) |
+| **Subnet prefix length** | `24` |
+| **Gateway** | `192.168.1.1` (same as ipconfig showed) |
+| **Preferred DNS** | `192.168.1.1` (same as ipconfig showed) |
+
+5. Save
+
+> **Important:** Each PC must have a DIFFERENT IP number. Example: `.13`, `.14`, `.20`, etc.
+
+### B. Add IP to whitelist (on the main PC)
+
+Edit `whitelist/whitelist.json` — add the new IP to **both** arrays:
+
+```json
+{
+  "allowedIPs": [
+    "127.0.0.1",
+    "::1",
+    "172.16.0.0/12",
+    "192.168.1.15",
+    "192.168.1.13"
+  ],
+  "customIPs": [
+    "192.168.1.15",
+    "192.168.1.13"
+  ],
+  "updatedAt": "2026-03-06T00:00:00.000Z",
+  "totalIPs": 5
+}
+```
+
+### C. Restart backend to apply:
+```powershell
+docker restart ocp_backend_api
+```
+
+### D. Firewall rule
+- If `start-firewall-sync.bat` is running → **automatic** (no action needed)
+- If not running, add manually as Administrator:
+```powershell
+New-NetFirewallRule -DisplayName "OCP_Allow_192.168.1.13" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -RemoteAddress 192.168.1.13 -Profile Any
+```
+
+---
+
+## STEP 10: Verify Everything Works
+
+| Test | URL | Expected |
+|------|-----|----------|
+| Main PC (local) | `http://localhost` | Login page loads |
+| Main PC (by IP) | `http://192.168.1.15` | Login page loads |
+| Other PC | `http://192.168.1.15` | Login page loads |
+| Backend health | `http://localhost/api/health` | JSON response |
+
+**Default admin login:**
+- Credentials are seeded by `01_init.sql`
+- Password is whatever you set in `ADMIN_DEFAULT_PASSWORD` in `.env`
+
+---
+
+## STEP 11: Create Desktop Shortcuts
+
+Right-click each file → **Send to → Desktop (create shortcut)**:
+1. `start-app.bat` — Start the application
+2. `start-firewall-sync.bat` — Sync firewall rules (run as admin)
+3. `stop-app.bat` — Stop the application
+
+---
+
+## Daily Usage Summary
+
+### Starting Up
+```
+1. Double-click: start-app.bat              (wait ~30-60 seconds)
+2. Double-click: start-firewall-sync.bat    (if other PCs need access)
+3. Open browser: http://localhost            (main PC)
+   Other PCs:    http://192.168.1.15         (your static IP)
+```
+
+### Shutting Down
+```
+1. Double-click: stop-app.bat
+2. Close the firewall sync window (if open)
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| "Cannot connect to Docker daemon" | Start Docker Desktop and wait for it to fully load |
+| "Can't reach this page" from other PC | 1. Both PCs on same Wi-Fi? 2. Check `ipconfig` on main PC 3. Check whitelist.json has the IP 4. Check `start-firewall-sync.bat` is running |
+| "Access Denied" from other PC | IP not in whitelist — add to `whitelist.json` + restart backend |
+| Database connection error | Wait 60 seconds, then: `docker restart ocp_backend_api` |
+| Need complete reset | `docker compose down -v` then `docker compose up -d --build` (WARNING: deletes database!) |
+
+### Check Logs
+```powershell
+docker compose logs backend --tail 50    # Backend
+docker compose logs frontend --tail 20   # Frontend
+docker compose logs db --tail 20         # Database
+```

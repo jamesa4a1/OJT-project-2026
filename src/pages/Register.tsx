@@ -192,8 +192,8 @@ const Register: React.FC = () => {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
-          {/* Pattern Overlay */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+          {/* Pattern Overlay - CSS-only, no internet needed */}
+          <div className="absolute inset-0 opacity-10" style={{backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "20px 20px"}}></div>
 
           <div className="relative z-10">
             <Link

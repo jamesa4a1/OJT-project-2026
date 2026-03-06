@@ -1,0 +1,65 @@
+/* Local font definitions - no internet required */
+
+/* Pacifico */
+@font-face {
+  font-family: 'Pacifico';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Pacifico.woff2') format('woff2');
+}
+
+/* Crimson Text */
+@font-face {
+  font-family: 'Crimson Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CrimsonText-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Crimson Text';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/CrimsonText-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Crimson Text';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CrimsonText-Regular.woff2') format('woff2');
+}
+
+/*
+ * Libre Baskerville - system serif fallback
+ * Georgia is visually similar and available on all Windows/Mac systems
+ * If you later download LibreBaskerville .woff2 files, add them here with src: url(...)
+ */
+@font-face {
+  font-family: 'Libre Baskerville';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Libre Baskerville Regular'), local('LibreBaskerville-Regular');
+  /* Fallback handled by CSS: font-family: 'Libre Baskerville', Georgia, 'Times New Roman', serif */
+}
+
+@font-face {
+  font-family: 'Libre Baskerville';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Libre Baskerville Bold'), local('LibreBaskerville-Bold');
+}
+
+@font-face {
+  font-family: 'Libre Baskerville';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Libre Baskerville Italic'), local('LibreBaskerville-Italic');
+}

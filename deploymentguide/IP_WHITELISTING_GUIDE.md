@@ -1,277 +1,219 @@
-# IP Whitelisting Configuration Guide
+# IP Whitelisting — How It Works
 
-This guide explains how to set up IP-based access control to restrict your website to only office computers.
-
-## 🚀 Quick Setup
-
-### 1. Find Your Office Computer IP Addresses
-
-Run these commands on each office computer to get their IP addresses:
-
-#### Windows:
-```bash
-# Get local IP address
-ipconfig | findstr /i "IPv4" 
-
-# Get public IP address
-curl ifconfig.me
-```
-
-#### Mac/Linux:
-```bash
-# Get local IP address  
-ifconfig | grep "inet " | grep -v 127.0.0.1
-
-# Get public IP address
-curl ifconfig.me
-```
-
-#### Using Your Application:
-Visit `http://your-server:5000/api/my-ip` from each computer to see its IP as detected by your server.
-
-### 2. Add IPs to Whitelist
-
-#### Option A: Edit Configuration File
-Edit `middleware/ipWhitelist.js` and add IPs to the `ALLOWED_IPS` array:
-
-```javascript
-const ALLOWED_IPS = [
-  '127.0.0.1',           // localhost
-  '::1',                 // localhost IPv6  
-  '192.168.1.10',        // Office Computer 1
-  '192.168.1.15',        // Office Computer 2
-  '192.168.1.20',        // Office Computer 3
-  '203.0.113.45',        // Office Public IP (if needed)
-  // Add more IPs here
-];
-```
-
-#### Option B: Use Admin API (Recommended)
-Use the web interface or API to manage IPs dynamically:
-
-```bash
-# Get current whitelist
-GET /api/admin/ip-whitelist
-
-# Add new IP
-POST /api/admin/ip-whitelist/add
-{
-  "ip": "192.168.1.25",
-  "description": "New office computer"
-}
-
-# Remove IP  
-DELETE /api/admin/ip-whitelist/192.168.1.25
-```
-
-## 📝 Configuration Options
-
-### Enable/Disable IP Filtering
-
-In `server.js`, modify the ipWhitelist configuration:
-
-```javascript
-app.use(ipWhitelist({
-  enabled: true,                    // Set to false to disable
-  skipPaths: ['/api/health'],      // Paths to skip IP checking
-  allowLocalhost: true,            // Always allow localhost
-  customIPs: []                    // Additional temporary IPs
-}));
-```
-
-### IP Format Options
-
-You can specify IPs in different formats:
-
-```javascript
-const ALLOWED_IPS = [
-  '192.168.1.10',        // Single IP
-  '192.168.1.0/24',      // Subnet (all IPs from .1 to .254)
-  '10.0.0.0/8',          // Large subnet
-  '172.16.0.0/12',       // Private network range
-];
-```
-
-## 🏢 Office Network Scenarios
-
-### Scenario 1: Computers on Same Local Network
-If all office computers are on the same local network:
-
-```javascript
-const ALLOWED_IPS = [
-  '192.168.1.0/24',      // Allow entire office network
-  '203.0.113.45',        // Office public IP (for remote work)
-];
-```
-
-### Scenario 2: Individual Computer IPs
-If you want to control access per computer:
-
-```javascript
-const ALLOWED_IPS = [
-  '192.168.1.10',        // Reception desk
-  '192.168.1.15',        // Manager office  
-  '192.168.1.20',        // Accounting dept
-  '192.168.1.25',        // HR department
-];
-```
-
-### Scenario 3: Mixed Local + Remote Access
-To allow both office and remote work:
-
-```javascript
-const ALLOWED_IPS = [
-  '192.168.1.0/24',      // Office network
-  '203.0.113.45',        // Office public IP
-  '198.51.100.123',      // Manager's home IP
-  '176.16.1.200',        // Employee home IP
-];
-```
-
-## 🔧 Deployment Steps
-
-### 1. Test Before Full Deployment
-
-```bash
-# First, disable IP filtering to test
-# Edit server.js and set enabled: false
-```
-
-### 2. Add Your Current IP First
-
-```bash
-# Find your current IP
-curl http://your-server:5000/api/my-ip
-
-# Add it to the whitelist before enabling filtering
-```
-
-### 3. Gradual Rollout
-
-1. Add your admin computer IP first
-2. Test with `enabled: true` 
-3. Add other office computers one by one
-4. Test access from each computer
-5. Monitor logs for blocked IPs
-
-### 4. Emergency Access
-
-Keep these endpoints accessible for emergencies:
-
-```javascript
-skipPaths: [
-  '/api/health',         // Health check
-  '/api/my-ip',         // IP detection
-  // Add emergency admin path if needed
-]
-```
-
-## 📊 Monitoring & Management
-
-### Check Logs
-Monitor access attempts in your application logs:
-
-```bash
-# Check for blocked IPs
-docker compose logs backend | grep "IP_BLOCKED"
-
-# Check security events  
-docker compose logs backend | grep "SECURITY_EVENT"
-```
-
-### Admin Dashboard Access
-
-1. Log in as admin user
-2. Navigate to Security Settings
-3. Manage IP whitelist:
-   - View current allowed IPs
-   - Add new IPs with descriptions
-   - Remove outdated IPs
-   - See your current IP
-
-### API Endpoints
-
-- `GET /api/admin/ip-whitelist` - View whitelist
-- `POST /api/admin/ip-whitelist/add` - Add IP
-- `DELETE /api/admin/ip-whitelist/:ip` - Remove IP
-- `GET /api/my-ip` - Check your current IP
-
-## 🚨 Troubleshooting
-
-### "Access Denied" Error
-
-1. **Check Your Current IP:**
-   ```bash
-   curl http://your-server:5000/api/my-ip
-   ```
-
-2. **Temporarily Disable Filtering:**
-   - Set `enabled: false` in server.js
-   - Restart application 
-   - Add your IP to whitelist
-   - Re-enable filtering
-
-3. **Check IP Format:**
-   - Ensure no extra spaces
-   - Use correct CIDR notation
-   - Verify IP is reachable
-
-### Dynamic IP Issues
-
-If office IPs change frequently:
-
-1. **Use Network Ranges:**
-   ```javascript
-   '192.168.1.0/24'  // Instead of individual IPs
-   ```
-
-2. **Implement Dynamic Updates:**
-   - Create script to auto-update IPs
-   - Use DNS-based whitelisting
-   - Monitor and alert on IP changes
-
-### Docker Network Issues
-
-If running in Docker:
-
-```bash
-# Check container networking
-docker compose logs backend
-
-# Verify IP forwarding is working
-docker exec -it backend-container cat /proc/net/route
-```
-
-## 🛡️ Security Best Practices
-
-1. **Regular Review:** Check whitelist monthly for outdated IPs
-2. **Least Privilege:** Only add necessary IPs
-3. **Documentation:** Document who owns each IP
-4. **Monitoring:** Set up alerts for blocked access attempts
-5. **Backup Access:** Always maintain an emergency access method
-
-## 🔄 Restart Application
-
-After making changes:
-
-```bash
-# Restart containers
-docker compose restart
-
-# Or rebuild if needed
-docker compose down
-docker compose up -d
-```
-
-## 📞 Support
-
-If you encounter issues:
-
-1. Check application logs
-2. Verify IP format and reachability  
-3. Test with IP filtering disabled first
-4. Ensure admin user access is maintained
+This guide explains the IP whitelisting system that controls which PCs can access the application.
 
 ---
 
-**⚠️ Warning:** Always test IP whitelisting in a development environment first. Ensure you have a secure way to regain access if something goes wrong.
+## Overview
+
+Only PCs whose IP address is in the whitelist can use the application. Everyone else gets **"Access Denied"**.
+
+```
+Other PC (192.168.1.13) ──► Nginx (port 80) ──► Backend checks IP ──► Allowed ✓
+Unknown PC (192.168.1.99) ──► Nginx (port 80) ──► Backend checks IP ──► Blocked ✗
+```
+
+---
+
+## How IP Detection Works
+
+1. A PC opens `http://192.168.1.15` in its browser
+2. The request hits **Nginx** (port 80 on the main PC)
+3. Nginx forwards the request to the **Backend** and passes the real client IP via the `X-Real-IP` and `X-Forwarded-For` headers
+4. The **IP Whitelist middleware** (`middleware/ipWhitelist.js`) reads the client IP and checks it against `whitelist/whitelist.json`
+5. If the IP is in the list → request proceeds normally
+6. If the IP is NOT in the list → request is rejected with "Access Denied"
+
+### Why Nginx Matters
+Without Nginx, the backend would see all requests as coming from Docker's internal network (`172.x.x.x`), not the real client IP. Nginx passes the real IP using these headers:
+
+```nginx
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+---
+
+## The Whitelist File
+
+**Location:** `whitelist/whitelist.json`
+
+```json
+{
+  "allowedIPs": [
+    "127.0.0.1",
+    "::1",
+    "172.16.0.0/12",
+    "192.168.1.15",
+    "192.168.1.13"
+  ],
+  "customIPs": [
+    "192.168.1.15",
+    "192.168.1.13"
+  ],
+  "updatedAt": "2026-03-06T00:00:00.000Z",
+  "totalIPs": 5
+}
+```
+
+### What Each Entry Means
+
+| IP | Purpose | Can you remove it? |
+|----|---------|-------------------|
+| `127.0.0.1` | Localhost (main PC accessing via `http://localhost`) | **NO** — breaks local access |
+| `::1` | Localhost IPv6 | **NO** — breaks local access |
+| `172.16.0.0/12` | Docker internal network | **NO** — breaks container-to-container communication |
+| `192.168.1.15` | Main PC (static IP) | **NO** — breaks admin access |
+| `192.168.1.13` | Other PC (static IP) | Yes — removes that PC's access |
+
+### customIPs vs allowedIPs
+- **allowedIPs** = the full list the middleware checks (system + custom)
+- **customIPs** = only the PCs you manually added (used for display and firewall sync)
+
+When you add/remove a PC, update **both** arrays.
+
+---
+
+## IP Formats Supported
+
+| Format | Example | What It Matches |
+|--------|---------|----------------|
+| Single IP | `192.168.1.25` | Exactly that one PC |
+| CIDR subnet | `192.168.1.0/24` | All PCs from 192.168.1.1 to 192.168.1.254 |
+| Large subnet | `172.16.0.0/12` | All Docker internal IPs |
+
+### Single IPs vs Subnet
+
+**Current setup uses single IPs** (recommended):
+```json
+"customIPs": ["192.168.1.15", "192.168.1.13"]
+```
+- You control exactly which PCs have access
+- More secure — only known PCs are allowed
+
+**Alternative — subnet (allows all PCs on the network):**
+```json
+"allowedIPs": ["127.0.0.1", "::1", "172.16.0.0/12", "192.168.1.0/24"]
+```
+- Any PC with IP 192.168.1.x can access the app
+- Less secure — any device on the Wi-Fi can connect
+- Simpler — no need to add each PC individually
+
+---
+
+## Windows Firewall Integration
+
+The IP whitelist works at two levels:
+
+1. **Application level** — `ipWhitelist.js` middleware rejects unauthorized IPs
+2. **OS level** — Windows Firewall blocks unauthorized IPs from reaching port 80
+
+### How Firewall Sync Works
+
+`sync-firewall.ps1` watches `whitelist/whitelist.json`:
+- When a new IP is added → creates firewall rule `OCP_Allow_<IP>`
+- When an IP is removed → deletes its firewall rule
+- Runs continuously via `start-firewall-sync.bat`
+
+### Check Current Firewall Rules
+```powershell
+Get-NetFirewallRule -DisplayName "OCP_*" | Select-Object DisplayName, Enabled, Action | Format-Table -AutoSize
+```
+
+### Manual Firewall Commands (if needed)
+```powershell
+# Add a rule manually
+New-NetFirewallRule -DisplayName "OCP_Allow_192.168.1.25" -Direction Inbound -Action Allow -RemoteAddress "192.168.1.25" -Protocol TCP -LocalPort 80 -Profile Private
+
+# Remove a rule manually
+Remove-NetFirewallRule -DisplayName "OCP_Allow_192.168.1.25"
+```
+
+---
+
+## Managing the Whitelist
+
+For step-by-step instructions on adding and removing PCs, see **ADD&REMOVE IP.md**.
+
+### Quick Summary
+
+**Add a PC:**
+1. Set static IP on the new PC (so it doesn't change)
+2. Add the IP to `whitelist/whitelist.json` (both arrays)
+3. Run `docker restart ocp_backend_api`
+4. Firewall rule is auto-created if `start-firewall-sync.bat` is running
+
+**Remove a PC:**
+1. Remove the IP from `whitelist/whitelist.json` (both arrays)
+2. Run `docker restart ocp_backend_api`
+3. Firewall rule is auto-removed
+
+### Admin API (Alternative)
+
+You can also manage the whitelist via API calls from PowerShell:
+
+```powershell
+# Get admin token
+$body = @{email="james@gmail.com"; password="james12345"} | ConvertTo-Json
+$resp = Invoke-RestMethod -Uri "http://localhost/api/auth/login" -Method POST -Body $body -ContentType "application/json"
+$token = $resp.data.token
+
+# View current whitelist
+Invoke-RestMethod -Uri "http://localhost/api/admin/ip-whitelist" -Headers @{Authorization="Bearer $token"}
+
+# Add an IP
+Invoke-RestMethod -Uri "http://localhost/api/admin/ip-whitelist/add" -Method POST -Body '{"ip":"192.168.1.25","description":"New PC"}' -ContentType "application/json" -Headers @{Authorization="Bearer $token"}
+
+# Remove an IP
+Invoke-RestMethod -Uri "http://localhost/api/admin/ip-whitelist/192.168.1.25" -Method DELETE -Headers @{Authorization="Bearer $token"}
+```
+
+---
+
+## Troubleshooting
+
+### "Access Denied" when opening the app
+The PC's IP is not in the whitelist.
+
+**Fix:**
+1. On the blocked PC, run `ipconfig` to find its IPv4 address
+2. On the main PC, add that IP to `whitelist/whitelist.json`
+3. Run `docker restart ocp_backend_api`
+
+### IP changed after restart
+The PC's IP was set via DHCP (automatic) and the router assigned a different one.
+
+**Fix:** Set a static IP on that PC. See **ADD&REMOVE IP.md**, Step 1.
+
+### Firewall rules not updating
+Make sure `start-firewall-sync.bat` is running (you should see a PowerShell window open with "Watching whitelist.json...").
+
+If it's not running:
+1. Double-click `start-firewall-sync.bat` (Run as Admin)
+2. Or manually add the firewall rule:
+```powershell
+New-NetFirewallRule -DisplayName "OCP_Allow_192.168.1.25" -Direction Inbound -Action Allow -RemoteAddress "192.168.1.25" -Protocol TCP -LocalPort 80 -Profile Private
+```
+
+### Backend still blocking after whitelist change
+The backend caches the whitelist. Restart it:
+```powershell
+docker restart ocp_backend_api
+```
+
+### Check what IP the backend sees
+Look at the backend logs when a request comes in:
+```powershell
+docker compose logs backend --tail 20
+```
+Look for lines showing the client IP. If it shows `172.x.x.x` instead of `192.168.x.x`, Nginx isn't forwarding the real IP correctly — check `nginx.conf` for the `X-Real-IP` header.
+
+---
+
+## Important Rules
+
+1. **Never remove** `127.0.0.1`, `::1`, or `172.16.0.0/12` — these are required for the system to work
+2. **Never remove** the main PC's IP (`192.168.1.15`) — you'll lock yourself out
+3. **Always set static IPs** on other PCs before adding them — otherwise their IP changes and breaks access
+4. **Always restart the backend** after editing `whitelist.json` — `docker restart ocp_backend_api`
+5. **Keep `start-firewall-sync.bat` running** while the app is in use — it auto-manages firewall rules
