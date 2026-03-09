@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
+import { useSocket, CASE_EVENTS } from '../../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -66,6 +67,9 @@ const StaffDashboard = () => {
       setIsLoading(false);
     }
   };
+
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchAllCases);
 
   const filterCases = () => {
     let result = [...allCases];

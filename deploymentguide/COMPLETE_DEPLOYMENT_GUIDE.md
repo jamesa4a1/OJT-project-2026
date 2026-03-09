@@ -65,6 +65,9 @@ Both the main PC and any other PCs must have **static IPs** so their addresses n
 - **DNS:** `192.168.1.1`
 
 ### How to Set a Static IP on Any PC: 
+
+**Method 1: GUI (Settings App)**
+
 1. **Settings → Network & Internet → Wi-Fi**
 2. Click your network name → **Properties**
 3. Scroll to **IP settings → Edit**
@@ -74,6 +77,39 @@ Both the main PC and any other PCs must have **static IPs** so their addresses n
 7. **Save**
 
 > **Tip:** Before switching to Manual, run `ipconfig /all` to find your current Gateway and DNS Server values. Use those same values.
+
+**Method 2: PowerShell (Permanent & Verifiable)**
+
+For the **main PC (192.168.1.15)**, use PowerShell to set a permanent static IP:
+
+```powershell
+# First, find the correct interface (should be "Wi-Fi" on most systems)
+Get-NetAdapter | Select-Object Name, InterfaceIndex
+
+# Remove existing IP configuration (if any)
+Remove-NetIPAddress -InterfaceIndex 18 -Confirm:$false -ErrorAction SilentlyContinue
+
+# Set static IP
+New-NetIPAddress -InterfaceIndex 18 -IPAddress 192.168.1.15 -PrefixLength 24 -DefaultGateway 192.168.1.1 -AddressFamily IPv4
+
+# Set DNS servers
+Set-DnsClientServerAddress -InterfaceIndex 18 -ServerAddresses 192.168.1.1,8.8.8.8
+```
+
+**Verify the static IP is permanent:**
+
+```powershell
+Get-NetIPInterface -InterfaceIndex 18 -AddressFamily IPv4 | Select-Object InterfaceAlias, Dhcp, ConnectionState
+```
+
+**Expected output:**
+```
+InterfaceAlias     Dhcp ConnectionState
+--------------     ---- ---------------
+Wi-Fi          Disabled       Connected
+```
+
+If `Dhcp` shows `Disabled` ✅ → **Your IP is permanent and won't change.**
 
 ---
 

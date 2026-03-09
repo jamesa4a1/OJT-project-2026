@@ -8,6 +8,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const XLSX = require("xlsx");
 const schedule = require("node-schedule");
+const http = require("http");
+const { Server } = require("socket.io");
 const { validateRequest } = require("./middleware/validateRequest");
 const { UserLoginSchema, UserRegisterSchema, UserUpdateSchema } = require("./schemas/users");
 const { CaseCreateSchema, CaseUpdateSchema, CaseEditSchema, CaseSearchSchema } = require("./schemas/cases");
@@ -22,6 +24,37 @@ const { ipWhitelist, getWhitelistInfo, getRealIP } = require("./middleware/ipWhi
 const securityLogger = require("./utils/securityLogger");
 
 const app = express();
+
+// Create HTTP server and attach Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: function(origin, callback) {
+      // Allow same origins as Express CORS
+      if (!origin) return callback(null, true);
+      const allowedPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:(80|3000|3001|3002))?$/;
+      if (allowedPattern.test(origin)) return callback(null, true);
+      callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST']
+  },
+  transports: ['websocket', 'polling']
+});
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log('📡 Client connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('📡 Client disconnected:', socket.id);
+  });
+});
+
+// Helper: emit real-time event to all clients
+const emitRealtimeEvent = (event, data) => {
+  io.emit(event, { ...data, timestamp: new Date().toISOString() });
+  console.log(`📡 Emitted: ${event}`);
+};
 
 // Trust proxy - needed so Express reads X-Forwarded-For from Nginx
 // Set to 1 (one hop) since Nginx is the only proxy in front of Express
@@ -1070,6 +1103,9 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
           console.error("Error syncing Excel file:", excelErr);
         });
       
+      // Emit real-time event
+      emitRealtimeEvent('case_added', { id: result.insertId, docketNo: validatedData.DOCKET_NO });
+      
       res.status(200).json(ApiResponse.success("Case added successfully", { 
         id: result.insertId,
         indexCardPath: INDEX_CARDS 
@@ -1247,6 +1283,9 @@ app.post("/update-case", async (req, res) => {
           console.error("Error syncing Excel file:", excelErr);
         });
       
+      // Emit real-time event
+      emitRealtimeEvent('case_updated', { id });
+      
       return res.json(ApiResponse.success("Case updated successfully"));
     });
   } catch (error) {
@@ -1358,6 +1397,7 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
       });
     
     console.log("Update successful!");
+    emitRealtimeEvent('case_updated', { docketNo: req.body.DOCKET_NO });
     return res.json({ message: "Case updated successfully!" });
   });
 });
@@ -1415,6 +1455,7 @@ app.delete("/delete-case", (req, res) => {
                   }
 
                   console.log("Case removed from active cases (already in terminated_cases).");
+                  emitRealtimeEvent('case_deleted', { docketNo: docket_no });
                   
                   // Sync Excel file after terminating case
                   exportCasesToExcel()
@@ -1480,6 +1521,7 @@ app.delete("/delete-case", (req, res) => {
                     });
 
                   console.log("Case terminated successfully.");
+                  emitRealtimeEvent('case_deleted', { docketNo: docket_no });
                   return res.json({ message: "Case terminated successfully!" });
               });
           });
@@ -1575,6 +1617,7 @@ app.patch("/restore-case", (req, res) => {
                   });
 
                 console.log("Case restored successfully.");
+                emitRealtimeEvent('case_restored', { docketNo: caseData.DOCKET_NO });
                 return res.json({ message: "Case restored successfully!" });
             });
         });
@@ -1641,6 +1684,7 @@ app.delete("/permanent-delete-case", (req, res) => {
         });
 
       console.log(`Case ${docket_no} permanently deleted from database.`);
+      emitRealtimeEvent('case_permanent_deleted', { docketNo: docket_no });
       return res.json({ message: "Case permanently deleted successfully!" });
     });
   });
@@ -2648,8 +2692,9 @@ app.get('/api/my-ip', (req, res) => {
 // END FORMAT MANAGEMENT API ENDPOINTS
 // =====================================================
 
-app.listen(5000, () => {
+server.listen(5000, () => {
   console.log("Server running on port 5000");
+  console.log("📡 Socket.io real-time updates enabled");
   
   // Generate initial Excel file on server start
   exportCasesToExcel()
@@ -3560,6 +3605,8 @@ app.post("/api/clearances", async (req, res) => {
         }
       );
       
+      emitRealtimeEvent('clearance_added', { id: result.insertId, or_number });
+      
       res.status(201).json({
         success: true,
         message: "Clearance created successfully",
@@ -3667,6 +3714,8 @@ app.put("/api/clearances/:id", (req, res) => {
           }
         );
         
+        emitRealtimeEvent('clearance_updated', { id });
+        
         res.json({
           success: true,
           message: "Clearance updated successfully"
@@ -3710,6 +3759,8 @@ app.delete("/api/clearances/:id", (req, res) => {
           if (auditErr) console.error("Error logging audit:", auditErr);
         }
       );
+      
+      emitRealtimeEvent('clearance_deleted', { id });
       
       res.json({
         success: true,
@@ -3764,6 +3815,8 @@ app.delete("/api/clearances/archived/all", (req, res) => {
 
           console.log('✅ Deleted all archived clearances:', { affectedRows: result.affectedRows });
 
+          emitRealtimeEvent('clearance_bulk_permanent_deleted', { count: result.affectedRows });
+          
           res.json({
             success: true,
             message: `${result.affectedRows} archived clearances permanently deleted successfully`,
@@ -3807,6 +3860,8 @@ app.delete("/api/clearances/:id/permanent", (req, res) => {
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: "Clearance not found" });
       }
+      
+      emitRealtimeEvent('clearance_permanent_deleted', { id });
       
       res.json({
         success: true,
@@ -3862,6 +3917,8 @@ app.patch("/api/clearances/:id/restore", (req, res) => {
           if (auditErr) console.error("Error logging audit:", auditErr);
         }
       );
+      
+      emitRealtimeEvent('clearance_restored', { id });
       
       res.json({
         success: true,
@@ -4008,6 +4065,8 @@ app.post("/api/clearances/:id/revoke", (req, res) => {
         }
       );
       
+      emitRealtimeEvent('clearance_revoked', { id });
+      
       res.json({
         success: true,
         message: "Clearance revoked successfully"
@@ -4062,6 +4121,8 @@ app.put("/api/clearances/:id/status", (req, res) => {
               if (auditErr) console.error("Error logging status update:", auditErr);
             }
           );
+          
+          emitRealtimeEvent('clearance_status_updated', { id, status });
           
           res.json({
             success: true,
@@ -4165,6 +4226,8 @@ app.put("/api/clearances/bulk/status-update", (req, res) => {
           }
         );
       });
+      
+      emitRealtimeEvent('clearance_bulk_status_updated', { clearance_ids, new_status, updated_count: result.affectedRows });
       
       res.json({
         success: true,

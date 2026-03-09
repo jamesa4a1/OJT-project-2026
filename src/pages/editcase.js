@@ -6,6 +6,7 @@ import ImageModal from '../components/ImageModal';
 import { useValidation } from '../hooks/useValidation';
 import { CaseUpdateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -36,18 +37,23 @@ const Editcase = () => {
     return `${API_BASE}${indexCardPath}`;
   };
 
-  // Fetch all cases on component mount
+  // Fetch all cases
+  const fetchAllCases = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/cases`);
+      setAllCases(response.data);
+    } catch (err) {
+      console.error('Error fetching cases:', err);
+    }
+  };
+
+  // Fetch on component mount
   useEffect(() => {
-    const fetchAllCases = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/cases`);
-        setAllCases(response.data);
-      } catch (err) {
-        console.error('Error fetching cases:', err);
-      }
-    };
     fetchAllCases();
   }, []);
+
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchAllCases);
 
   const handleChange = (e) => {
     setSearchQuery({ ...searchQuery, [e.target.name]: e.target.value });

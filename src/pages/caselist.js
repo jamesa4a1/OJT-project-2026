@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeContext } from '../App';
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -186,7 +187,7 @@ const Caselist = () => {
     }
   };
 
-  useEffect(() => {
+  const fetchDeletedCases = () => {
     setIsLoading(true);
     axios
       .get(`${API_BASE}/deleted-cases`)
@@ -198,7 +199,14 @@ const Caselist = () => {
         console.error('There was an error fetching the deleted cases!', error);
         setIsLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchDeletedCases();
   }, []);
+
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchDeletedCases);
 
   const handleSort = (option, direction) => {
     setSortOption(option);

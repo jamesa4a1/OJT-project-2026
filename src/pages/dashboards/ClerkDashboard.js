@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import * as XLSX from 'xlsx';
+import { useSocket, ALL_EVENTS } from '../../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -136,6 +137,9 @@ const ClerkDashboard = () => {
       console.error('Error fetching dashboard data:', error);
     }
   };
+
+  // Real-time updates: auto-refresh when cases/clearances change on any PC
+  useSocket(ALL_EVENTS, fetchDashboardData);
 
   const handleExportCSV = async () => {
     try {

@@ -29,14 +29,8 @@ echo.
 
 docker compose up -d --build
 
-REM Detect the host machine's local IP address dynamically
-set LOCAL_IP=
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /C:"IPv4 Address" ^| findstr /V "172."') do (
-    for /f "tokens=1" %%b in ("%%a") do (
-        if not defined LOCAL_IP set LOCAL_IP=%%b
-    )
-)
-if not defined LOCAL_IP set LOCAL_IP=192.168.1.15
+REM Use the static IP (192.168.1.15 is the permanent main PC IP)
+set LOCAL_IP=192.168.1.15
 
 echo.
 echo ✓ Application started!

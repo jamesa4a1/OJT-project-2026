@@ -20,6 +20,7 @@ export interface LoginResult {
   success: boolean;
   role?: string;
   message?: string;
+  retryAfter?: number;
 }
 
 export interface RegisterResult {
@@ -141,11 +142,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
+      // Add a 15-second timeout so the login doesn't hang forever
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      // Handle non-OK responses before parsing JSON
+      if (!response.ok) {
+        // Try to parse as JSON, fall back to text
+        let errorMessage = 'Invalid email or password.';
+        let retryAfter: number | undefined;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Response was not JSON (e.g., rate limiter plain text or Nginx error page)
+          try {
+            const text = await response.text();
+            if (text && text.length < 200 && !text.includes('<')) {
+              errorMessage = text;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (response.status === 429) {
+          // Extract Retry-After header (seconds)
+          const retryHeader = response.headers.get('Retry-After') || response.headers.get('retry-after');
+          retryAfter = retryHeader ? parseInt(retryHeader, 10) : 600;
+          errorMessage = 'Too many login attempts.';
+        } else if (response.status === 403) {
+          errorMessage = 'Your account has been deactivated. Please contact the administrator.';
+        }
+        return { success: false, message: errorMessage, retryAfter };
+      }
 
       const data = await response.json();
 
@@ -172,12 +210,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error: unknown) {
       console.error('Login error:', error);
-      // Check if it's a network error (server not reachable)
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      // Handle abort (timeout)
+      if (error instanceof DOMException && error.name === 'AbortError') {
         return {
           success: false,
-          message:
-            'Cannot connect to server. Please ensure the backend server is running (node server.js).',
+          message: 'Login request timed out. Please check your network connection and try again.',
+        };
+      }
+      // Check if it's a network error (server not reachable)
+      if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed'))) {
+        return {
+          success: false,
+          message: 'Cannot connect to server. Please check your network connection or contact the administrator.',
         };
       }
       // For other errors, provide a generic message

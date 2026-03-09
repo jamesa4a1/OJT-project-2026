@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
+import { useSocket, ALL_EVENTS } from '../../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -172,6 +173,9 @@ const AdminDashboard = () => {
       setIsLoading(false);
     }
   };
+
+  // Real-time updates: auto-refresh when cases/clearances change on any PC
+  useSocket(ALL_EVENTS, fetchDashboardData);
 
   const fetchUsers = async () => {
     try {

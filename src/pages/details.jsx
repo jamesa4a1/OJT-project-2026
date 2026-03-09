@@ -4,6 +4,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../App';
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -32,22 +33,26 @@ const Details = () => {
   // Check if user is staff (read-only mode)
   const isStaff = user?.role === 'Staff';
 
-  useEffect(() => {
-    const fetchCaseDetails = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/get-case?docket_no=${docketNo}`);
-        if (response.data.length > 0) {
-          setCaseDetails(response.data[0]);
-        } else {
-          setError('No case found.');
-        }
-      } catch (err) {
-        setError('Error fetching case details.');
+  const fetchCaseDetails = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/get-case?docket_no=${docketNo}`);
+      if (response.data.length > 0) {
+        setCaseDetails(response.data[0]);
+      } else {
+        setError('No case found.');
       }
-      setIsLoading(false);
-    };
+    } catch (err) {
+      setError('Error fetching case details.');
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
     fetchCaseDetails();
   }, [docketNo]);
+
+  // Real-time updates: auto-refresh when this case is updated on any PC
+  useSocket(CASE_EVENTS, fetchCaseDetails);
 
   const fields = [
     { label: 'Docket Number', key: 'DOCKET_NO', icon: 'fa-hashtag', color: 'blue' },

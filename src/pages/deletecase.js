@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../App';
 import ImageModal from '../components/ImageModal';
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
 
 const API_BASE = window.location.origin;
 
@@ -147,6 +148,9 @@ const Deletecase = () => {
       setIsLoading(false);
     }
   };
+
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchAllCases);
 
   const handleDeleteClick = (caseItem) => {
     setSelectedCase(caseItem);

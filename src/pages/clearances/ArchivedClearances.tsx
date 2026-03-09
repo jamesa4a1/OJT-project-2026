@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import config from '../../config';
+import { useSocket, CLEARANCE_EVENTS } from '../../hooks/useSocket';
 
 // Custom Tooltip Component for Notes
 const NotesTooltip: React.FC<{ 
@@ -178,6 +179,9 @@ const ArchivedClearances: React.FC = () => {
   useEffect(() => {
     fetchArchivedClearances();
   }, [fetchArchivedClearances]);
+
+  // Real-time updates: auto-refresh when clearances change on any PC
+  useSocket(CLEARANCE_EVENTS, fetchArchivedClearances);
 
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
