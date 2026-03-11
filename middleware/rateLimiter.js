@@ -27,9 +27,9 @@ const apiLimiter = rateLimit({
  * 5 attempts per 15 minutes
  */
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 10 * 60 * 1000,
   max: 5,
-  message: 'Too many login attempts, please try again after 15 minutes.',
+  message: { success: false, message: 'Too many login attempts, please try again after 10 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },

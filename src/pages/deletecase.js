@@ -6,7 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { ThemeContext } from '../App';
 import ImageModal from '../components/ImageModal';
+<<<<<<< HEAD
 import { API_BASE } from '../config/api';
+=======
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
+
+const API_BASE = window.location.origin;
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 const Deletecase = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
@@ -164,6 +170,40 @@ const Deletecase = () => {
     setFilteredCases(sorted);
   }, [searchTerm, cases, sortOption, statusFilter]);
 
+<<<<<<< HEAD
+=======
+  const fetchAllCases = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await axios.get(`${API_BASE}/cases`);
+      setCases(response.data);
+      setFilteredCases(response.data);
+    } catch (err) {
+      console.error('Error fetching cases:', err);
+      if (err.response) {
+        // Server responded with error
+        if (err.response.status === 503) {
+          setError('❌ Database connection failed. Please ensure MySQL/XAMPP is running and the database is accessible.');
+        } else {
+          setError(err.response.data?.message || 'Error fetching cases from server.');
+        }
+      } else if (err.request) {
+        // Request was made but no response
+        setError(`❌ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
+      } else {
+        // Something else happened
+        setError('Error fetching cases: ' + err.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchAllCases);
+
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
   const handleDeleteClick = (caseItem) => {
     setSelectedCase(caseItem);
     setShowConfirm(true);

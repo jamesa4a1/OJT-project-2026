@@ -251,12 +251,13 @@ const ClearanceGenerate: React.FC = () => {
     }
   }, [formData.date_issued, formData.validity_period, formData.format_type]);
 
-  // Auto-hide success message after 4 seconds
+  // Auto-hide status message (4s for success, 6s for error)
   useEffect(() => {
-    if (submitStatus?.type === 'success') {
+    if (submitStatus) {
+      const delay = submitStatus.type === 'success' ? 4000 : 6000;
       const timer = setTimeout(() => {
         setSubmitStatus(null);
-      }, 4000);
+      }, delay);
       return () => clearTimeout(timer);
     }
   }, [submitStatus]);
@@ -562,13 +563,6 @@ const ClearanceGenerate: React.FC = () => {
         : 'Please fill up the empty fields';
       
       setSubmitStatus({ type: 'error', message: errorDisplay });
-      
-      // Scroll to the form section
-      const formContainer = document.querySelector('form');
-      if (formContainer) {
-        formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      
       return;
     }
     
@@ -900,34 +894,61 @@ const ClearanceGenerate: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Status Message */}
+        {/* Fixed Toast Notification - visible from any scroll position */}
         <AnimatePresence>
           {submitStatus && (
             <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              initial={{ opacity: 0, y: -40, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
-              className={`relative overflow-hidden rounded-xl p-4 mb-6 ${
+              exit={{ opacity: 0, y: -40, scale: 0.95 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] w-[92%] max-w-lg"
+            >
+              <div className={`rounded-xl p-4 shadow-2xl backdrop-blur-sm ${
                 submitStatus.type === 'success'
                   ? isDark 
-                    ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-500/30 shadow-lg shadow-emerald-500/10' 
-                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-lg shadow-emerald-500/10'
+                    ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/30 shadow-emerald-500/20' 
+                    : 'bg-white text-emerald-800 border border-emerald-200 shadow-emerald-500/10'
                   : isDark 
-                    ? 'bg-red-950/50 text-red-300 border border-red-500/30 shadow-lg shadow-red-500/10' 
-                    : 'bg-red-50 text-red-800 border border-red-200 shadow-lg shadow-red-500/10'
-              }`}
-            >
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  {submitStatus.type === 'success' ? (
-                    <i className="fas fa-check-circle text-emerald-500"></i>
-                  ) : (
-                    <i className="fas fa-exclamation-triangle text-red-500"></i>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold">{submitStatus.message}</p>
+                    ? 'bg-red-950/90 text-red-300 border border-red-500/30 shadow-red-500/20' 
+                    : 'bg-white text-red-800 border border-red-200 shadow-red-500/10'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
+                    submitStatus.type === 'success'
+                      ? isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'
+                      : isDark ? 'bg-red-500/20' : 'bg-red-100'
+                  }`}>
+                    {submitStatus.type === 'success' ? (
+                      <i className="fas fa-check-circle text-emerald-500 text-lg"></i>
+                    ) : (
+                      <i className="fas fa-exclamation-circle text-red-500 text-lg"></i>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-semibold text-sm ${
+                      submitStatus.type === 'success'
+                        ? isDark ? 'text-emerald-300' : 'text-emerald-800'
+                        : isDark ? 'text-red-300' : 'text-red-800'
+                    }`}>
+                      {submitStatus.type === 'success' ? 'Success' : 'Missing Required Fields'}
+                    </p>
+                    <p className={`text-sm mt-0.5 ${
+                      submitStatus.type === 'success'
+                        ? isDark ? 'text-emerald-400' : 'text-emerald-600'
+                        : isDark ? 'text-red-400' : 'text-red-600'
+                    }`}>
+                      {submitStatus.message}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSubmitStatus(null)}
+                    className={`flex-shrink-0 p-1 rounded-md transition-colors bg-transparent border-none cursor-pointer ${
+                      isDark ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
                 </div>
               </div>
             </motion.div>

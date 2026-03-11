@@ -4,7 +4,13 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import * as XLSX from 'xlsx';
+<<<<<<< HEAD
 import { API_BASE } from '../../config/api';
+=======
+import { useSocket, ALL_EVENTS } from '../../hooks/useSocket';
+
+const API_BASE = window.location.origin;
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 // Progress Ring Component
 const ProgressRing = ({ progress, size = 80, strokeWidth = 8, color = 'blue', isDark }) => {
@@ -135,6 +141,9 @@ const ClerkDashboard = () => {
       console.error('Error fetching dashboard data:', error);
     }
   };
+
+  // Real-time updates: auto-refresh when cases/clearances change on any PC
+  useSocket(ALL_EVENTS, fetchDashboardData);
 
   const handleExportCSV = async () => {
     try {

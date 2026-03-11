@@ -3,8 +3,14 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeContext } from '../App';
+<<<<<<< HEAD
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { API_BASE } from '../config/api';
+=======
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
+
+const API_BASE = window.location.origin;
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 const Caselist = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
@@ -186,7 +192,47 @@ const Caselist = () => {
     }
   };
 
+<<<<<<< HEAD
   const fetchDeletedCases = useCallback(() => {
+=======
+  // Function to configure automatic deletion
+  const handleAutoDeleteConfig = async () => {
+    try {
+      console.log('Auto-delete configuration:', autoDeleteConfig);
+
+      // Call API to set up automatic deletion schedule
+      const response = await axios.post(`${API_BASE}/configure-auto-delete`, {
+        scheduleType: autoDeleteConfig.scheduleType,
+        dayOfWeek: autoDeleteConfig.dayOfWeek,
+        dayOfMonth: autoDeleteConfig.dayOfMonth,
+        time: autoDeleteConfig.time,
+      });
+
+      setNotification({
+        type: 'success',
+        title: 'Auto-Delete Configured!',
+        message: `Deleted cases will be permanently deleted ${autoDeleteConfig.scheduleType} at ${autoDeleteConfig.time}.`,
+        icon: 'fa-check-circle',
+      });
+
+      setTimeout(() => setNotification(null), 4000);
+      setShowAutoDeleteModal(false);
+    } catch (error) {
+      console.error('Error configuring auto-delete:', error);
+      setNotification({
+        type: 'error',
+        title: 'Configuration Failed',
+        message: 'Failed to configure automatic deletion. Please try again.',
+        icon: 'fa-exclamation-circle',
+      });
+
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
+  const fetchDeletedCases = () => {
+    setIsLoading(true);
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
     axios
       .get(`${API_BASE}/deleted-cases`)
       .then((response) => {
@@ -197,8 +243,13 @@ const Caselist = () => {
         console.error('There was an error fetching the deleted cases!', error);
         setIsLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchDeletedCases();
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     setIsLoading(true);
     fetchDeletedCases();
@@ -206,6 +257,10 @@ const Caselist = () => {
 
   // Auto-refresh every 5 seconds — paused while a deletion is in progress to prevent overwriting state
   useAutoRefresh(fetchDeletedCases, 5000, isDeleting === null && !isDeletingAll);
+=======
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchDeletedCases);
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
   const handleSort = (option, direction) => {
     setSortOption(option);

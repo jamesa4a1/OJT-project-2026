@@ -1,5 +1,5 @@
-import React, { useState, FormEvent, ChangeEvent } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useValidation } from '../hooks/useValidation';
@@ -16,6 +16,8 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [showPopup, setShowPopup] = useState<boolean>(false);
+  const [countdown, setCountdown] = useState<number>(0);
   const { validate, errors: validationErrors } = useValidation(UserLoginSchema);
 
   const [formData, setFormData] = useState<LoginFormData>({
@@ -26,38 +28,79 @@ const Login: React.FC = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
+    setShowPopup(false);
+  };
+
+  // Auto-dismiss popup after 5 seconds
+  useEffect(() => {
+    if (showPopup && error) {
+      const timer = setTimeout(() => setShowPopup(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showPopup, error]);
+
+  // Countdown timer for rate limiting
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          setError('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [countdown]);
+
+  const formatCountdown = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setShowPopup(false);
 
-    // Validate with Zod
-    const validatedData = await validate(formData);
-    if (!validatedData.success) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Attempt login with credentials (now async)
-    const { email, password } = validatedData.data as { email: string; password: string };
-    const result = await login(email, password);
-
-    setIsLoading(false);
-
-    if (result.success) {
-      // Login successful, navigate based on role returned from server
-      if (result.role === 'Admin') {
-        navigate('/admin-dashboard');
-      } else if (result.role === 'Staff') {
-        navigate('/staff-dashboard');
-      } else {
-        navigate('/dashboard');
+    try {
+      // Validate with Zod
+      const validatedData = await validate(formData);
+      if (!validatedData.success) {
+        setIsLoading(false);
+        return;
       }
-    } else {
-      // Login failed, show error
-      setError(result.message || 'Login failed');
+
+      // Attempt login with credentials (now async)
+      const { email, password } = validatedData.data as { email: string; password: string };
+      const result = await login(email, password);
+
+      if (result.success) {
+        // Login successful, navigate based on role returned from server
+        if (result.role === 'Admin') {
+          navigate('/admin-dashboard');
+        } else if (result.role === 'Staff') {
+          navigate('/staff-dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        // Login failed, show error popup
+        if (result.retryAfter && result.retryAfter > 0) {
+          setCountdown(result.retryAfter);
+        }
+        setError(result.message || 'Invalid email or password.');
+        setShowPopup(true);
+      }
+    } catch (err) {
+      // Safety net — ensures loading spinner NEVER gets stuck
+      setError('Incorrect credentials. Please try again.');
+      setShowPopup(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,6 +124,35 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden font-sans">
+      {/* Error Popup Toast */}
+      <AnimatePresence>
+        {showPopup && error && (
+          <motion.div
+            initial={{ opacity: 0, y: -40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -40, scale: 0.95 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md"
+          >
+            <div className="bg-white border border-red-200 rounded-xl shadow-2xl shadow-red-500/10 p-4 flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <i className="fas fa-exclamation-circle text-red-500 text-lg"></i>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-red-800 text-sm">Login Failed</p>
+                <p className="text-red-600 text-sm mt-0.5">{error}</p>
+              </div>
+              <button
+                onClick={() => setShowPopup(false)}
+                className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none cursor-pointer p-1"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background Decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] -mr-48 -mt-48"></div>
@@ -99,8 +171,8 @@ const Login: React.FC = () => {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
-          {/* Pattern Overlay */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+          {/* Pattern Overlay - CSS-only, no internet needed */}
+          <div className="absolute inset-0 opacity-10" style={{backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "20px 20px"}}></div>
 
           <div className="relative z-10">
             <Link
@@ -208,10 +280,18 @@ const Login: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-3 font-medium"
+                  className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex flex-col gap-2 font-medium"
                 >
-                  <i className="fas fa-exclamation-circle text-red-500 text-base"></i>
-                  {error}
+                  <div className="flex items-center gap-3">
+                    <i className="fas fa-exclamation-circle text-red-500 text-base"></i>
+                    {error}
+                  </div>
+                  {countdown > 0 && (
+                    <div className="flex items-center gap-2 ml-7 text-red-600">
+                      <i className="fas fa-clock text-sm"></i>
+                      <span>Try again in <strong>{formatCountdown(countdown)}</strong></span>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -224,12 +304,12 @@ const Login: React.FC = () => {
               >
                 <motion.button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || countdown > 0}
                   whileHover={{ scale: 1.01, boxShadow: '0 20px 40px -5px rgba(37, 99, 235, 0.4)' }}
                   whileTap={{ scale: 0.98 }}
                   className={`w-full py-3.5 rounded-lg font-bold text-base text-white transition-all duration-200 border-none cursor-pointer
                                             flex items-center justify-center gap-2
-                                            ${isLoading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30'}`}
+                                            ${isLoading || countdown > 0 ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30'}`}
                 >
                   {isLoading ? (
                     <>

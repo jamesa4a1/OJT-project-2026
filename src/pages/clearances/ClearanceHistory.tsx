@@ -5,7 +5,11 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import config from '../../config';
+<<<<<<< HEAD
 import useAutoRefresh from '../../hooks/useAutoRefresh';
+=======
+import { useSocket, CLEARANCE_EVENTS } from '../../hooks/useSocket';
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 import { 
   ClearancePreview
 } from './templates';
@@ -210,9 +214,14 @@ const ClearanceHistory: React.FC = () => {
     fetchIssuers();
   }, []);
 
+<<<<<<< HEAD
   // Auto-refresh every 5 seconds for real-time updates across PCs
   useAutoRefresh(fetchClearances, 5000);
   useAutoRefresh(fetchStats, 5000);
+=======
+  // Real-time updates: auto-refresh when clearances change on any PC
+  useSocket(CLEARANCE_EVENTS, fetchClearances);
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, page: 1 }));

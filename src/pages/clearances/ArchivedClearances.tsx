@@ -5,7 +5,11 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import config from '../../config';
+<<<<<<< HEAD
 import useAutoRefresh from '../../hooks/useAutoRefresh';
+=======
+import { useSocket, CLEARANCE_EVENTS } from '../../hooks/useSocket';
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 // Custom Tooltip Component for Notes
 const NotesTooltip: React.FC<{ 
@@ -180,8 +184,13 @@ const ArchivedClearances: React.FC = () => {
     fetchArchivedClearances();
   }, [fetchArchivedClearances]);
 
+<<<<<<< HEAD
   // Auto-refresh every 5 seconds for real-time updates across PCs
   useAutoRefresh(fetchArchivedClearances, 5000);
+=======
+  // Real-time updates: auto-refresh when clearances change on any PC
+  useSocket(CLEARANCE_EVENTS, fetchArchivedClearances);
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, page: 1 }));

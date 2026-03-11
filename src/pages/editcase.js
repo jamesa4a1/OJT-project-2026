@@ -7,7 +7,13 @@ import useAutoRefresh from '../hooks/useAutoRefresh';
 import { useValidation } from '../hooks/useValidation';
 import { CaseUpdateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
+<<<<<<< HEAD
 import { API_BASE } from '../config/api';
+=======
+import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
+
+const API_BASE = window.location.origin;
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 const Editcase = () => {
   const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: '', RESPONDENT: '' });
@@ -39,6 +45,10 @@ const Editcase = () => {
     return `${API_BASE}${indexCardPath}`;
   };
 
+<<<<<<< HEAD
+=======
+  // Fetch all cases
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
   const fetchAllCases = async () => {
     try {
       const response = await axios.get(`${API_BASE}/cases`);
@@ -48,13 +58,22 @@ const Editcase = () => {
     }
   };
 
+<<<<<<< HEAD
   // Fetch all cases on component mount
+=======
+  // Fetch on component mount
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
   useEffect(() => {
     fetchAllCases();
   }, []);
 
+<<<<<<< HEAD
   // Auto-refresh every 5 seconds for real-time updates across PCs
   useAutoRefresh(fetchAllCases, 5000);
+=======
+  // Real-time updates: auto-refresh when cases change on any PC
+  useSocket(CASE_EVENTS, fetchAllCases);
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
   const handleChange = (e) => {
     setSearchQuery({ ...searchQuery, [e.target.name]: e.target.value });

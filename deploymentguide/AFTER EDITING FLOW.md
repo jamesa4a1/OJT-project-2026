@@ -1,13 +1,18 @@
-# Code Update Workflow - Complete Step-by-Step Guide
+# After Editing Code — Rebuild & Push Workflow
 
+<<<<<<< HEAD
 ## Prerequisites
 
 - Have your project open in VS Code
 - Docker containers running (`docker compose up -d`)
 - Git repository initialized and connected
+=======
+Follow this workflow every time you edit the source code and want to apply the changes.
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
-## Step-by-Step Workflow
+---
 
+<<<<<<< HEAD
 ### 1. 📝 EDIT YOUR CODE
 
 ```bash
@@ -17,22 +22,26 @@
 
 ### 2. 🧪 TEST YOUR CHANGES LOCALLY
 
+=======
+## Quick Version
+
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 ```powershell
-# If you changed backend code (server.js, etc.):
-docker compose restart backend
-
-# If you changed frontend code (src/ files):
-docker compose restart frontend
-
-# If you changed both or major changes:
+# 1. Rebuild containers with your changes
 docker compose down
 docker compose up -d --build
 
-# Test your application:
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:5000
+# 2. Test in browser
+#    Main PC:   http://localhost
+#    Other PCs: http://192.168.1.15
+
+# 3. Push to GitHub
+git add .
+git commit -m "Fix: description of what you changed"
+git push origin master:main
 ```
 
+<<<<<<< HEAD
 ### 3. ✅ VERIFY EVERYTHING WORKS
 
 - Test all functionality that you modified
@@ -42,10 +51,60 @@ docker compose up -d --build
 
 ### 4. 📋 CHECK WHAT FILES CHANGED
 
+=======
+---
+
+## Detailed Steps
+
+### Step 1: Make Your Changes
+
+Edit files in VS Code, then save (Ctrl + S).
+
+### Step 2: Rebuild the Containers
+
+What you changed determines what to rebuild:
+
+| What you changed | Command |
+|-----------------|---------|
+| **Backend code** (server.js, middleware/, handlers/, schemas/, utils/) | `docker restart ocp_backend_api` |
+| **Frontend code** (src/, public/) | `docker compose down; docker compose up -d --build` |
+| **docker-compose.yml or Dockerfiles** | `docker compose down; docker compose up -d --build` |
+| **whitelist.json only** | `docker restart ocp_backend_api` |
+| **nginx.conf** | `docker restart ocp_nginx_proxy` |
+| **Not sure / multiple files** | `docker compose down; docker compose up -d --build` |
+
+> **Why frontend needs full rebuild:** The React app is compiled during `docker compose build`. A simple restart won't pick up source changes.
+
+### Step 3: Verify Your Changes Work
+
+1. Open `http://localhost` on the main PC
+2. Test the specific feature you changed
+3. Check the browser console (F12) for errors
+4. If something is wrong, check logs:
+
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 ```powershell
-git status
+# Backend logs
+docker compose logs backend --tail 30
+
+# Frontend logs
+docker compose logs frontend --tail 30
+
+# All logs
+docker compose logs --tail 30
 ```
 
+### Step 4: Test from Another PC (if applicable)
+
+On the other PC, open `http://192.168.1.15` and verify the change works there too.
+
+### Step 5: Push to GitHub
+
+```powershell
+# See what changed
+git status
+
+<<<<<<< HEAD
 ### 5. 🎯 STAGE YOUR CHANGES
 
 ```powershell
@@ -56,12 +115,15 @@ git add filename.js
 git add server.js src/pages/ExcelSync.tsx
 
 # Add all modified files (be careful!):
+=======
+# Stage your changes
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 git add .
 
-# Add all files in a directory:
-git add src/
-```
+# Or stage specific files only
+git add server.js src/pages/newcase.tsx
 
+<<<<<<< HEAD
 ### 6. 💾 COMMIT YOUR CHANGES
 
 ```powershell
@@ -78,74 +140,106 @@ git commit -m "Update: Improve error handling in API"
 
 ```powershell
 # Push to the main branch (recommended):
-git push origin master:main
+=======
+# Commit with a descriptive message
+git commit -m "Fix: description of what you changed"
 
-# Alternative: Push to master branch if it exists:
-git push origin master
+# Push (local master → remote main)
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
+git push origin master:main
 ```
 
+<<<<<<< HEAD
 ### 8. ✅ VERIFY PUSH SUCCESS
+=======
+### Step 6: Verify Push
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 ```powershell
-# Check that your commit is now on remote:
 git log --oneline -1
 # Should show: (HEAD -> master, origin/main)
 ```
 
+<<<<<<< HEAD
 ### 9. 🌐 UPDATE OTHER PCs/USERS
 
 **For PCs with Git + Docker:**
+=======
+---
+
+## Redeploying on Another Machine
+
+If you need to pull changes onto a different PC that also runs Docker:
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 ```powershell
+cd C:\Users\galam\OneDrive\Desktop\deploymenttesting
 git pull origin main
 docker compose down
 docker compose up -d --build
 ```
 
+<<<<<<< HEAD
 **For PCs with just browser access:**
 
 - No action needed! Changes are live immediately
 - Just refresh browser or clear cache if needed
+=======
+For PCs that only access via browser — no action needed. Changes are live as soon as you rebuild on the main PC.
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
-## 🔧 Quick Commands Reference
+---
 
+## Commit Message Examples
+
+| Prefix | Use When | Example |
+|--------|----------|---------|
+| `Fix:` | Bug fix | `Fix: Excel date parsing error` |
+| `Add:` | New feature | `Add: clearance PDF export` |
+| `Update:` | Improvement | `Update: improve search performance` |
+| `Remove:` | Removed something | `Remove: unused Settings page` |
+| `Docs:` | Documentation | `Docs: update deployment guide` |
+
+---
+
+## Emergency: Undo Last Commit
+
+<<<<<<< HEAD
 ### 🆘 Emergency Commands
 
+=======
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 ```powershell
-# Undo last commit (keep changes):
+# Undo commit but keep file changes
 git reset HEAD~1
 
-# Discard all uncommitted changes:
+# Discard ALL uncommitted changes (careful!)
 git checkout -- .
-
-# Check repository status:
-git status
-
-# View recent commits:
-git log --oneline -10
-
-# Check what remote you're connected to:
-git remote -v
-
-# Restart all containers:
-docker compose restart
-
-# View container logs:
-docker compose logs backend --tail 50
 ```
 
+<<<<<<< HEAD
 ### 📱 Check Application Status
+=======
+---
+
+## Useful Commands
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 ```powershell
-# Check if containers are running:
+# Check container status
 docker compose ps
 
-# Check backend health:
-curl http://localhost:5000/api/health
+# Check which remote you're pushing to
+git remote -v
 
-# Check frontend:
-curl http://localhost:3000
+# View recent commits
+git log --oneline -5
+
+# Rebuild without cache (if build seems stuck)
+docker compose build --no-cache
+docker compose up -d
 ```
+<<<<<<< HEAD
 
 ## 📝 Commit Message Best Practices
 
@@ -193,3 +287,5 @@ git log --oneline -1
 ```
 
 **🎉 Done! Your changes are now live and pushed to GitHub!**
+=======
+>>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089

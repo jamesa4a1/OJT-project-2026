@@ -355,8 +355,22 @@ Test at http://localhost:3000
 
 git add .
 git commit -m "Update project"
-git push origin master:main
+git push origin main
 
 
 
+# if you want to pull from github the latest changes
+
+cd C:\Users\galam\OneDrive\Desktop\deploymenttesting>
+git checkout main
+git pull origin main
+docker compose up -d --build
+
+
+if push directly on the server pc
+
+cd C:\Users\galam\OneDrive\Desktop\deploymenttesting>
+git add .
+git commit -m "Update project"
+git push origin main
 
