@@ -27,6 +27,7 @@ import ExcelSync from './pages/ExcelSync';
 import ClearanceHistory from './pages/clearances/ClearanceHistory';
 import ClearanceGenerate from './pages/clearances/ClearanceGenerate';
 import ArchivedClearances from './pages/clearances/ArchivedClearances';
+import GenerateReport from './pages/GenerateReport';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 // design
@@ -96,6 +97,7 @@ const AnimatedRoutes = () => {
     '/excel-sync',
     '/add-account',
     '/clearances',
+    '/generate-report',
   ];
   const isDashboardPage = dashboardPages.some((page) => location.pathname.startsWith(page));
   const hideNavFooter = isDashboardPage && isAuthenticated;
@@ -306,6 +308,18 @@ const AnimatedRoutes = () => {
                 isAuthenticated && (user?.role === 'Admin' || user?.role === 'Clerk') ? (
                   <DashboardPageWrapper>
                     <ArchivedClearances />
+                  </DashboardPageWrapper>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/generate-report"
+              element={
+                isAuthenticated && user?.role === 'Admin' ? (
+                  <DashboardPageWrapper>
+                    <GenerateReport />
                   </DashboardPageWrapper>
                 ) : (
                   <Navigate to="/login" replace />

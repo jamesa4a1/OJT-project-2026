@@ -1,6 +1,7 @@
 # Code Update Workflow - Complete Step-by-Step Guide
 
 ## Prerequisites
+
 - Have your project open in VS Code
 - Docker containers running (`docker compose up -d`)
 - Git repository initialized and connected
@@ -8,12 +9,14 @@
 ## Step-by-Step Workflow
 
 ### 1. 📝 EDIT YOUR CODE
+
 ```bash
 # Make your changes in VS Code to any files (server.js, frontend files, etc.)
 # Save all files: Ctrl + S
 ```
 
 ### 2. 🧪 TEST YOUR CHANGES LOCALLY
+
 ```powershell
 # If you changed backend code (server.js, etc.):
 docker compose restart backend
@@ -31,17 +34,20 @@ docker compose up -d --build
 ```
 
 ### 3. ✅ VERIFY EVERYTHING WORKS
+
 - Test all functionality that you modified
 - Check browser console for errors
 - Test in different browsers if needed
 - Check Docker logs if issues: `docker compose logs backend --tail 20`
 
 ### 4. 📋 CHECK WHAT FILES CHANGED
+
 ```powershell
 git status
 ```
 
 ### 5. 🎯 STAGE YOUR CHANGES
+
 ```powershell
 # Add specific files:
 git add filename.js
@@ -57,6 +63,7 @@ git add src/
 ```
 
 ### 6. 💾 COMMIT YOUR CHANGES
+
 ```powershell
 # Commit with descriptive message:
 git commit -m "Fix: Description of what you fixed or added"
@@ -68,6 +75,7 @@ git commit -m "Update: Improve error handling in API"
 ```
 
 ### 7. 🚀 PUSH TO REMOTE REPOSITORY
+
 ```powershell
 # Push to the main branch (recommended):
 git push origin master:main
@@ -77,6 +85,7 @@ git push origin master
 ```
 
 ### 8. ✅ VERIFY PUSH SUCCESS
+
 ```powershell
 # Check that your commit is now on remote:
 git log --oneline -1
@@ -84,7 +93,9 @@ git log --oneline -1
 ```
 
 ### 9. 🌐 UPDATE OTHER PCs/USERS
+
 **For PCs with Git + Docker:**
+
 ```powershell
 git pull origin main
 docker compose down
@@ -92,12 +103,14 @@ docker compose up -d --build
 ```
 
 **For PCs with just browser access:**
+
 - No action needed! Changes are live immediately
 - Just refresh browser or clear cache if needed
 
 ## 🔧 Quick Commands Reference
 
 ### 🆘 Emergency Commands
+
 ```powershell
 # Undo last commit (keep changes):
 git reset HEAD~1
@@ -122,6 +135,7 @@ docker compose logs backend --tail 50
 ```
 
 ### 📱 Check Application Status
+
 ```powershell
 # Check if containers are running:
 docker compose ps
@@ -134,6 +148,7 @@ curl http://localhost:3000
 ```
 
 ## 📝 Commit Message Best Practices
+
 - **Fix:** Bug fixes
 - **Add:** New features
 - **Update:** Improvements to existing features
@@ -144,6 +159,7 @@ curl http://localhost:3000
 Example: `git commit -m "Fix: Resolve Excel date parsing for serial numbers"`
 
 ## ⚠️ Important Notes
+
 1. **Always test locally before pushing**
 2. **Your local branch:** `master`
 3. **Remote default branch:** `main`
@@ -152,6 +168,7 @@ Example: `git commit -m "Fix: Resolve Excel date parsing for serial numbers"`
 6. **Other PCs** accessing via browser see changes immediately after you rebuild
 
 ## 🔄 Complete Example Workflow
+
 ```powershell
 # 1. Edit files in VS Code
 # 2. Save files (Ctrl + S)

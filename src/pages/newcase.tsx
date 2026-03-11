@@ -18,9 +18,11 @@ interface CaseFormData {
   CRIM_CASE_NO: string;
   BRANCH: string;
   DATEFILED_IN_COURT: string;
+  FINAL_OFFENSE: string;
   REMARKS_DECISION: string;
   PENALTY: string;
   DECISION_DATE: string;
+  STATUS: string;
 }
 
 const Newcase: React.FC = () => {
@@ -32,6 +34,9 @@ const Newcase: React.FC = () => {
   const [showFullImage, setShowFullImage] = useState<boolean>(false);
   const [isRemarksOther, setIsRemarksOther] = useState<boolean>(false);
   const [customRemarks, setCustomRemarks] = useState<string>('');
+  const [isStatusFiledInCourt, setIsStatusFiledInCourt] = useState<boolean>(false);
+  const [showStatusField, setShowStatusField] = useState<boolean>(false);
+  const [respondents, setRespondents] = useState<string[]>(['']);
   const [formData, setFormData] = useState<CaseFormData>({
     DOCKET_NO: '',
     DATE_FILED: '',
@@ -45,9 +50,11 @@ const Newcase: React.FC = () => {
     CRIM_CASE_NO: '',
     BRANCH: '',
     DATEFILED_IN_COURT: '',
+    FINAL_OFFENSE: '',
     REMARKS_DECISION: '',
     PENALTY: '',
     DECISION_DATE: '',
+    STATUS: '',
   });
 
   const handleChange = (
@@ -58,15 +65,33 @@ const Newcase: React.FC = () => {
     if (name === 'REMARKS_DECISION') {
       if (value === 'Other') {
         setIsRemarksOther(true);
-        setFormData({ ...formData, [name.toUpperCase()]: customRemarks } as CaseFormData);
+        setFormData({ ...formData, [name.toUpperCase()]: customRemarks, CRIM_CASE_NO: '', BRANCH: '', DATEFILED_IN_COURT: '', FINAL_OFFENSE: '' } as CaseFormData);
       } else {
         setIsRemarksOther(false);
         setCustomRemarks('');
-        setFormData({ ...formData, [name.toUpperCase()]: value } as CaseFormData);
+        setFormData({ ...formData, [name.toUpperCase()]: value, CRIM_CASE_NO: '', BRANCH: '', DATEFILED_IN_COURT: '', FINAL_OFFENSE: '' } as CaseFormData);
       }
+    } else if (name === 'STATUS') {
+      if (value === 'Filed in Court') {
+        setIsStatusFiledInCourt(true);
+      } else {
+        setIsStatusFiledInCourt(false);
+      }
+      setFormData({ ...formData, STATUS: value } as CaseFormData);
     } else {
       setFormData({ ...formData, [name.toUpperCase()]: value } as CaseFormData);
     }
+  };
+
+  const addRespondent = (): void => setRespondents([...respondents, '']);
+  const removeRespondent = (index: number): void => {
+    if (respondents.length === 1) return;
+    setRespondents(respondents.filter((_, i) => i !== index));
+  };
+  const updateRespondent = (index: number, value: string): void => {
+    const updated = [...respondents];
+    updated[index] = value;
+    setRespondents(updated);
   };
 
   const handleCustomRemarksChange = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -106,7 +131,7 @@ const Newcase: React.FC = () => {
         DOCKET_NO: formData.DOCKET_NO,
         DATE_FILED: formData.DATE_FILED,
         COMPLAINANT: formData.COMPLAINANT,
-        RESPONDENT: formData.RESPONDENT,
+        RESPONDENT: JSON.stringify(respondents.filter(r => r.trim() !== '').map(r => r.trim())),
         ADDRESS_OF_RESPONDENT: formData.ADDRESS_OF_RESPONDENT,
         OFFENSE: formData.OFFENSE,
         RESOLVING_PROSECUTOR: formData.RESOLVING_PROSECUTOR,
@@ -116,9 +141,11 @@ const Newcase: React.FC = () => {
         CRIM_CASE_NO: formData.CRIM_CASE_NO || null,
         BRANCH: formData.BRANCH || null,
         DATEFILED_IN_COURT: formData.DATEFILED_IN_COURT || null,
+        FINAL_OFFENSE: formData.FINAL_OFFENSE || null,
         REMARKS_DECISION: formData.REMARKS_DECISION || null,
         PENALTY: formData.PENALTY || null,
         DECISION_DATE: formData.DECISION_DATE || null,
+        STATUS: formData.STATUS || null,
       };
 
       const formDataToSend = new FormData();
@@ -159,12 +186,17 @@ const Newcase: React.FC = () => {
         CRIM_CASE_NO: '',
         BRANCH: '',
         DATEFILED_IN_COURT: '',
+        FINAL_OFFENSE: '',
         REMARKS_DECISION: '',
         PENALTY: '',
         DECISION_DATE: '',
+        STATUS: '',
       });
       setIsRemarksOther(false);
       setCustomRemarks('');
+      setIsStatusFiledInCourt(false);
+      setShowStatusField(false);
+      setRespondents(['']);
       removeImage();
     } catch (error: any) {
       console.error('Error adding case:', error);
@@ -354,15 +386,36 @@ const Newcase: React.FC = () => {
                     <i className="fas fa-user-tag text-red-500"></i>
                     Respondent *
                   </label>
-                  <input
-                    type="text"
-                    name="RESPONDENT"
-                    value={formData.RESPONDENT}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Enter respondent name"
-                    required
-                  />
+                  {respondents.map((r, index) => (
+                    <div key={index} className={`flex gap-2 ${index > 0 ? 'mt-2' : ''}`}>
+                      <input
+                        type="text"
+                        value={r}
+                        onChange={(e) => updateRespondent(index, e.target.value)}
+                        className={inputClass}
+                        placeholder={index === 0 ? 'Enter respondent name' : `Respondent ${index + 1}`}
+                        required={index === 0}
+                      />
+                      {respondents.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRespondent(index)}
+                          className="w-9 h-9 flex-shrink-0 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 border-none cursor-pointer flex items-center justify-center transition-colors"
+                          title="Remove respondent"
+                        >
+                          <i className="fas fa-minus text-xs"></i>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addRespondent}
+                    className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border-none cursor-pointer"
+                  >
+                    <i className="fas fa-plus text-xs"></i>
+                    Add Respondent
+                  </button>
                 </div>
                 <div className="col-span-full md:col-span-1">
                   <label className={labelClass}>
@@ -436,50 +489,6 @@ const Newcase: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Section: Court Information - Optimized */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800">
-                  <i className="fas fa-landmark text-white text-sm"></i>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 m-0">Court Information</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass}>Criminal Case No.</label>
-                  <input
-                    type="text"
-                    name="CRIM_CASE_NO"
-                    value={formData.CRIM_CASE_NO}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Case number"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Branch</label>
-                  <input
-                    type="text"
-                    name="BRANCH"
-                    value={formData.BRANCH}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Court branch"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Date Filed in Court</label>
-                  <input
-                    type="date"
-                    name="DATEFILED_IN_COURT"
-                    value={formData.DATEFILED_IN_COURT}
-                    onChange={handleChange}
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-            </div>
             {/* Section: Resolution & Image Upload - Optimized */}
             <div className="space-y-3">
               <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
@@ -491,16 +500,19 @@ const Newcase: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass}>Remarks Decision</label>
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
+                    <i className="fas fa-clipboard-check text-emerald-500"></i>Recommendation
+                  </label>
                   <select
                     name="REMARKS_DECISION"
-                    value={isRemarksOther ? 'Other' : (formData.REMARKS_DECISION || 'Pending')}
+                    value={formData.REMARKS_DECISION || 'Pending'}
                     onChange={handleChange}
                     className={`${inputClass} cursor-pointer font-semibold`}
                   >
                     <option value="Pending">Pending</option>
                     <option value="Dismissed">Dismissed</option>
                     <option value="Convicted">Convicted</option>
+                    <option value="For Resolution">For Resolution</option>
                     <option value="Other">Other (Custom)</option>
                   </select>
                   {isRemarksOther && (
@@ -508,10 +520,96 @@ const Newcase: React.FC = () => {
                       type="text"
                       value={customRemarks}
                       onChange={handleCustomRemarksChange}
-                      className={`${inputClass} mt-2`}
+                      className={`${inputClass} font-semibold mt-2`}
                       placeholder="Enter custom remarks decision"
                       required
                     />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowStatusField(v => !v)}
+                    className={`w-full mt-2 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+                      showStatusField
+                        ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
+                        : 'bg-white text-emerald-600 border-emerald-400 hover:bg-emerald-50'
+                    }`}
+                  >
+                    <i className={`fas ${showStatusField ? 'fa-minus' : 'fa-plus'} text-xs`}></i>
+                    New Status
+                  </button>
+                  {showStatusField && (
+                    <div className="mt-2">
+                      <label className={`${labelClass} text-emerald-700`}>
+                        <i className="fas fa-tasks text-emerald-500"></i>
+                        New Status
+                      </label>
+                      <select
+                        name="STATUS"
+                        value={formData.STATUS || 'Pending'}
+                        onChange={handleChange}
+                        className={`${inputClass} cursor-pointer font-semibold border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/10`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Dismissed">Dismissed</option>
+                        <option value="Convicted">Convicted</option>
+                        <option value="For Resolution">For Resolution</option>
+                        <option value="Filed in Court">Filed in Court</option>
+                        <option value="Other">Other (Custom)</option>
+                      </select>
+                      {isStatusFiledInCourt && (
+                        <div className="mt-3 p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
+                          <div className="flex items-center gap-2 mb-3">
+                            <i className="fas fa-landmark text-emerald-500"></i>
+                            <span className="text-sm font-semibold text-emerald-700">Court Information</span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3">
+                            <div>
+                              <label className={labelClass}>Criminal Case No.</label>
+                              <input
+                                type="text"
+                                name="CRIM_CASE_NO"
+                                value={formData.CRIM_CASE_NO}
+                                onChange={handleChange}
+                                className={inputClass}
+                                placeholder="Case number"
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Branch</label>
+                              <input
+                                type="text"
+                                name="BRANCH"
+                                value={formData.BRANCH}
+                                onChange={handleChange}
+                                className={inputClass}
+                                placeholder="Court branch"
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Date Filed in Court</label>
+                              <input
+                                type="date"
+                                name="DATEFILED_IN_COURT"
+                                value={formData.DATEFILED_IN_COURT}
+                                onChange={handleChange}
+                                className={inputClass}
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Final Offense</label>
+                              <input
+                                type="text"
+                                name="FINAL_OFFENSE"
+                                value={formData.FINAL_OFFENSE}
+                                onChange={handleChange}
+                                className={inputClass}
+                                placeholder="Final offense"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="space-y-3">

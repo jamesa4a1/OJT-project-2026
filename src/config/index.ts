@@ -21,7 +21,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const config: Config = {
   api: {
-    baseURL: typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+    baseURL: (() => { if (typeof window !== 'undefined') { const { hostname, port } = window.location; if ((hostname === 'localhost' || hostname === '127.0.0.1') && port !== '5000' && port !== '80' && port !== '') return 'http://localhost:5000'; return window.location.origin; } return 'http://localhost'; })(),
     timeout: 30000,
   },
   app: {

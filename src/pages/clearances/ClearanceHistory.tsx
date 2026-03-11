@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import config from '../../config';
+import useAutoRefresh from '../../hooks/useAutoRefresh';
 import { 
   ClearancePreview
 } from './templates';
@@ -208,6 +209,10 @@ const ClearanceHistory: React.FC = () => {
     fetchStats();
     fetchIssuers();
   }, []);
+
+  // Auto-refresh every 5 seconds for real-time updates across PCs
+  useAutoRefresh(fetchClearances, 5000);
+  useAutoRefresh(fetchStats, 5000);
 
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, page: 1 }));

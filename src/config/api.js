@@ -10,11 +10,17 @@
  */
 
 const getApiBase = () => {
-  // In browser environment, use the current origin (same port via Nginx)
   if (typeof window !== 'undefined') {
+    const { hostname, port } = window.location;
+    // In development, React dev server runs on any port != 5000, backend on 5000
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (port !== '5000' && port !== '80' && port !== '') {
+        return 'http://localhost:5000';
+      }
+    }
+    // In production (Nginx), use same origin — Nginx proxies /api to backend
     return window.location.origin;
   }
-  // Fallback for server-side rendering or build time
   return process.env.REACT_APP_API_URL || 'http://localhost';
 };
 

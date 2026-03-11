@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../config/api';
 
 const Findcase = () => {
   const [searchQuery, setSearchQuery] = useState({

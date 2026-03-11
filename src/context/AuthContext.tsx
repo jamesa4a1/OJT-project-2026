@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-const API_BASE = window.location.origin;
-const API_URL = `${API_BASE}/api`;
+import { API_BASE, API_URL } from '../config/api';
 
 // TypeScript Interfaces
 export interface User {

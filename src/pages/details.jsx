@@ -4,8 +4,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { ThemeContext } from '../App';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../config/api';
 
 const Details = () => {
   const { docketNo } = useParams();
@@ -386,6 +385,20 @@ const Details = () => {
                       {caseDetails.REMARKS_DECISION || 'Pending'}
                     </div>
                   </div>
+                  {caseDetails.STATUS && (
+                  <div>
+                    <label
+                      className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}
+                    >
+                      <i className="fas fa-tasks mr-1 text-emerald-500"></i> Status
+                    </label>
+                    <div
+                      className={`px-4 py-3 rounded-xl ${isDark ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700' : 'bg-emerald-50 text-emerald-800 border-emerald-200'} border font-semibold`}
+                    >
+                      {caseDetails.STATUS}
+                    </div>
+                  </div>
+                  )}
                   <div>
                     <label
                       className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}

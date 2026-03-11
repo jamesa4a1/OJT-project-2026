@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeContext } from '../App';
-
-const API_BASE = window.location.origin;
+import useAutoRefresh from '../hooks/useAutoRefresh';
+import { API_BASE } from '../config/api';
 
 const Caselist = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
@@ -19,15 +19,50 @@ const Caselist = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRestoring, setIsRestoring] = useState(null); // Track which case is being restored
   const [notification, setNotification] = useState(null); // Track notification state
-  const [showAutoDeleteModal, setShowAutoDeleteModal] = useState(false); // Track auto-delete modal state
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null); // Track delete confirmation modal
   const [isDeleting, setIsDeleting] = useState(null); // Track which case is being deleted
-  const [autoDeleteConfig, setAutoDeleteConfig] = useState({
-    scheduleType: 'weekly', // 'daily', 'weekly', 'monthly'
-    dayOfWeek: 'Monday', // For weekly
-    dayOfMonth: '1', // For monthly
-    time: '00:00', // HH:MM format
-  });
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false); // Track delete all confirmation modal
+  const [isDeletingAll, setIsDeletingAll] = useState(false); // Track delete all loading state
+
+  // Function to permanently delete all terminated cases
+  const handleDeleteAllCases = async () => {
+    setIsDeletingAll(true);
+    try {
+      const response = await axios.delete(`${API_BASE}/permanent-delete-all-cases`);
+
+      if (response.data) {
+        // Show success notification
+        setNotification({
+          type: 'success',
+          title: 'All Cases Permanently Deleted!',
+          message: `${response.data.deletedCount || 'All'} terminated cases have been permanently deleted from the database.`,
+          icon: 'fa-trash-alt',
+        });
+
+        // Auto-dismiss after 4 seconds
+        setTimeout(() => setNotification(null), 4000);
+        setShowDeleteAllModal(false);
+        // Re-fetch from server to confirm cleared state
+        fetchDeletedCases();
+      }
+    } catch (error) {
+      console.error('Error deleting all cases:', error);
+
+      // Show error notification
+      setNotification({
+        type: 'error',
+        title: 'Deletion Failed',
+        message: error.response?.data?.message || 'Failed to delete all cases. Please try again.',
+        icon: 'fa-exclamation-circle',
+      });
+
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+      setShowDeleteAllModal(false);
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
 
   // Function to delete a case permanently
   const handleDeleteCase = async (docketNo) => {
@@ -40,8 +75,6 @@ const Caselist = () => {
 
       console.log('Permanent delete response received:', response.data);
       if (response.data) {
-        // Remove the deleted case from the current list
-        setCases((prevCases) => prevCases.filter((c) => c.DOCKET_NO !== docketNo));
         console.log('Case removed from list, showing success alert');
 
         // Show success notification
@@ -55,6 +88,8 @@ const Caselist = () => {
         // Auto-dismiss after 4 seconds
         setTimeout(() => setNotification(null), 4000);
         setDeleteConfirmModal(null);
+        // Re-fetch from server to get accurate updated list
+        fetchDeletedCases();
       }
     } catch (error) {
       console.error('Full error object:', error);
@@ -151,43 +186,7 @@ const Caselist = () => {
     }
   };
 
-  // Function to configure automatic deletion
-  const handleAutoDeleteConfig = async () => {
-    try {
-      console.log('Auto-delete configuration:', autoDeleteConfig);
-
-      // Call API to set up automatic deletion schedule
-      const response = await axios.post(`${API_BASE}/configure-auto-delete`, {
-        scheduleType: autoDeleteConfig.scheduleType,
-        dayOfWeek: autoDeleteConfig.dayOfWeek,
-        dayOfMonth: autoDeleteConfig.dayOfMonth,
-        time: autoDeleteConfig.time,
-      });
-
-      setNotification({
-        type: 'success',
-        title: 'Auto-Delete Configured!',
-        message: `Deleted cases will be permanently deleted ${autoDeleteConfig.scheduleType} at ${autoDeleteConfig.time}.`,
-        icon: 'fa-check-circle',
-      });
-
-      setTimeout(() => setNotification(null), 4000);
-      setShowAutoDeleteModal(false);
-    } catch (error) {
-      console.error('Error configuring auto-delete:', error);
-      setNotification({
-        type: 'error',
-        title: 'Configuration Failed',
-        message: 'Failed to configure automatic deletion. Please try again.',
-        icon: 'fa-exclamation-circle',
-      });
-
-      setTimeout(() => setNotification(null), 5000);
-    }
-  };
-
-  useEffect(() => {
-    setIsLoading(true);
+  const fetchDeletedCases = useCallback(() => {
     axios
       .get(`${API_BASE}/deleted-cases`)
       .then((response) => {
@@ -199,6 +198,14 @@ const Caselist = () => {
         setIsLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchDeletedCases();
+  }, [fetchDeletedCases]);
+
+  // Auto-refresh every 5 seconds — paused while a deletion is in progress to prevent overwriting state
+  useAutoRefresh(fetchDeletedCases, 5000, isDeleting === null && !isDeletingAll);
 
   const handleSort = (option, direction) => {
     setSortOption(option);
@@ -336,17 +343,19 @@ const Caselist = () => {
               <option value="desc">Z-A</option>
             </select>
 
-            {/* Auto-Delete Configuration Button */}
+            {/* Delete All Button */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setShowAutoDeleteModal(true)}
+              onClick={() => setShowDeleteAllModal(true)}
+              disabled={cases.length === 0}
               className="flex items-center gap-2 px-4 py-2 rounded-xl
-                         bg-purple-600 text-white font-medium
-                         hover:bg-purple-700 transition-all duration-300 shadow-sm cursor-pointer"
+                         bg-red-600 text-white font-medium
+                         hover:bg-red-700 transition-all duration-300 shadow-sm cursor-pointer
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-clock"></i>
-              <span>Auto-Delete Schedule</span>
+              <i className="fas fa-trash-alt"></i>
+              <span>Delete All</span>
             </motion.button>
           </div>
         </div>
@@ -670,167 +679,48 @@ const Caselist = () => {
           </motion.div>
         )}
 
-        {/* Auto-Delete Configuration Modal */}
+        {/* Delete All Confirmation Modal */}
         <AnimatePresence>
-          {showAutoDeleteModal && (
+          {showDeleteAllModal && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowAutoDeleteModal(false)}
+              onClick={() => setShowDeleteAllModal(false)}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8"
+                className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                      <i className="fas fa-clock text-purple-600"></i>
-                    </div>
-                    Auto-Delete Schedule
-                  </h2>
-                  <button
-                    onClick={() => setShowAutoDeleteModal(false)}
-                    className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center
-                               hover:bg-slate-200 transition-colors cursor-pointer border-none"
-                  >
-                    <i className="fas fa-times text-slate-600"></i>
-                  </button>
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mx-auto mb-4">
+                  <i className="fas fa-exclamation-triangle text-3xl text-red-600"></i>
                 </div>
 
-                {/* Scheduled Time Info Banner */}
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-200 flex items-center justify-center flex-shrink-0">
-                      <i className="fas fa-calendar-check text-purple-600 text-lg"></i>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800 m-0">
-                        <i className="fas fa-info-circle mr-2 text-purple-600"></i>
-                        Auto deletion of cases will delete at{' '}
-                        <span className="text-purple-600 font-bold">{autoDeleteConfig.time}</span>
-                      </p>
-                      <p className="text-xs text-slate-600 m-0 mt-1">
-                        {autoDeleteConfig.scheduleType === 'daily' && '(Every day)'}
-                        {autoDeleteConfig.scheduleType === 'weekly' &&
-                          `(Every ${autoDeleteConfig.dayOfWeek})`}
-                        {autoDeleteConfig.scheduleType === 'monthly' &&
-                          `(On day ${autoDeleteConfig.dayOfMonth} of each month)`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <h2 className="text-2xl font-bold text-slate-800 text-center mb-2">
+                  Delete All Terminated Cases?
+                </h2>
+                <p className="text-slate-600 text-center mb-4">
+                  You are about to permanently delete <span className="font-bold text-red-600">{cases.length}</span> terminated case(s).
+                </p>
 
-                <div className="space-y-4">
-                  {/* Schedule Type */}
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-hourglass-half mr-2 text-purple-600"></i>
-                      Schedule Type
-                    </label>
-                    <select
-                      value={autoDeleteConfig.scheduleType}
-                      onChange={(e) =>
-                        setAutoDeleteConfig({ ...autoDeleteConfig, scheduleType: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 bg-white
-                                 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-
-                  {/* Day of Week (for weekly) */}
-                  {autoDeleteConfig.scheduleType === 'weekly' && (
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        <i className="fas fa-calendar mr-2 text-purple-600"></i>
-                        Day of Week
-                      </label>
-                      <select
-                        value={autoDeleteConfig.dayOfWeek}
-                        onChange={(e) =>
-                          setAutoDeleteConfig({ ...autoDeleteConfig, dayOfWeek: e.target.value })
-                        }
-                        className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 bg-white
-                                   focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none"
-                      >
-                        <option value="Monday">Monday</option>
-                        <option value="Tuesday">Tuesday</option>
-                        <option value="Wednesday">Wednesday</option>
-                        <option value="Thursday">Thursday</option>
-                        <option value="Friday">Friday</option>
-                        <option value="Saturday">Saturday</option>
-                        <option value="Sunday">Sunday</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Day of Month (for monthly) */}
-                  {autoDeleteConfig.scheduleType === 'monthly' && (
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        <i className="fas fa-calendar-days mr-2 text-purple-600"></i>
-                        Day of Month
-                      </label>
-                      <select
-                        value={autoDeleteConfig.dayOfMonth}
-                        onChange={(e) =>
-                          setAutoDeleteConfig({ ...autoDeleteConfig, dayOfMonth: e.target.value })
-                        }
-                        className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 bg-white
-                                   focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none"
-                      >
-                        {Array.from({ length: 28 }, (_, i) => (
-                          <option key={i + 1} value={String(i + 1)}>
-                            Day {i + 1}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Time */}
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-clock mr-2 text-purple-600"></i>
-                      Deletion Time (24-hour format)
-                    </label>
-                    <input
-                      type="time"
-                      value={autoDeleteConfig.time}
-                      onChange={(e) =>
-                        setAutoDeleteConfig({ ...autoDeleteConfig, time: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 bg-white
-                                 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none"
-                    />
-                  </div>
-
-                  {/* Info Box */}
-                  <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
-                    <p className="text-sm text-purple-700 m-0">
-                      <i className="fas fa-info-circle mr-2"></i>
-                      All permanently deleted cases cannot be recovered. Make sure to back up
-                      important data first.
-                    </p>
-                  </div>
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                  <p className="text-sm text-red-700 m-0">
+                    <i className="fas fa-exclamation-circle mr-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone. All terminated cases will be permanently deleted from the database and cannot be recovered.
+                  </p>
                 </div>
 
                 {/* Buttons */}
-                <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
+                <div className="flex gap-3">
                   <motion.button
                     type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowAutoDeleteModal(false)}
+                    onClick={() => setShowDeleteAllModal(false)}
                     className="flex-1 py-2.5 rounded-xl font-semibold border-none cursor-pointer
                                bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
                   >
@@ -840,13 +730,24 @@ const Caselist = () => {
                     type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={handleAutoDeleteConfig}
+                    onClick={handleDeleteAllCases}
+                    disabled={isDeletingAll}
                     className="flex-1 py-2.5 rounded-xl font-semibold border-none cursor-pointer
-                               bg-gradient-to-r from-purple-600 to-purple-700 text-white
-                               hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg"
+                               bg-gradient-to-r from-red-600 to-red-700 text-white
+                               hover:from-red-700 hover:to-red-800 transition-all shadow-lg
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <i className="fas fa-check mr-2"></i>
-                    Proceed
+                    {isDeletingAll ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-trash mr-2"></i>
+                        Delete All
+                      </>
+                    )}
                   </motion.button>
                 </div>
               </motion.div>

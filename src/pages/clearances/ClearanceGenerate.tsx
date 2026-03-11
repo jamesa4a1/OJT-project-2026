@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +24,8 @@ const ClearanceGenerate: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('edit');
+  const location = useLocation();
+  const caseState = (location.state as { fromCase?: Record<string, string>; format?: string } | null);
   const { user } = useAuth();
   const themeContext = useContext(ThemeContext);
   const isDark = themeContext?.isDark ?? false;
@@ -181,6 +183,60 @@ const ClearanceGenerate: React.FC = () => {
         });
     }
   }, [editId, user?.name]);
+
+  // Pre-fill form from a case record navigated from the Manage Cases page
+  useEffect(() => {
+    if (!caseState?.fromCase) return;
+    const c = caseState.fromCase;
+
+    // Best-effort respondent name parse (supports JSON array, "LAST, FIRST MIDDLE", or "FIRST MIDDLE LAST")
+    let rawName: string = c.RESPONDENT || '';
+    try {
+      const parsed = JSON.parse(c.RESPONDENT || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) rawName = parsed[0];
+    } catch { /* plain string — use as-is */ }
+    let firstName = '', middleName = '', lastName = '';
+    if (rawName.includes(',')) {
+      const [last, rest] = rawName.split(',').map((s: string) => s.trim());
+      lastName = last;
+      const parts = rest.split(' ').filter(Boolean);
+      firstName = parts[0] || '';
+      middleName = parts.slice(1).join(' ');
+    } else {
+      const parts = rawName.split(' ').filter(Boolean);
+      firstName = parts[0] || '';
+      lastName = parts[parts.length - 1] || '';
+      middleName = parts.slice(1, -1).join(' ');
+    }
+
+    const safeDate = (d: string) => (d && d !== '0000-00-00' ? d.split('T')[0] : '');
+
+    setFormData(prev => ({
+      ...prev,
+      format_type: caseState.format || 'A',
+      first_name: firstName,
+      middle_name: middleName,
+      last_name: lastName,
+      address: c.ADDRESS_OF_RESPONDENT || '',
+      crime_description: c.FINAL_OFFENSE || c.OFFENSE || '',
+      case_numbers: c.CRIM_CASE_NO || c.DOCKET_NO || '',
+      case_status: c.REMARKS_DECISION || '',
+      court_branch: c.BRANCH || '',
+      date_of_commission: safeDate(c.DATE_OF_COMMISSION),
+      date_information_filed: safeDate(c.DATE_FILED),
+      criminal_cases: [{
+        case_number: c.CRIM_CASE_NO || c.DOCKET_NO || '',
+        case_number_type: 'Criminal Case No.',
+        crime: c.FINAL_OFFENSE || c.OFFENSE || '',
+        date_info_filed: safeDate(c.DATE_FILED),
+        date_type: 'Date Info Filed',
+        origin: 'Tagbilaran City',
+        status: c.REMARKS_DECISION || '',
+      }],
+    }));
+    setHasCriminalRecord(!!(c.CRIM_CASE_NO || c.FINAL_OFFENSE));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Note: Form inputs are now properly managed through React state
   // No DOM manipulation is needed - inputs are controlled React components

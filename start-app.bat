@@ -36,8 +36,8 @@ echo ========================================
 echo   Access the application:
 echo ========================================
 echo.
-echo   Main PC:      http://localhost
-echo   Other PCs:    http://192.168.1.10
+echo   Main PC:                         http://localhost
+echo   Depends on other PCs Ip address: http://192.168.1.10  
 echo.
 echo   (Nginx reverse proxy on port 80)
 echo ========================================

@@ -3,11 +3,11 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ImageModal from '../components/ImageModal';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 import { useValidation } from '../hooks/useValidation';
 import { CaseUpdateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../config/api';
 
 const Editcase = () => {
   const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: '', RESPONDENT: '' });
@@ -22,6 +22,9 @@ const Editcase = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullImage, setShowFullImage] = useState(null);
   const [currentImageError, setCurrentImageError] = useState(false);
+  const [showStatusField, setShowStatusField] = useState(false);
+  const [isStatusFiledInCourt, setIsStatusFiledInCourt] = useState(false);
+  const [isRemarksOther, setIsRemarksOther] = useState(false);
   const navigate = useNavigate();
   const { validate, errors: validationErrors } = useValidation(CaseUpdateSchema);
 
@@ -36,18 +39,22 @@ const Editcase = () => {
     return `${API_BASE}${indexCardPath}`;
   };
 
+  const fetchAllCases = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/cases`);
+      setAllCases(response.data);
+    } catch (err) {
+      console.error('Error fetching cases:', err);
+    }
+  };
+
   // Fetch all cases on component mount
   useEffect(() => {
-    const fetchAllCases = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/cases`);
-        setAllCases(response.data);
-      } catch (err) {
-        console.error('Error fetching cases:', err);
-      }
-    };
     fetchAllCases();
   }, []);
+
+  // Auto-refresh every 5 seconds for real-time updates across PCs
+  useAutoRefresh(fetchAllCases, 5000);
 
   const handleChange = (e) => {
     setSearchQuery({ ...searchQuery, [e.target.name]: e.target.value });
@@ -82,6 +89,13 @@ const Editcase = () => {
     setIndexCardImage(null);
     setImagePreview(null);
     setCurrentImageError(false); // Reset image error for new case
+    // Initialise Status toggle from existing case data
+    const hasStatus = selectedCase.STATUS && selectedCase.STATUS !== '';
+    setShowStatusField(hasStatus);
+    setIsStatusFiledInCourt(selectedCase.STATUS === 'Filed in Court');
+    // Initialise Remarks Other from existing case data
+    const isRemarks = selectedCase.REMARKS_DECISION && !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].includes(selectedCase.REMARKS_DECISION);
+    setIsRemarksOther(isRemarks);
     // Scroll to the edit form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -90,6 +104,17 @@ const Editcase = () => {
     setEditedCase((prev) => ({ ...prev, [field]: value }));
     setError('');
     setSuccess('');
+    
+    // Handle special logic for REMARKS_DECISION field
+    if (field === 'REMARKS_DECISION') {
+      const isOther = !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].includes(value);
+      setIsRemarksOther(isOther);
+    }
+    
+    // Handle special logic for STATUS field
+    if (field === 'STATUS') {
+      setIsStatusFiledInCourt(value === 'Filed in Court');
+    }
   };
 
   const handleImageChange = (e) => {
@@ -523,7 +548,7 @@ const Editcase = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-clipboard-check text-amber-500 mr-2"></i>Decision
+                      <i className="fas fa-clipboard-check text-amber-500 mr-2"></i>Recommendation
                     </label>
                     <select
                       value={
@@ -537,8 +562,61 @@ const Editcase = () => {
                       <option value="Pending">Pending</option>
                       <option value="Dismissed">Dismissed</option>
                       <option value="Convicted">Convicted</option>
+                      <option value="For Resolution">For Resolution</option>
                       <option value="Other">Other (Custom)</option>
                     </select>
+                    {isRemarksOther && (
+                      <input
+                        type="text"
+                        value={
+                          editedCase.REMARKS_DECISION !== undefined
+                            ? editedCase.REMARKS_DECISION
+                            : caseData[0].REMARKS_DECISION || ''
+                        }
+                        onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
+                        className="w-full px-4 py-3 mt-2 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all font-semibold"
+                        placeholder="Enter custom remarks decision"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowStatusField(v => !v)}
+                      className={`w-full mt-2 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+                        showStatusField
+                          ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
+                          : 'bg-white text-emerald-600 border-emerald-400 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <i className={`fas ${showStatusField ? 'fa-minus' : 'fa-plus'} text-xs`}></i>
+                      New Status
+                    </button>
+                    {showStatusField && (
+                      <div className="mt-2">
+                        <label className="text-xs font-bold text-emerald-700 mb-1 flex items-center gap-1.5">
+                          <i className="fas fa-tasks text-emerald-500"></i>
+                          New Status
+                        </label>
+                        <select
+                          value={
+                            editedCase.STATUS !== undefined
+                              ? editedCase.STATUS || 'Pending'
+                              : caseData[0].STATUS || 'Pending'
+                          }
+                          onChange={(e) => {
+                            handleFieldChange('STATUS', e.target.value);
+                            setIsStatusFiledInCourt(e.target.value === 'Filed in Court');
+                          }}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all font-semibold"
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Dismissed">Dismissed</option>
+                          <option value="Convicted">Convicted</option>
+                          <option value="For Resolution">For Resolution</option>
+                          <option value="Filed in Court">Filed in Court</option>
+                          <option value="Other">Other (Custom)</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -576,12 +654,14 @@ const Editcase = () => {
                 </div>
               </div>
 
-              {/* Court Information Section */}
+              {/* Court Information Section — shown when New Status = Filed in Court */}
+              {isStatusFiledInCourt && (
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <i className="fas fa-landmark text-purple-500"></i>
+                  <i className="fas fa-landmark text-emerald-500"></i>
                   Court Information
                 </h4>
+                <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -632,8 +712,27 @@ const Editcase = () => {
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <i className="fas fa-exclamation-circle text-amber-500 mr-2"></i>Final Offense
+                    </label>
+                    <input
+                      type="text"
+                      value={
+                        editedCase.FINAL_OFFENSE !== undefined
+                          ? editedCase.FINAL_OFFENSE
+                          : caseData[0].FINAL_OFFENSE || ''
+                      }
+                      onChange={(e) => handleFieldChange('FINAL_OFFENSE', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
+                      placeholder="Enter final offense"
+                    />
+                  </div>
+                </div>
                 </div>
               </div>
+              )}
 
               {/* Index Card Section */}
               <div className="mb-6">

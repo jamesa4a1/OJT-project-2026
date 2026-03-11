@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
@@ -51,6 +52,7 @@ const exportCasesToExcel = () => {
       CRIM_CASE_NO AS 'Criminal Case No',
       BRANCH AS 'Branch',
       DATEFILED_IN_COURT AS 'Date Filed in Court',
+      FINAL_OFFENSE AS 'Final Offense',
       REMARKS_DECISION AS 'Remarks Decision',
       PENALTY AS 'Penalty',
       DECISION_DATE AS 'Decision Date',
@@ -92,6 +94,7 @@ const exportCasesToExcel = () => {
         { wch: 15 },  // Criminal Case No
         { wch: 12 },  // Branch
         { wch: 15 },  // Date Filed in Court
+        { wch: 20 },  // Final Offense
         { wch: 15 },  // Remarks Decision
         { wch: 12 },  // Penalty
         { wch: 12 },  // Decision Date
@@ -1036,7 +1039,7 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
       ? validatedData.REMARKS_DECISION.charAt(0).toUpperCase() + validatedData.REMARKS_DECISION.slice(1).toLowerCase()
       : 'Pending';
 
-    const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, DECISION_DATE, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, FINAL_OFFENSE, REMARKS_DECISION, PENALTY, DECISION_DATE, STATUS, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     db.query(sql, [
       validatedData.DOCKET_NO, 
@@ -1051,9 +1054,11 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
       validatedData.CRIM_CASE_NO || 'N/A', 
       validatedData.BRANCH, 
       validatedData.DATEFILED_IN_COURT || null, 
+      validatedData.FINAL_OFFENSE || null,
       normalizedDecision, 
       validatedData.PENALTY || null, 
       validatedData.DECISION_DATE || null,
+      validatedData.STATUS || null,
       INDEX_CARDS
     ], (err, result) => {
       if (err) {
@@ -1097,7 +1102,7 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
 app.get("/get-case", (req, res) => {
 const { docket_no, respondent, resolving_prosecutor, remarks, start_date, end_date } = req.query;
 
-  let sql = "SELECT * FROM cases";
+  let sql = "SELECT * FROM cases WHERE 1=1";
   let values = [];
 
   if (!docket_no && !respondent && !resolving_prosecutor && !remarks && !start_date && !end_date) {
@@ -1642,6 +1647,80 @@ app.delete("/permanent-delete-case", (req, res) => {
 
       console.log(`Case ${docket_no} permanently deleted from database.`);
       return res.json({ message: "Case permanently deleted successfully!" });
+    });
+  });
+});
+
+// Permanently delete ALL terminated cases (bulk hard delete)
+app.delete("/permanent-delete-all-cases", (req, res) => {
+  console.log("Permanent delete ALL cases request received");
+
+  // First count how many cases will be deleted
+  const countQuery = "SELECT COUNT(*) as count FROM terminated_cases";
+  
+  db.query(countQuery, (err, countResults) => {
+    if (err) {
+      console.error("Error counting terminated cases:", err);
+      return res.status(500).json({ message: "Error counting terminated cases.", error: err.message });
+    }
+
+    const caseCount = countResults[0].count;
+
+    if (caseCount === 0) {
+      return res.status(404).json({ message: "No terminated cases found to delete." });
+    }
+
+    // Get all docket numbers for logging before deletion
+    const getDocketsQuery = "SELECT DOCKET_NO FROM terminated_cases";
+    
+    db.query(getDocketsQuery, (err, docketResults) => {
+      if (err) {
+        console.error("Error getting docket numbers:", err);
+        return res.status(500).json({ message: "Error getting case information.", error: err.message });
+      }
+
+      const docketNumbers = docketResults.map(row => row.DOCKET_NO);
+
+      // Permanently delete all records from terminated_cases table
+      const deleteQuery = "DELETE FROM terminated_cases";
+      
+      db.query(deleteQuery, (err, result) => {
+        if (err) {
+          console.error("Error permanently deleting all cases:", err);
+          return res.status(500).json({ message: "Error permanently deleting cases.", error: err.message });
+        }
+
+        const deletedCount = result.affectedRows;
+
+        // Log the movement for each deleted case
+        const logPromises = docketNumbers.map(docketNo => {
+          return new Promise((resolve) => {
+            const logQuery = `INSERT INTO case_movements (docket_no, movement_type, moved_from_table,
+                            moved_to_table, reason) VALUES (?, 'PERMANENTLY_DELETED', 'terminated_cases', NULL, 'Bulk permanent deletion by user')`;
+            db.query(logQuery, [docketNo], (err) => {
+              if (err) console.warn("Could not log case movement for:", docketNo, err.message);
+              resolve();
+            });
+          });
+        });
+
+        Promise.all(logPromises).then(() => {
+          // Sync Excel file after permanently deleting all cases
+          exportCasesToExcel()
+            .then(() => {
+              console.log("Excel file synced after bulk permanent case deletion");
+            })
+            .catch(excelErr => {
+              console.error("Error syncing Excel file:", excelErr);
+            });
+
+          console.log(`All ${deletedCount} terminated cases permanently deleted from database.`);
+          return res.json({ 
+            message: "All terminated cases permanently deleted successfully!",
+            deletedCount: deletedCount
+          });
+        });
+      });
     });
   });
 });

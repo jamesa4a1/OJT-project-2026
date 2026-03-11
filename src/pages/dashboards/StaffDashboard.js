@@ -3,8 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../../config/api';
 
 const StaffDashboard = () => {
   const navigate = useNavigate();

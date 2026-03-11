@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useContext } from 'react';
+﻿import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import useAutoRefresh from '../hooks/useAutoRefresh';
 import { ThemeContext } from '../App';
 import ImageModal from '../components/ImageModal';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../config/api';
 
 const Deletecase = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
@@ -25,10 +25,15 @@ const Deletecase = () => {
   const [editedCase, setEditedCase] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [isCustomDecision, setIsCustomDecision] = useState(false);
+  const [showStatusField, setShowStatusField] = useState(false);
+  const [isEditFiledInCourt, setIsEditFiledInCourt] = useState(false);
+  const [editRespondents, setEditRespondents] = useState(['']);
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
+  const [printDropdownCase, setPrintDropdownCase] = useState(null);
+  const [printDropdownPos, setPrintDropdownPos] = useState({ top: 0, left: 0 });
   const navigate = useNavigate();
 
   // Helper function to construct proper image URL
@@ -54,6 +59,15 @@ const Deletecase = () => {
   };
 
   // Check if the path looks like a valid image path (new format)
+  const parseRespondents = (value) => {
+    if (!value || value === 'N/A') return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch { /* JSON parse failed, treat as plain string */ }
+    return [value];
+  };
+
   const isValidImagePath = (imagePath) => {
     if (!imagePath || imagePath === 'N/A') return false;
     // New format paths start with /uploads/ or uploads/
@@ -65,10 +79,40 @@ const Deletecase = () => {
     return true;
   };
 
+  const fetchAllCases = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await axios.get(`${API_BASE}/cases`);
+      setCases(response.data);
+    } catch (err) {
+      console.error('Error fetching cases:', err);
+      if (err.response) {
+        // Server responded with error
+        if (err.response.status === 503) {
+          setError('âŒ Database connection failed. Please ensure MySQL/XAMPP is running and the database is accessible.');
+        } else {
+          setError(err.response.data?.message || 'Error fetching cases from server.');
+        }
+      } else if (err.request) {
+        // Request was made but no response
+        setError(`âŒ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
+      } else {
+        // Something else happened
+        setError('Error fetching cases: ' + err.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch all cases on component mount
   useEffect(() => {
     fetchAllCases();
   }, []);
+
+  // Auto-refresh every 5 seconds for real-time updates across PCs
+  useAutoRefresh(fetchAllCases, 5000);
 
   // Filter cases when search term changes
   useEffect(() => {
@@ -98,7 +142,7 @@ const Deletecase = () => {
         (c) =>
           c.DOCKET_NO?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
           c.COMPLAINANT?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.RESPONDENT?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          parseRespondents(c.RESPONDENT).some(r => r.toLowerCase().includes(searchTerm.toLowerCase())) ||
           c.OFFENSE?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -120,34 +164,6 @@ const Deletecase = () => {
     setFilteredCases(sorted);
   }, [searchTerm, cases, sortOption, statusFilter]);
 
-  const fetchAllCases = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const response = await axios.get(`${API_BASE}/cases`);
-      setCases(response.data);
-      setFilteredCases(response.data);
-    } catch (err) {
-      console.error('Error fetching cases:', err);
-      if (err.response) {
-        // Server responded with error
-        if (err.response.status === 503) {
-          setError('❌ Database connection failed. Please ensure MySQL/XAMPP is running and the database is accessible.');
-        } else {
-          setError(err.response.data?.message || 'Error fetching cases from server.');
-        }
-      } else if (err.request) {
-        // Request was made but no response
-        setError(`❌ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
-      } else {
-        // Something else happened
-        setError('Error fetching cases: ' + err.message);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleDeleteClick = (caseItem) => {
     setSelectedCase(caseItem);
     setShowConfirm(true);
@@ -162,13 +178,20 @@ const Deletecase = () => {
   const handleEditClick = (caseItem) => {
     setSelectedCase(caseItem);
     setEditedCase(caseItem);
+    const parsed = parseRespondents(caseItem.RESPONDENT);
+    setEditRespondents(parsed.length > 0 ? parsed : ['']);
     setSelectedImage(null);
     setImageLoadError(false);
     
     // Check if current decision is custom (not one of the predefined options)
     const currentDecision = caseItem.REMARKS_DECISION || 'Pending';
-    const predefinedOptions = ['Pending', 'Dismissed', 'Convicted'];
+    const predefinedOptions = ['Pending', 'Dismissed', 'Convicted', 'For Resolution'];
     setIsCustomDecision(!predefinedOptions.includes(currentDecision));
+    // Initialise new status state
+    const newStatusValues = ['Pending', 'Dismissed', 'Convicted', 'For Resolution', 'Filed in Court', 'Other (Custom)'];
+    const hasNewStatus = caseItem.STATUS && newStatusValues.includes(caseItem.STATUS);
+    setShowStatusField(!!hasNewStatus);
+    setIsEditFiledInCourt(caseItem.STATUS === 'Filed in Court');
     
     // Set imagePreview with proper path handling
     const imagePath = caseItem.INDEX_CARDS;
@@ -184,9 +207,23 @@ const Deletecase = () => {
   const closeEditModal = () => {
     setShowEditModal(false);
     setIsCustomDecision(false);
+    setShowStatusField(false);
+    setIsEditFiledInCourt(false);
+    setEditRespondents(['']);
   };
 
   const handleFieldChange = (field, value) => {
+    if (field === 'REMARKS_DECISION') {
+      if (value === 'Other (Custom)') {
+        setIsCustomDecision(true);
+        setEditedCase((prev) => ({ ...prev, REMARKS_DECISION: '' }));
+        return;
+      }
+      const isOther = !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].includes(value);
+      setIsCustomDecision(isOther);
+    } else if (field === 'STATUS') {
+      setIsEditFiledInCourt(value === 'Filed in Court');
+    }
     setEditedCase((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -206,50 +243,54 @@ const Deletecase = () => {
   const handleUpdate = async () => {
     if (!editedCase || !editedCase.id) return;
     setIsLoading(true);
-    console.log('📝 Updating case with data:', editedCase);
+    console.log('ðŸ“ Updating case with data:', editedCase);
     try {
       let response;
 
       // If there's an image to upload, use the image upload endpoint
       if (selectedImage) {
-        console.log('📷 Uploading with image');
+        console.log('ðŸ“· Uploading with image');
         const formData = new FormData();
         formData.append('id', editedCase.id);
         formData.append('indexCardImage', selectedImage);
 
         // Append all other fields
+        const serializedRespondents = JSON.stringify(editRespondents.filter(r => r.trim() !== '').map(r => r.trim()));
         Object.keys(editedCase).forEach((key) => {
-          if (key !== 'id' && key !== 'INDEX_CARDS' && editedCase[key] !== undefined) {
+          if (key !== 'id' && key !== 'INDEX_CARDS' && key !== 'RESPONDENT' && editedCase[key] !== undefined) {
             formData.append(key, editedCase[key] || '');
           }
         });
+        formData.append('RESPONDENT', serializedRespondents);
 
         response = await axios.post(`${API_BASE}/update-case-with-image`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
         // No image, use regular update
-        console.log('📄 Updating without image');
+        console.log('ðŸ“„ Updating without image');
         const updateData = {
           id: editedCase.id,
           updated_fields: {
             DATE_FILED: editedCase.DATE_FILED,
             COMPLAINANT: editedCase.COMPLAINANT,
-            RESPONDENT: editedCase.RESPONDENT,
+            RESPONDENT: JSON.stringify(editRespondents.filter(r => r.trim() !== '').map(r => r.trim())),
             ADDRESS_OF_RESPONDENT: editedCase.ADDRESS_OF_RESPONDENT,
             OFFENSE: editedCase.OFFENSE,
             DATE_OF_COMMISSION: editedCase.DATE_OF_COMMISSION,
             DATE_RESOLVED: editedCase.DATE_RESOLVED,
             RESOLVING_PROSECUTOR: editedCase.RESOLVING_PROSECUTOR,
             REMARKS_DECISION: editedCase.REMARKS_DECISION,
+            STATUS: editedCase.STATUS,
             PENALTY: editedCase.PENALTY,
             DECISION_DATE: editedCase.DECISION_DATE,
             CRIM_CASE_NO: editedCase.CRIM_CASE_NO,
             BRANCH: editedCase.BRANCH,
             DATEFILED_IN_COURT: editedCase.DATEFILED_IN_COURT,
+            FINAL_OFFENSE: editedCase.FINAL_OFFENSE,
           },
         };
-        console.log('📤 Sending update data:', updateData);
+        console.log('ðŸ“¤ Sending update data:', updateData);
         response = await axios.post(`${API_BASE}/update-case`, updateData);
       }
 
@@ -269,7 +310,7 @@ const Deletecase = () => {
       if (err.response) {
         // Server responded with error
         if (err.response.status === 503) {
-          setError('❌ Database connection failed. Please ensure MySQL/XAMPP is running and the database is accessible.');
+          setError('âŒ Database connection failed. Please ensure MySQL/XAMPP is running and the database is accessible.');
         } else if (err.response.status === 400) {
           let errorMsg = 'Invalid data provided';
           
@@ -289,14 +330,14 @@ const Deletecase = () => {
             errorMsg = err.response.data.error;
           }
           
-          setError('❌ Validation error: ' + errorMsg);
+          setError('âŒ Validation error: ' + errorMsg);
         } else {
-          setError('❌ ' + (err.response.data?.message || 'Error updating case. Please try again.'));
+          setError('âŒ ' + (err.response.data?.message || 'Error updating case. Please try again.'));
         }
       } else if (err.request) {
-        setError(`❌ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
+        setError(`âŒ Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
       } else {
-        setError('❌ Error updating case: ' + err.message);
+        setError('âŒ Error updating case: ' + err.message);
       }
     } finally {
       setIsLoading(false);
@@ -339,6 +380,35 @@ const Deletecase = () => {
     }
     setIsLoading(false);
   };
+
+  // Close print dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (printDropdownCase !== null && !e.target.closest('.print-dropdown-container')) {
+        setPrintDropdownCase(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [printDropdownCase]);
+
+  const PRINT_FORMAT_OPTIONS = [
+    { value: 'A', label: 'Format A', description: 'No Criminal Record -A' },
+    { value: 'B', label: 'Format B', description: 'Criminal Record - B' },
+    { value: 'C', label: 'Format C', description: 'No Criminal Record - C' },
+    { value: 'D', label: 'Format D', description: 'Criminal Record - D' },
+    { value: 'E', label: 'Format E', description: 'Bail Bond - E' },
+    { value: 'F', label: 'Format F', description: 'Bail Bond - F' },
+  ];
+
+  const handleCasePrint = (caseItem, format) => {
+    setPrintDropdownCase(null);
+    navigate('/clearances/generate', {
+      state: { fromCase: caseItem, format },
+    });
+  };
+
+
 
   const formatDate = (dateString) => {
     if (!dateString || dateString === '0000-00-00') return 'N/A';
@@ -518,14 +588,16 @@ const Deletecase = () => {
               <table className="w-full table-fixed">
                 <thead>
                   <tr className={`bg-gradient-to-r ${isDark ? 'from-slate-700 to-slate-800' : 'from-slate-700 to-slate-800'} text-white`}>
-                    <th className="px-2 py-3 text-left font-semibold text-xs w-[12%]">Docket No</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[10%]">Docket No</th>
                     <th className="px-2 py-3 text-left font-semibold text-xs w-[8%]">Date Filed</th>
-                    <th className="px-2 py-3 text-left font-semibold text-xs w-[14%]">Complainant</th>
-                    <th className="px-2 py-3 text-left font-semibold text-xs w-[14%]">Respondent</th>
-                    <th className="px-2 py-3 text-left font-semibold text-xs w-[18%]">Offense</th>
-                    <th className="px-2 py-3 text-center font-semibold text-xs w-[10%]">Decision</th>
-                    <th className="px-2 py-3 text-center font-semibold text-xs w-[10%]">Decision Date</th>
-                    <th className="px-2 py-3 text-center font-semibold text-xs w-[14%]">Actions</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[11%]">Complainant</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[11%]">Respondent</th>
+                    <th className="px-2 py-3 text-left font-semibold text-xs w-[11%]">Offense</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[9%]">Status</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[9%]">New Status</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[9%]">Final Offense</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[9%]">Decision Date</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[13%]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -552,8 +624,23 @@ const Deletecase = () => {
                       <td className={`px-2 py-3 text-xs font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`} title={caseItem.COMPLAINANT || 'N/A'}>
                         {caseItem.COMPLAINANT || 'N/A'}
                       </td>
-                      <td className={`px-2 py-3 text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`} title={caseItem.RESPONDENT || 'N/A'}>
-                        {caseItem.RESPONDENT || 'N/A'}
+                      <td className={`px-2 py-3 text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {(() => {
+                          const rList = parseRespondents(caseItem.RESPONDENT);
+                          const first = rList[0] || 'N/A';
+                          return (
+                            <>
+                              <span className="truncate block" title={rList.join(', ')}>
+                                {first.length > 16 ? first.substring(0, 16) + 'â€¦' : first}
+                              </span>
+                              {rList.length > 1 && (
+                                <span className={`text-xs font-semibold px-1 rounded ${isDark ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                                  +{rList.length - 1}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </td>
                       <td className="px-2 py-3">
                         <span className={`px-2 py-1 rounded-md text-xs truncate block max-w-full ${
@@ -566,49 +653,51 @@ const Deletecase = () => {
                       </td>
                       <td className="px-2 py-3 text-center">
                         {(() => {
-                          // Default to 'pending' if REMARKS_DECISION is empty, null, or undefined
                           const decision = (caseItem.REMARKS_DECISION || 'pending').toLowerCase();
                           if (decision === 'pending')
                             return (
                               <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
-                                isDark
-                                  ? 'bg-yellow-900/30 text-yellow-300'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                Pending
-                              </span>
+                                isDark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700'
+                              }`}>Pending</span>
                             );
                           if (decision === 'dismissed')
                             return (
                               <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
-                                isDark
-                                  ? 'bg-blue-900/30 text-blue-300'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                Dismissed
-                              </span>
+                                isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'
+                              }`}>Dismissed</span>
                             );
                           if (decision === 'convicted')
                             return (
                               <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
-                                isDark
-                                  ? 'bg-green-900/30 text-green-300'
-                                  : 'bg-green-100 text-green-700'
-                              }`}>
-                                Convicted
-                              </span>
+                                isDark ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'
+                              }`}>Convicted</span>
                             );
-                          // If it's some other value, display it as-is but still default to Pending if empty
                           return (
                             <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block truncate max-w-full ${
-                              isDark
-                                ? 'bg-slate-700 text-slate-200'
-                                : 'bg-slate-100 text-slate-700'
+                              isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'
                             }`} title={caseItem.REMARKS_DECISION || 'Pending'}>
                               {caseItem.REMARKS_DECISION || 'Pending'}
                             </span>
                           );
                         })()}
+                      </td>
+                      <td className="px-2 py-3 text-center">
+                        {caseItem.STATUS ? (
+                          <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
+                            isDark ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {caseItem.STATUS}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-2 py-3 text-center">
+                        {caseItem.FINAL_OFFENSE ? (
+                          <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block truncate max-w-full ${
+                            isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'
+                          }`} title={caseItem.FINAL_OFFENSE}>
+                            {caseItem.FINAL_OFFENSE}
+                          </span>
+                        ) : null}
                       </td>
                       <td className={`px-2 py-3 text-center text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {formatDate(caseItem.DECISION_DATE)}
@@ -640,6 +729,26 @@ const Deletecase = () => {
                           >
                             <i className="fas fa-edit"></i>
                           </motion.button>
+
+                          {/* Print Button with Format Dropdown */}
+                          <div className="print-dropdown-container">
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              type="button"
+                              onClick={(e) => {
+                                const r = e.currentTarget.getBoundingClientRect();
+                                setPrintDropdownPos({ top: r.bottom + 6, left: r.right - 208 });
+                                setPrintDropdownCase(printDropdownCase === caseItem.id ? null : caseItem.id);
+                              }}
+                              className="w-8 h-8 rounded-lg bg-purple-500 text-white hover:bg-purple-600 
+                                       transition-all duration-300 shadow-md shadow-purple-500/30
+                                       flex items-center justify-center cursor-pointer border-none text-sm"
+                              title="Print Case"
+                            >
+                              <i className="fas fa-print"></i>
+                            </motion.button>
+                          </div>
 
                           {/* Delete Button - Only for Admin */}
                           {user?.role === 'Admin' && (
@@ -692,6 +801,7 @@ const Deletecase = () => {
                       Case Details
                     </h3>
                     <button
+                      type="button"
                       onClick={() => setShowViewModal(false)}
                       className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 
                                transition-colors flex items-center justify-center cursor-pointer border-none"
@@ -713,7 +823,7 @@ const Deletecase = () => {
                         icon: 'fa-calendar',
                       },
                       { label: 'Complainant', value: selectedCase.COMPLAINANT, icon: 'fa-user' },
-                      { label: 'Respondent', value: selectedCase.RESPONDENT, icon: 'fa-user-tie' },
+                      { label: 'Respondent', values: parseRespondents(selectedCase.RESPONDENT), icon: 'fa-user-tie' },
                       { label: 'Offense', value: selectedCase.OFFENSE, icon: 'fa-gavel' },
                       {
                         label: 'Date Resolved',
@@ -725,22 +835,34 @@ const Deletecase = () => {
                         value: selectedCase.RESOLVING_PROSECUTOR,
                         icon: 'fa-user-shield',
                       },
+                      ...(selectedCase.STATUS === 'Filed in Court' ? [
+                        {
+                          label: 'Criminal Case No',
+                          value: selectedCase.CRIM_CASE_NO,
+                          icon: 'fa-file-contract',
+                        },
+                        { label: 'Branch', value: selectedCase.BRANCH, icon: 'fa-building' },
+                        {
+                          label: 'Date Filed in Court',
+                          value: formatDate(selectedCase.DATEFILED_IN_COURT),
+                          icon: 'fa-landmark',
+                        },
+                        {
+                          label: 'Final Offense',
+                          value: selectedCase.FINAL_OFFENSE,
+                          icon: 'fa-gavel',
+                        },
+                      ] : []),
                       {
-                        label: 'Criminal Case No',
-                        value: selectedCase.CRIM_CASE_NO,
-                        icon: 'fa-file-contract',
-                      },
-                      { label: 'Branch', value: selectedCase.BRANCH, icon: 'fa-building' },
-                      {
-                        label: 'Date Filed in Court',
-                        value: formatDate(selectedCase.DATEFILED_IN_COURT),
-                        icon: 'fa-landmark',
-                      },
-                      {
-                        label: 'Decision',
+                        label: 'Recommendation',
                         value: selectedCase.REMARKS_DECISION || 'Pending',
-                        icon: 'fa-balance-scale',
+                        icon: 'fa-clipboard-check',
                       },
+                      ...(selectedCase.STATUS ? [{
+                        label: 'New Status',
+                        value: selectedCase.STATUS,
+                        icon: 'fa-tasks',
+                      }] : []),
                       {
                         label: 'Decision Date',
                         value: selectedCase.DECISION_DATE ? formatDate(selectedCase.DECISION_DATE) : '',
@@ -767,8 +889,17 @@ const Deletecase = () => {
                           <i className={`fas ${item.icon} text-blue-500 text-xs`}></i>
                           {item.label}
                         </p>
-                        <p className={`font-semibold text-sm leading-snug break-words ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.value || (item.blankIfEmpty ? '' : 'N/A')}>
-                          {item.value && item.value.length > 25 ? `${item.value.substring(0, 25)}...` : (item.value || (item.blankIfEmpty ? '' : 'N/A'))}
+                        <p className={`font-semibold text-sm leading-snug break-words ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.values ? item.values.join(', ') : (item.value || (item.blankIfEmpty ? '' : 'N/A'))}>
+                          {item.values
+                            ? item.values.length === 0
+                              ? 'N/A'
+                              : item.values.map((v, i) => (
+                                  <span key={i} className={`block ${i > 0 ? 'mt-1 pt-1 border-t border-slate-200/40' : ''}`}>
+                                    {item.values.length > 1 ? <span className="text-blue-500 mr-1 font-bold">{i + 1}.</span> : null}{v}
+                                  </span>
+                                ))
+                            : (item.value && item.value.length > 25 ? `${item.value.substring(0, 25)}...` : (item.value || (item.blankIfEmpty ? '' : 'N/A')))
+                          }
                         </p>
                       </div>
                     ))}
@@ -821,7 +952,7 @@ const Deletecase = () => {
                               isDark ? 'border-slate-600' : 'border-slate-300'
                             }`}
                             onClick={() => setShowFullscreenImage(true)}
-                            onError={(e) => {
+                            onError={() => {
                               console.error('Image failed to load:', selectedCase.INDEX_CARDS);
                               setImageLoadError(true);
                             }}
@@ -887,6 +1018,7 @@ const Deletecase = () => {
                       Edit Case
                     </h3>
                     <button
+                      type="button"
                       onClick={closeEditModal}
                       className="w-10 h-10 rounded-full bg-white/20 text-white hover:bg-white/30 
                                transition-colors flex items-center justify-center cursor-pointer border-none"
@@ -932,20 +1064,55 @@ const Deletecase = () => {
                       />
                     </div>
 
-                    <div>
+                    <div className="md:col-span-2">
                       <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                         <i className="fas fa-user-shield text-green-500 mr-2"></i>Respondent
                       </label>
-                      <input
-                        type="text"
-                        value={editedCase.RESPONDENT || ''}
-                        onChange={(e) => handleFieldChange('RESPONDENT', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                      {editRespondents.map((r, index) => (
+                        <div key={index} className={`flex gap-2 ${index > 0 ? 'mt-2' : ''}`}>
+                          <input
+                            type="text"
+                            value={r}
+                            onChange={(e) => {
+                              const updated = [...editRespondents];
+                              updated[index] = e.target.value;
+                              setEditRespondents(updated);
+                            }}
+                            placeholder={index === 0 ? 'Enter respondent name' : `Respondent ${index + 1}`}
+                            className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                              isDark
+                                ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
+                                : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                            }`}
+                          />
+                          {editRespondents.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setEditRespondents(editRespondents.filter((_, i) => i !== index))}
+                              className={`w-12 flex-shrink-0 rounded-xl border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                                isDark
+                                  ? 'bg-red-900/30 border-red-700 text-red-400 hover:bg-red-900/50'
+                                  : 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
+                              }`}
+                              title="Remove respondent"
+                            >
+                              <i className="fas fa-minus text-xs"></i>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setEditRespondents([...editRespondents, ''])}
+                        className={`mt-2 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border-none cursor-pointer ${
                           isDark
-                            ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
-                            : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                            ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+                            : 'bg-green-50 text-green-600 hover:bg-green-100'
                         }`}
-                      />
+                      >
+                        <i className="fas fa-plus text-xs"></i>
+                        Add Respondent
+                      </button>
                     </div>
 
                     <div>
@@ -1029,20 +1196,39 @@ const Deletecase = () => {
                     </div>
 
                     <div>
-                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        <i className="fas fa-clipboard-check text-green-500 mr-2"></i>Decision
-                      </label>
-                      {!isCustomDecision ? (
+                      <div className="flex items-center justify-between mb-2">
+                        <label className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className="fas fa-clipboard-check text-green-500 mr-2"></i>Recommendation
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowStatusField(v => !v)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+                            showStatusField
+                              ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
+                              : 'bg-white text-emerald-600 border-emerald-400 hover:bg-emerald-50'
+                          }`}
+                        >
+                          <i className={`fas ${showStatusField ? 'fa-minus' : 'fa-plus'} text-xs`}></i>
+                          Status
+                        </button>
+                      </div>
+                      {isCustomDecision ? (
+                        <input
+                          type="text"
+                          value={editedCase.REMARKS_DECISION || ''}
+                          onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
+                          placeholder="Enter custom recommendation..."
+                          className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                            isDark
+                              ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 placeholder:text-slate-400'
+                              : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200 placeholder:text-slate-500'
+                          }`}
+                        />
+                      ) : (
                         <select
                           value={editedCase.REMARKS_DECISION || 'Pending'}
-                          onChange={(e) => {
-                            if (e.target.value === 'Custom') {
-                              setIsCustomDecision(true);
-                              handleFieldChange('REMARKS_DECISION', '');
-                            } else {
-                              handleFieldChange('REMARKS_DECISION', e.target.value);
-                            }
-                          }}
+                          onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
                           className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
                             isDark
                               ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
@@ -1052,39 +1238,119 @@ const Deletecase = () => {
                           <option value="Pending">Pending</option>
                           <option value="Dismissed">Dismissed</option>
                           <option value="Convicted">Convicted</option>
-                          <option value="Custom">Custom</option>
+                          <option value="For Resolution">For Resolution</option>
+                          <option value="Other (Custom)">Other (Custom)</option>
                         </select>
-                      ) : (
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={editedCase.REMARKS_DECISION || ''}
-                            onChange={(e) => handleFieldChange('REMARKS_DECISION', e.target.value)}
-                            placeholder="Enter custom decision..."
-                            className={`w-full px-4 py-3 pr-12 rounded-xl border-2 transition-all ${
-                              isDark
-                                ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 placeholder:text-slate-400'
-                                : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200 placeholder:text-slate-500'
+                      )}
+                      {showStatusField && (
+                        <div className="mt-2">
+                          <label className={`block text-xs font-bold mb-1 ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                            <i className="fas fa-tasks text-emerald-500 mr-1"></i>New Status
+                          </label>
+                          <select
+                            value={editedCase.STATUS || ''}
+                            onChange={(e) => handleFieldChange('STATUS', e.target.value)}
+                            className={`w-full px-4 py-3 rounded-xl border-2 border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all font-semibold ${
+                              isDark ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-900'
                             }`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCustomDecision(false);
-                              handleFieldChange('REMARKS_DECISION', 'Pending');
-                            }}
-                            className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-                              isDark
-                                ? 'bg-slate-600 hover:bg-slate-500 text-slate-300'
-                                : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
-                            }`}
-                            title="Switch back to dropdown"
                           >
-                            <i className="fas fa-list text-xs"></i>
-                          </button>
+                            <option value="">-- Select Status --</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Dismissed">Dismissed</option>
+                            <option value="Convicted">Convicted</option>
+                            <option value="For Resolution">For Resolution</option>
+                            <option value="Filed in Court">Filed in Court</option>
+                            <option value="Other (Custom)">Other (Custom)</option>
+                          </select>
                         </div>
                       )}
                     </div>
+
+                    {isEditFiledInCourt && (
+                      <div className={`md:col-span-2 p-4 rounded-xl border-2 ${
+                        isDark ? 'border-emerald-700 bg-emerald-900/20' : 'border-emerald-200 bg-emerald-50/50'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <i className="fas fa-landmark text-emerald-500"></i>
+                          <span className={`text-sm font-semibold ${
+                            isDark ? 'text-emerald-300' : 'text-emerald-700'
+                          }`}>Court Information</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className={`block text-sm font-semibold mb-2 ${
+                              isDark ? 'text-slate-300' : 'text-slate-700'
+                            }`}>
+                              <i className="fas fa-file-contract text-emerald-500 mr-2"></i>Criminal Case No
+                            </label>
+                            <input
+                              type="text"
+                              value={editedCase.CRIM_CASE_NO || ''}
+                              onChange={(e) => handleFieldChange('CRIM_CASE_NO', e.target.value)}
+                              className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                                isDark
+                                  ? 'border-emerald-700 bg-slate-700 text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                                  : 'border-emerald-200 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                              }`}
+                              placeholder="Case number"
+                            />
+                          </div>
+                          <div>
+                            <label className={`block text-sm font-semibold mb-2 ${
+                              isDark ? 'text-slate-300' : 'text-slate-700'
+                            }`}>
+                              <i className="fas fa-building text-emerald-500 mr-2"></i>Branch
+                            </label>
+                            <input
+                              type="text"
+                              value={editedCase.BRANCH || ''}
+                              onChange={(e) => handleFieldChange('BRANCH', e.target.value)}
+                              className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                                isDark
+                                  ? 'border-emerald-700 bg-slate-700 text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                                  : 'border-emerald-200 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                              }`}
+                              placeholder="Court branch"
+                            />
+                          </div>
+                          <div>
+                            <label className={`block text-sm font-semibold mb-2 ${
+                              isDark ? 'text-slate-300' : 'text-slate-700'
+                            }`}>
+                              <i className="fas fa-landmark text-emerald-500 mr-2"></i>Date Filed in Court
+                            </label>
+                            <input
+                              type="date"
+                              value={editedCase.DATEFILED_IN_COURT?.split('T')[0] || ''}
+                              onChange={(e) => handleFieldChange('DATEFILED_IN_COURT', e.target.value)}
+                              className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                                isDark
+                                  ? 'border-emerald-700 bg-slate-700 text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                                  : 'border-emerald-200 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                              }`}
+                            />
+                          </div>
+                          <div>
+                            <label className={`block text-sm font-semibold mb-2 ${
+                              isDark ? 'text-slate-300' : 'text-slate-700'
+                            }`}>
+                              <i className="fas fa-gavel text-emerald-500 mr-2"></i>Final Offense
+                            </label>
+                            <input
+                              type="text"
+                              value={editedCase.FINAL_OFFENSE || ''}
+                              onChange={(e) => handleFieldChange('FINAL_OFFENSE', e.target.value)}
+                              className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
+                                isDark
+                                  ? 'border-emerald-700 bg-slate-700 text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                                  : 'border-emerald-200 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                              }`}
+                              placeholder="Final offense"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -1110,54 +1376,6 @@ const Deletecase = () => {
                         type="date"
                         value={editedCase.DECISION_DATE?.split('T')[0] || ''}
                         onChange={(e) => handleFieldChange('DECISION_DATE', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
-                          isDark
-                            ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
-                            : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
-                        }`}
-                      />
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        <i className="fas fa-file-contract text-green-500 mr-2"></i>Criminal Case No
-                      </label>
-                      <input
-                        type="text"
-                        value={editedCase.CRIM_CASE_NO || ''}
-                        onChange={(e) => handleFieldChange('CRIM_CASE_NO', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
-                          isDark
-                            ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
-                            : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
-                        }`}
-                      />
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        <i className="fas fa-building text-green-500 mr-2"></i>Branch
-                      </label>
-                      <input
-                        type="text"
-                        value={editedCase.BRANCH || ''}
-                        onChange={(e) => handleFieldChange('BRANCH', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
-                          isDark
-                            ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
-                            : 'border-slate-200 bg-white text-slate-900 focus:border-green-500 focus:ring-2 focus:ring-green-200'
-                        }`}
-                      />
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        <i className="fas fa-landmark text-green-500 mr-2"></i>Date Filed in Court
-                      </label>
-                      <input
-                        type="date"
-                        value={editedCase.DATEFILED_IN_COURT?.split('T')[0] || ''}
-                        onChange={(e) => handleFieldChange('DATEFILED_IN_COURT', e.target.value)}
                         className={`w-full px-4 py-3 rounded-xl border-2 transition-all ${
                           isDark
                             ? 'border-slate-600 bg-slate-700 text-slate-100 focus:border-green-500 focus:ring-2 focus:ring-green-500/20'
@@ -1198,7 +1416,7 @@ const Deletecase = () => {
                               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
                             }}
                             whileTap={{ scale: 0.98 }}
-                            onError={(e) => {
+                            onError={() => {
                               console.error('Image failed to load:', imagePreview);
                               setImageLoadError(true);
                             }}
@@ -1230,6 +1448,7 @@ const Deletecase = () => {
                     : 'bg-slate-50 border-slate-200'
                 }`}>
                   <button
+                    type="button"
                     onClick={closeEditModal}
                     className={`flex-1 py-3 rounded-xl font-semibold border-none cursor-pointer transition-colors ${
                       isDark
@@ -1240,6 +1459,7 @@ const Deletecase = () => {
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={handleUpdate}
                     disabled={isLoading}
                     className={`flex-1 py-3 rounded-xl font-semibold border-none cursor-pointer
@@ -1344,7 +1564,7 @@ const Deletecase = () => {
                         <p className={`text-xs leading-relaxed ${
                           isDark ? 'text-slate-400' : 'text-slate-600'
                         }`}>
-                          {selectedCase.COMPLAINANT} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>vs</span> {selectedCase.RESPONDENT}
+                          {selectedCase.COMPLAINANT} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>vs</span> {parseRespondents(selectedCase.RESPONDENT)[0] || 'N/A'}{parseRespondents(selectedCase.RESPONDENT).length > 1 ? ` +${parseRespondents(selectedCase.RESPONDENT).length - 1} more` : ''}
                         </p>
                       </div>
                     </div>
@@ -1376,6 +1596,7 @@ const Deletecase = () => {
                   isDark ? 'border-slate-700/30' : 'border-slate-200/50'
                 }`}>
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowConfirm(false)}
@@ -1388,6 +1609,7 @@ const Deletecase = () => {
                     Cancel
                   </motion.button>
                   <motion.button
+                    type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleDelete}
@@ -1463,6 +1685,48 @@ const Deletecase = () => {
             >
               <i className="fas fa-times text-sm"></i>
             </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Print Format Dropdown â€” rendered fixed to escape all overflow-hidden containers */}
+      <AnimatePresence>
+        {printDropdownCase !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            style={{ position: 'fixed', top: printDropdownPos.top, left: printDropdownPos.left, zIndex: 9999 }}
+            className={`print-dropdown-container w-52 rounded-xl shadow-xl border overflow-hidden ${
+              isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'
+            }`}
+          >
+            <div className={`px-3 py-2 text-xs font-semibold uppercase tracking-wide border-b ${
+              isDark ? 'text-slate-400 bg-slate-700/50 border-slate-600' : 'text-slate-500 bg-slate-50 border-slate-200'
+            }`}>
+              <i className="fas fa-print mr-1.5"></i>Select Format
+            </div>
+            {PRINT_FORMAT_OPTIONS.map((fmt) => {
+              const activeCase = filteredCases.find(c => c.id === printDropdownCase);
+              return (
+                <button
+                  key={fmt.value}
+                  type="button"
+                  onClick={() => activeCase && handleCasePrint(activeCase, fmt.value)}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors cursor-pointer border-none flex items-center gap-2 ${
+                    isDark
+                      ? 'text-slate-200 hover:bg-slate-700 bg-transparent'
+                      : 'text-slate-700 hover:bg-purple-50 bg-transparent'
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    isDark ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-600'
+                  }`}>{fmt.value}</span>
+                  <span className="truncate">{fmt.description}</span>
+                </button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>

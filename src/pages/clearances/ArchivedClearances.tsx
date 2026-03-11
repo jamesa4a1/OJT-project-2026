@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import config from '../../config';
+import useAutoRefresh from '../../hooks/useAutoRefresh';
 
 // Custom Tooltip Component for Notes
 const NotesTooltip: React.FC<{ 
@@ -178,6 +179,9 @@ const ArchivedClearances: React.FC = () => {
   useEffect(() => {
     fetchArchivedClearances();
   }, [fetchArchivedClearances]);
+
+  // Auto-refresh every 5 seconds for real-time updates across PCs
+  useAutoRefresh(fetchArchivedClearances, 5000);
 
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, page: 1 }));

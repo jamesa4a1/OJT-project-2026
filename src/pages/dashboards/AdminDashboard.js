@@ -5,8 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../../config/api';
 
 // Circular Progress Ring Component
 const ProgressRing = ({ progress, size = 48, strokeWidth = 4, color = 'blue', isDark }) => {

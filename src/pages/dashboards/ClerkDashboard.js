@@ -4,8 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import * as XLSX from 'xlsx';
-
-const API_BASE = window.location.origin;
+import { API_BASE } from '../../config/api';
 
 // Progress Ring Component
 const ProgressRing = ({ progress, size = 80, strokeWidth = 8, color = 'blue', isDark }) => {

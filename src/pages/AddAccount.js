@@ -2,8 +2,8 @@ import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ThemeContext } from '../App';
-
-const API_BASE = window.location.origin;
+import useAutoRefresh from '../hooks/useAutoRefresh';
+import { API_BASE } from '../config/api';
 
 const AddAccount = () => {
   const navigate = useNavigate();
@@ -30,10 +30,6 @@ const AddAccount = () => {
   const [editRole, setEditRole] = useState('Clerk');
   const [isEditing, setIsEditing] = useState(false);
   const [togglingUser, setTogglingUser] = useState(null);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('ocpToken');
@@ -70,6 +66,13 @@ const AddAccount = () => {
       setStatus({ type: 'error', message: 'Unable to fetch users. Please check server connection.' });
     }
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Auto-refresh every 5 seconds for real-time updates across PCs
+  useAutoRefresh(fetchUsers, 5000);
 
   const handleToggleStatus = async (user) => {
     setTogglingUser(user.id);
