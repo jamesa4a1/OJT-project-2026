@@ -27,7 +27,7 @@ const GenerateReport = () => {
   const [filterRecommendation, setFilterRecommendation] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterProsecutor, setFilterProsecutor] = useState('');
-  const [agingCategory, setAgingCategory] = useState('');
+
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -73,20 +73,7 @@ const GenerateReport = () => {
 
   const filteredCases = getFilteredCases();
 
-  // Aging helpers
-  const getDaysOld = (dateFiled) => {
-    if (!dateFiled) return 0;
-    const filed = new Date(dateFiled);
-    const now = new Date();
-    return Math.floor((now - filed) / (1000 * 60 * 60 * 24));
-  };
 
-  const getAgingBucket = (days) => {
-    if (days <= 30) return '0-30 days';
-    if (days <= 60) return '31-60 days';
-    if (days <= 90) return '61-90 days';
-    return '90+ days';
-  };
 
   // ── DISPOSITION REPORT DATA ──
   const dispositionData = (() => {
@@ -133,28 +120,7 @@ const GenerateReport = () => {
     return Math.round(total / resolved.length);
   })();
 
-  // ── AGING REPORT DATA ──
-  const agingCases = (() => {
-    const pending = filteredCases.filter(c => {
-      const dec = (c.REMARKS_DECISION || '').toLowerCase();
-      return dec === '' || dec === 'pending';
-    });
-    return pending.map(c => ({
-      ...c,
-      days: getDaysOld(c.DATE_FILED),
-      bucket: getAgingBucket(getDaysOld(c.DATE_FILED))
-    })).sort((a, b) => b.days - a.days);
-  })();
 
-  const agingFiltered = agingCategory
-    ? agingCases.filter(c => c.bucket === agingCategory)
-    : agingCases;
-
-  const agingBucketData = (() => {
-    const buckets = { '0-30 days': 0, '31-60 days': 0, '61-90 days': 0, '90+ days': 0 };
-    agingCases.forEach(c => { buckets[c.bucket] = (buckets[c.bucket] || 0) + 1; });
-    return Object.entries(buckets).map(([name, value]) => ({ name, value }));
-  })();
 
   // ── MONTHLY PERFORMANCE DATA ──
   const monthlyData = (() => {
@@ -248,17 +214,7 @@ const GenerateReport = () => {
           'Decision Date': c.DECISION_DATE || '',
           'Penalty': c.PENALTY || '',
         }));
-      } else if (activeTab === 'aging') {
-        data = agingFiltered.map(c => ({
-          'Docket No': c.DOCKET_NO,
-          'Date Filed': c.DATE_FILED,
-          'Complainant': c.COMPLAINANT,
-          'Respondent': c.RESPONDENT,
-          'Offense': c.OFFENSE,
-          'Days Pending': c.days,
-          'Age Bucket': c.bucket,
-          'Recommendation': c.REMARKS_DECISION || 'Pending',
-        }));
+
       } else {
         data = monthlyData.monthCases.map(c => ({
           'Docket No': c.DOCKET_NO,
@@ -293,7 +249,7 @@ const GenerateReport = () => {
     setFilterRecommendation('');
     setFilterStatus('');
     setFilterProsecutor('');
-    setAgingCategory('');
+
   };
 
   const formatDate = (d) => {
@@ -338,7 +294,6 @@ const GenerateReport = () => {
 
   const tabs = [
     { id: 'disposition', icon: 'fa-chart-pie', label: 'Case Disposition' },
-    { id: 'aging', icon: 'fa-hourglass-half', label: 'Case Aging' },
     { id: 'monthly', icon: 'fa-calendar-check', label: 'Monthly Performance' },
   ];
 
@@ -478,28 +433,14 @@ const GenerateReport = () => {
                   {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              {activeTab === 'aging' ? (
-                <div>
-                  <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Age Category</label>
-                  <select value={agingCategory} onChange={e => setAgingCategory(e.target.value)}
-                    className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm transition-all cursor-pointer ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200'} focus:border-blue-500 focus:ring-2 focus:ring-blue-200`}>
-                    <option value="">All Ages</option>
-                    <option value="0-30 days">0-30 days</option>
-                    <option value="31-60 days">31-60 days</option>
-                    <option value="61-90 days">61-90 days</option>
-                    <option value="90+ days">90+ days</option>
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Prosecutor</label>
-                  <select value={filterProsecutor} onChange={e => setFilterProsecutor(e.target.value)}
-                    className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm transition-all cursor-pointer ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200'} focus:border-blue-500 focus:ring-2 focus:ring-blue-200`}>
-                    <option value="">All Prosecutors</option>
-                    {uniqueProsecutors.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Prosecutor</label>
+                <select value={filterProsecutor} onChange={e => setFilterProsecutor(e.target.value)}
+                  className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm transition-all cursor-pointer ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200'} focus:border-blue-500 focus:ring-2 focus:ring-blue-200`}>
+                  <option value="">All Prosecutors</option>
+                  {uniqueProsecutors.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
             </div>
           )}
         </motion.div>
@@ -511,7 +452,7 @@ const GenerateReport = () => {
             <h2 className="text-xl font-bold">OCP Docketing System — {tabs.find(t => t.id === activeTab)?.label}</h2>
             <p className="text-sm text-slate-500">
               Generated by: {user?.name || 'Admin'} | Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} |
-              Total Records: {activeTab === 'aging' ? agingFiltered.length : activeTab === 'monthly' ? monthlyData.monthCases.length : filteredCases.length}
+              Total Records: {activeTab === 'monthly' ? monthlyData.monthCases.length : filteredCases.length}
             </p>
           </div>
 
@@ -528,7 +469,7 @@ const GenerateReport = () => {
                 <i className="fas fa-user mr-1"></i>{user?.name || 'Admin'}
               </span>
               <span className={`text-xs font-semibold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                {activeTab === 'aging' ? agingFiltered.length : activeTab === 'monthly' ? monthlyData.monthCases.length : filteredCases.length} records
+                {activeTab === 'monthly' ? monthlyData.monthCases.length : filteredCases.length} records
               </span>
             </div>
           </div>
@@ -686,112 +627,7 @@ const GenerateReport = () => {
               </motion.div>
             )}
 
-            {/* ═══════════════════════ AGING REPORT ═══════════════════════ */}
-            {activeTab === 'aging' && (
-              <motion.div key="aging" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
-                {/* Aging Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {agingBucketData.map((b, i) => (
-                    <div key={b.name}
-                      onClick={() => setAgingCategory(agingCategory === b.name ? '' : b.name)}
-                      className={`rounded-2xl p-5 cursor-pointer transition-all ${
-                        agingCategory === b.name
-                          ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-500/20'
-                          : ''
-                      } ${isDark ? 'bg-slate-800/60 border border-slate-700/50 hover:border-slate-600' : 'bg-white border border-slate-100 shadow-md hover:shadow-lg'}`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: COLORS[i] }}></div>
-                        <span className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{b.name}</span>
-                      </div>
-                      <p className={`text-3xl font-bold m-0 ${isDark ? 'text-white' : 'text-slate-900'}`}>{b.value}</p>
-                      <p className={`text-xs mt-1 m-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        {agingCases.length > 0 ? ((b.value / agingCases.length) * 100).toFixed(1) : 0}% of pending
-                      </p>
-                    </div>
-                  ))}
-                </div>
 
-                {/* Aging Chart */}
-                <div className={`rounded-2xl p-6 ${isDark ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white shadow-md border border-slate-100'}`}>
-                  <h3 className={`text-sm font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    <i className="fas fa-hourglass-half text-orange-500 mr-2"></i>Case Aging Distribution
-                  </h3>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={agingBucketData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} />
-                      <XAxis dataKey="name" tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 12 }} />
-                      <YAxis tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 12 }} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
-                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                        {agingBucketData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Aging Table */}
-                <div className={`rounded-2xl overflow-hidden ${isDark ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white shadow-md border border-slate-100'}`}>
-                  <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? 'border-slate-700/50' : 'border-slate-100'}`}>
-                    <h3 className={`text-sm font-bold m-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                      <i className="fas fa-exclamation-triangle text-orange-500 mr-2"></i>
-                      Pending Cases by Age ({agingFiltered.length})
-                      {agingCategory && <span className="ml-2 text-xs font-normal text-blue-500">— filtered: {agingCategory}</span>}
-                    </h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className={isDark ? 'bg-slate-700/50' : 'bg-slate-50'}>
-                          {['Docket No', 'Date Filed', 'Complainant', 'Respondent', 'Offense', 'Days Pending', 'Age Category'].map(h => (
-                            <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {agingFiltered.slice(0, 50).map((c, i) => (
-                          <tr key={c.id || i} className={`border-b transition-colors ${isDark ? 'border-slate-700/30 hover:bg-slate-700/20' : 'border-slate-100 hover:bg-slate-50'}`}>
-                            <td className={`px-4 py-3 text-xs font-mono font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{c.DOCKET_NO || 'N/A'}</td>
-                            <td className={`px-4 py-3 text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatDate(c.DATE_FILED)}</td>
-                            <td className={`px-4 py-3 text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{c.COMPLAINANT || 'N/A'}</td>
-                            <td className={`px-4 py-3 text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{c.RESPONDENT || 'N/A'}</td>
-                            <td className={`px-4 py-3 text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{c.OFFENSE || 'N/A'}</td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-1 rounded-md text-xs font-bold ${
-                                c.days > 90 ? 'bg-red-100 text-red-700' :
-                                c.days > 60 ? 'bg-orange-100 text-orange-700' :
-                                c.days > 30 ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-green-100 text-green-700'
-                              }`}>{c.days} days</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-1 rounded-md text-xs font-semibold ${
-                                c.bucket === '90+ days' ? 'bg-red-100 text-red-700' :
-                                c.bucket === '61-90 days' ? 'bg-orange-100 text-orange-700' :
-                                c.bucket === '31-60 days' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-green-100 text-green-700'
-                              }`}>{c.bucket}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {agingFiltered.length === 0 && (
-                      <div className={`px-6 py-12 text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        <i className="fas fa-check-circle text-3xl mb-3 block text-green-400"></i>
-                        <p className="font-semibold">No pending cases found</p>
-                        <p className="text-xs">All cases are resolved within the selected criteria</p>
-                      </div>
-                    )}
-                    {agingFiltered.length > 50 && (
-                      <div className={`px-6 py-3 text-center text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Showing 50 of {agingFiltered.length} records. Export to view all.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            )}
 
             {/* ═══════════════════════ MONTHLY PERFORMANCE ═══════════════════════ */}
             {activeTab === 'monthly' && (

@@ -7,13 +7,8 @@ import useAutoRefresh from '../hooks/useAutoRefresh';
 import { useValidation } from '../hooks/useValidation';
 import { CaseUpdateSchema } from '../schemas/cases';
 import Alert from '../components/ui/Alert';
-<<<<<<< HEAD
 import { API_BASE } from '../config/api';
-=======
 import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
-
-const API_BASE = window.location.origin;
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 const Editcase = () => {
   const [searchQuery, setSearchQuery] = useState({ DOCKET_NO: '', RESPONDENT: '' });
@@ -31,6 +26,12 @@ const Editcase = () => {
   const [showStatusField, setShowStatusField] = useState(false);
   const [isStatusFiledInCourt, setIsStatusFiledInCourt] = useState(false);
   const [isRemarksOther, setIsRemarksOther] = useState(false);
+  const [isEditMRFiled, setIsEditMRFiled] = useState(false);
+  const [editMRFiledBy, setEditMRFiledBy] = useState(['']);
+  const [editMRFiledByType, setEditMRFiledByType] = useState(['Respondents']);
+  const [editMRDateFiling, setEditMRDateFiling] = useState(['']);
+  const [editMRDateResolved, setEditMRDateResolved] = useState(['']);
+  const [editMRFinding, setEditMRFinding] = useState(['']);
   const navigate = useNavigate();
   const { validate, errors: validationErrors } = useValidation(CaseUpdateSchema);
 
@@ -45,10 +46,7 @@ const Editcase = () => {
     return `${API_BASE}${indexCardPath}`;
   };
 
-<<<<<<< HEAD
-=======
   // Fetch all cases
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
   const fetchAllCases = async () => {
     try {
       const response = await axios.get(`${API_BASE}/cases`);
@@ -58,22 +56,16 @@ const Editcase = () => {
     }
   };
 
-<<<<<<< HEAD
-  // Fetch all cases on component mount
-=======
   // Fetch on component mount
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
   useEffect(() => {
     fetchAllCases();
   }, []);
 
-<<<<<<< HEAD
   // Auto-refresh every 5 seconds for real-time updates across PCs
   useAutoRefresh(fetchAllCases, 5000);
-=======
+
   // Real-time updates: auto-refresh when cases change on any PC
   useSocket(CASE_EVENTS, fetchAllCases);
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
   const handleChange = (e) => {
     setSearchQuery({ ...searchQuery, [e.target.name]: e.target.value });
@@ -92,9 +84,16 @@ const Editcase = () => {
       });
       setCaseData(response.data);
       setError('');
-    } catch (err) {
+    } catch {
       setError('No matching case found or an error occurred.');
       setCaseData(null);
+      // Reset MR states on search failure
+      setEditMRFiledBy(['']);
+      setEditMRFiledByType(['Respondents']);
+      setEditMRDateFiling(['']);
+      setEditMRDateResolved(['']);
+      setEditMRFinding(['']);
+      setIsEditMRFiled(false);
     }
     setSearchPerformed(true);
     setIsLoading(false);
@@ -112,6 +111,36 @@ const Editcase = () => {
     const hasStatus = selectedCase.STATUS && selectedCase.STATUS !== '';
     setShowStatusField(hasStatus);
     setIsStatusFiledInCourt(selectedCase.STATUS === 'Filed in Court');
+    
+    // Parse MR Filed arrays
+    const parseMRArray = (raw, fallback) => {
+      if (!raw) return [fallback];
+      try { const a = JSON.parse(raw); if (Array.isArray(a)) return a.length > 0 ? a : [fallback]; } catch {}
+      return [raw || fallback];
+    };
+    const mrFiledByArr = parseMRArray(selectedCase.MR_FILED_BY, '');
+    // Parse type and name from stored values like "Complainant: John" or legacy "Complainants"
+    const mrTypes = mrFiledByArr.map(v => {
+      if (v.startsWith('Complainant:')) return 'Complainants';
+      if (v.startsWith('Respondent:')) return 'Respondents';
+      if (v === 'Complainants' || v === 'Respondents') return v;
+      return '';
+    });
+    const mrNames = mrFiledByArr.map(v => {
+      if (v.startsWith('Complainant:')) return v.replace('Complainant:', '').trim();
+      if (v.startsWith('Respondent:')) return v.replace('Respondent:', '').trim();
+      if (v === 'Complainants' || v === 'Respondents') return '';
+      return v;
+    });
+    setEditMRFiledByType(mrTypes);
+    setEditMRFiledBy(mrNames);
+    setEditMRDateFiling(parseMRArray(selectedCase.DATE_MR_FILING, '').map(d => d?.split('T')[0] || ''));
+    setEditMRDateResolved(parseMRArray(selectedCase.DATE_MR_RESOLVED, '').map(d => d?.split('T')[0] || ''));
+    setEditMRFinding(parseMRArray(selectedCase.MR_FINDING, ''));
+    
+    // Auto-expand MR Filed section if any MR data exists
+    const hasMRData = selectedCase.MR_FILED_BY || selectedCase.DATE_MR_FILING || selectedCase.DATE_MR_RESOLVED || selectedCase.MR_FINDING;
+    setIsEditMRFiled(!!hasMRData);
     // Initialise Remarks Other from existing case data
     const isRemarks = selectedCase.REMARKS_DECISION && !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].includes(selectedCase.REMARKS_DECISION);
     setIsRemarksOther(isRemarks);
@@ -202,6 +231,18 @@ const Editcase = () => {
       Object.keys(validatedData.updated_fields).forEach((key) => {
         formData.append(key, validatedData.updated_fields[key]);
       });
+
+      // Add MR fields as JSON arrays
+      formData.append('MR_FILED_BY', JSON.stringify(editMRFiledBy.map((name, i) => {
+        const type = editMRFiledByType[i] || '';
+        if (!type && !name) return '';
+        if (type === 'Complainants') return name ? `Complainant: ${name}` : '';
+        if (type === 'Respondents') return name ? `Respondent: ${name}` : '';
+        return name;
+      }).filter(v => v.trim() !== '')));
+      formData.append('DATE_MR_FILING', JSON.stringify(editMRDateFiling));
+      formData.append('DATE_MR_RESOLVED', JSON.stringify(editMRDateResolved));
+      formData.append('MR_FINDING', JSON.stringify(editMRFinding.filter(v => v.trim() !== '')));
 
       console.log('Sending update with id:', validatedData.id);
       console.log('Changed fields:', validatedData.updated_fields);
@@ -478,17 +519,39 @@ const Editcase = () => {
                       <i className="fas fa-map-marker-alt text-amber-500 mr-2"></i>Address of
                       Respondent
                     </label>
-                    <input
-                      type="text"
-                      value={
-                        editedCase.ADDRESS_OF_RESPONDENT !== undefined
-                          ? editedCase.ADDRESS_OF_RESPONDENT
-                          : caseData[0].ADDRESS_OF_RESPONDENT || ''
-                      }
-                      onChange={(e) => handleFieldChange('ADDRESS_OF_RESPONDENT', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                      placeholder="Enter respondent address"
-                    />
+                    {(() => {
+                      const rawRespondents = editedCase.RESPONDENT !== undefined
+                        ? editedCase.RESPONDENT
+                        : caseData[0].RESPONDENT || '';
+                      const rawAddresses = editedCase.ADDRESS_OF_RESPONDENT !== undefined
+                        ? editedCase.ADDRESS_OF_RESPONDENT
+                        : caseData[0].ADDRESS_OF_RESPONDENT || '';
+                      let respondentList = [];
+                      try { respondentList = JSON.parse(rawRespondents); } catch { respondentList = rawRespondents ? [rawRespondents] : []; }
+                      let addressList = [];
+                      try { addressList = JSON.parse(rawAddresses); } catch { addressList = rawAddresses ? [rawAddresses] : []; }
+                      const count = Math.max(respondentList.length, 1);
+                      return Array.from({ length: count }).map((_, i) => (
+                        <div key={i} className={i > 0 ? 'mt-2' : ''}>
+                          {count > 1 && (
+                            <span className="text-xs text-slate-500 mb-1 block">
+                              {respondentList[i] ? `${respondentList[i]}'s address` : `Respondent ${i + 1} address`}
+                            </span>
+                          )}
+                          <input
+                            type="text"
+                            value={addressList[i] || ''}
+                            onChange={(e) => {
+                              const updated = [...addressList];
+                              updated[i] = e.target.value;
+                              handleFieldChange('ADDRESS_OF_RESPONDENT', JSON.stringify(updated));
+                            }}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
+                            placeholder={`Enter address${count > 1 ? ` for ${respondentList[i] || `respondent ${i + 1}`}` : ''}`}
+                          />
+                        </div>
+                      ));
+                    })()}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -753,6 +816,123 @@ const Editcase = () => {
               </div>
               )}
 
+              {/* MR Filed Section */}
+              <div className="mb-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditMRFiled(v => !v)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest border-2 transition-all duration-200 cursor-pointer ${
+                      isEditMRFiled
+                        ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
+                        : 'bg-white text-amber-600 border-amber-400 hover:bg-amber-50'
+                    }`}
+                  >
+                    <i className={`fas ${isEditMRFiled ? 'fa-chevron-up' : 'fa-chevron-down'} text-xs`}></i>
+                    MR Filed
+                  </button>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    <i className="fas fa-folder-open text-amber-500 mr-1.5"></i>Optional Fields
+                  </span>
+                </div>
+
+                {isEditMRFiled && (
+                  <div className="p-4 rounded-2xl border-2 border-amber-200 bg-amber-50/40">
+                    <div className="flex items-center gap-2 mb-3">
+                      <i className="fas fa-folder-open text-amber-500"></i>
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">MR Filed Information</span>
+                    </div>
+                    <div className="flex gap-3 mb-1.5">
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        <i className="fas fa-user text-amber-500 mr-1.5"></i>MR Filed By
+                      </label>
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        <i className="fas fa-calendar-alt text-amber-500 mr-1.5"></i>Date of MR Filing
+                      </label>
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        <i className="fas fa-calendar-check text-amber-500 mr-1.5"></i>Date MR Resolved
+                      </label>
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        <i className="fas fa-search text-amber-500 mr-1.5"></i>Finding
+                      </label>
+                      <span className="w-9 flex-shrink-0"></span>
+                    </div>
+                    {editMRFiledBy.map((_, mrIndex) => (
+                      <div key={mrIndex} className={`flex gap-3 ${mrIndex > 0 ? 'mt-2' : ''}`}>
+                        <div className="flex-1 flex gap-2">
+                          <select
+                            value={editMRFiledByType[mrIndex] || 'Respondents'}
+                            onChange={(e) => { const u = [...editMRFiledByType]; u[mrIndex] = e.target.value; setEditMRFiledByType(u); }}
+                            className="w-[130px] flex-shrink-0 px-3 py-2.5 rounded-xl border-2 border-amber-200 bg-white text-slate-800 text-sm font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 focus:outline-none transition-all"
+                          >
+                            <option value="Respondents">Respondents</option>
+                            <option value="Complainants">Complainants</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={editMRFiledBy[mrIndex] || ''}
+                            onChange={(e) => { const u = [...editMRFiledBy]; u[mrIndex] = e.target.value; setEditMRFiledBy(u); }}
+                            placeholder={(editMRFiledByType[mrIndex] || 'Respondents') === 'Complainants' ? 'Enter complainant name' : 'Enter respondent name'}
+                            className="flex-1 px-3 py-2.5 rounded-xl border-2 border-amber-200 bg-white text-slate-800 text-sm font-medium placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 focus:outline-none transition-all"
+                          />
+                        </div>
+                        <input
+                          type="date"
+                          value={editMRDateFiling[mrIndex] || ''}
+                          onChange={(e) => { const u = [...editMRDateFiling]; u[mrIndex] = e.target.value; setEditMRDateFiling(u); }}
+                          className="flex-1 px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white text-slate-800 text-sm font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 focus:outline-none transition-all"
+                        />
+                        <input
+                          type="date"
+                          value={editMRDateResolved[mrIndex] || ''}
+                          onChange={(e) => { const u = [...editMRDateResolved]; u[mrIndex] = e.target.value; setEditMRDateResolved(u); }}
+                          className="flex-1 px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white text-slate-800 text-sm font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 focus:outline-none transition-all"
+                        />
+                        <select
+                          value={editMRFinding[mrIndex] || ''}
+                          onChange={(e) => { const u = [...editMRFinding]; u[mrIndex] = e.target.value; setEditMRFinding(u); }}
+                          className="flex-1 px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white text-slate-800 text-sm font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 focus:outline-none transition-all"
+                        >
+                          <option value="">-- Select --</option>
+                          <option value="Granted">Granted</option>
+                          <option value="Partially Granted">Partially Granted</option>
+                          <option value="Denied">Denied</option>
+                        </select>
+                        {editMRFiledBy.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditMRFiledBy(editMRFiledBy.filter((_, i) => i !== mrIndex));
+                              setEditMRFiledByType(editMRFiledByType.filter((_, i) => i !== mrIndex));
+                              setEditMRDateFiling(editMRDateFiling.filter((_, i) => i !== mrIndex));
+                              setEditMRDateResolved(editMRDateResolved.filter((_, i) => i !== mrIndex));
+                              setEditMRFinding(editMRFinding.filter((_, i) => i !== mrIndex));
+                            }}
+                            className="w-9 flex-shrink-0 rounded-lg border-2 bg-red-50 border-red-200 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Remove MR entry"
+                          >
+                            <i className="fas fa-minus text-xs"></i>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditMRFiledBy([...editMRFiledBy, '']);
+                        setEditMRFiledByType([...editMRFiledByType, 'Respondents']);
+                        setEditMRDateFiling([...editMRDateFiling, '']);
+                        setEditMRDateResolved([...editMRDateResolved, '']);
+                        setEditMRFinding([...editMRFinding, '']);
+                      }}
+                      className="mt-2 flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg transition-colors border-none cursor-pointer bg-amber-50 text-amber-600 hover:bg-amber-100"
+                    >
+                      <i className="fas fa-plus text-xs"></i>Add MR Entry
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Index Card Section */}
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
@@ -760,96 +940,98 @@ const Editcase = () => {
                   Index Card Image
                 </h4>
 
-                {caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A' ? (
-                  <div className="mb-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-image text-blue-500 mr-2"></i>Current Image:
-                    </p>
-                    <div className="relative w-full min-h-[300px] rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex items-center justify-center">
-                      {!currentImageError ? (
-                        <>
-                          <img
-                            src={getImageUrl(caseData[0].INDEX_CARDS)}
-                            alt="Current Index Card"
-                            onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
-                            className="max-w-full max-h-[400px] object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-lg rounded"
-                            onError={() => setCurrentImageError(true)}
-                          />
-                          <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg">
-                            <i className="fas fa-search-plus mr-1"></i> Click to view full size
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center p-8 text-slate-400">
-                          <i className="fas fa-exclamation-triangle text-4xl mb-3 text-amber-400"></i>
-                          <p className="font-semibold text-slate-600 mb-2">Image not loading</p>
-                          <p className="text-xs text-slate-500 text-center">
-                            The stored path may be invalid.
-                            <br />
-                            Upload a new image to fix this.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-4 p-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
-                    <p className="text-sm text-slate-500 text-center">
-                      <i className="fas fa-image text-slate-400 mr-2"></i>
-                      No image currently stored for this case
-                    </p>
-                  </div>
-                )}
-
-                {imagePreview && (
-                  <div className="mb-4 relative">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-image text-amber-500 mr-2"></i>New Image Preview:
-                    </p>
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      onClick={() => setShowFullImage(imagePreview)}
-                      className="w-full max-h-60 object-contain rounded-xl border-2 border-amber-300 cursor-pointer hover:opacity-90 transition-opacity"
-                    />
-                    <button
-                      type="button"
-                      onClick={removeImage}
-                      className="absolute top-2 right-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white 
-                               rounded-lg shadow-lg transition-colors cursor-pointer font-medium z-10"
-                    >
-                      <i className="fas fa-times mr-2"></i> Remove
-                    </button>
-                    <div className="absolute bottom-2 left-2 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
-                      <i className="fas fa-search-plus mr-1"></i> Click to view full size
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label
-                    className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed 
-                                   border-slate-300 rounded-xl hover:border-amber-500 hover:bg-amber-50/50 
-                                   transition-all duration-300 cursor-pointer group"
-                  >
-                    <div className="flex flex-col items-center justify-center">
-                      <i className="fas fa-cloud-upload-alt text-4xl text-slate-400 group-hover:text-amber-500 mb-3 transition-colors"></i>
-                      <p className="text-base text-slate-600 group-hover:text-amber-600 font-medium">
-                        {imagePreview
-                          ? 'Change Image'
-                          : caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A'
-                            ? 'Upload New Image'
-                            : 'Upload Index Card Image'}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Current Image - Left Side */}
+                  {caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A' ? (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
+                        <i className="fas fa-image text-blue-500 mr-1"></i>Current Image
                       </p>
-                      <p className="text-sm text-slate-400 mt-1">PNG, JPG, JPEG (Max 5MB)</p>
+                      <div className="relative w-full h-48 rounded-lg border-2 border-slate-300 bg-slate-50 p-2 flex items-center justify-center overflow-hidden">
+                        {!currentImageError ? (
+                          <>
+                            <img
+                              src={getImageUrl(caseData[0].INDEX_CARDS)}
+                              alt="Current Index Card"
+                              onClick={() => setShowFullImage(caseData[0].INDEX_CARDS)}
+                              className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity shadow-md rounded"
+                              onError={() => setCurrentImageError(true)}
+                            />
+                            <div className="absolute bottom-1.5 left-1.5 px-2 py-0.5 bg-black/70 text-white text-[10px] rounded">
+                              <i className="fas fa-search-plus mr-0.5"></i> Full size
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-4 text-center">
+                            <i className="fas fa-exclamation-triangle text-2xl mb-2 text-amber-400"></i>
+                            <p className="font-semibold text-slate-600 text-xs mb-1">Image not loading</p>
+                            <p className="text-[10px] text-slate-500">Upload new image</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/png,image/jpeg,image/jpg"
-                      onChange={handleImageChange}
-                    />
-                  </label>
+                  ) : (
+                    <div className="p-3 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center h-48">
+                      <p className="text-xs text-slate-500 text-center">
+                        <i className="fas fa-image text-slate-400 mr-1"></i>
+                        No image stored
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Upload / New Preview - Right Side */}
+                  <div>
+                    {imagePreview ? (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
+                          <i className="fas fa-image text-amber-500 mr-1"></i>New Preview
+                        </p>
+                        <div className="relative w-full h-48 rounded-lg border-2 border-amber-300 bg-white p-2 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            onClick={() => setShowFullImage(imagePreview)}
+                            className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity rounded"
+                          />
+                          <div className="absolute bottom-1.5 left-1.5 px-2 py-0.5 bg-black/60 text-white text-[10px] rounded">
+                            <i className="fas fa-search-plus mr-0.5"></i> Full size
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 hover:bg-red-600 text-white 
+                                     rounded-md shadow-lg transition-colors cursor-pointer text-xs flex items-center justify-center z-10"
+                            title="Remove image"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label
+                        className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed 
+                                       border-slate-300 rounded-lg hover:border-amber-500 hover:bg-amber-50/30 
+                                       transition-all duration-300 cursor-pointer group"
+                      >
+                        <div className="flex flex-col items-center justify-center">
+                          <i className="fas fa-cloud-upload-alt text-2xl text-slate-400 group-hover:text-amber-500 mb-2 transition-colors"></i>
+                          <p className="text-sm text-slate-600 group-hover:text-amber-600 font-semibold">
+                            {caseData[0].INDEX_CARDS && caseData[0].INDEX_CARDS !== 'N/A'
+                              ? 'Upload New'
+                              : 'Upload Image'}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">PNG, JPG, JPEG</p>
+                          <p className="text-[10px] text-slate-400">Max 5MB</p>
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/png,image/jpeg,image/jpg"
+                          onChange={handleImageChange}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </div>
 

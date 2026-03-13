@@ -2,13 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-<<<<<<< HEAD
 import { API_BASE } from '../config/api';
-=======
 import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
-
-const API_BASE = window.location.origin;
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 const Findcase = () => {
   const [searchQuery, setSearchQuery] = useState({

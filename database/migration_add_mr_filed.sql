@@ -1,0 +1,10 @@
+-- Migration: Add MR Filed fields to cases table
+-- Run this script once against your ocp_docketing database
+
+USE ocp_docketing;
+
+ALTER TABLE cases
+ADD COLUMN MR_FILED_BY VARCHAR(200) NULL DEFAULT NULL,
+ADD COLUMN DATE_MR_FILING DATE NULL DEFAULT NULL,
+ADD COLUMN DATE_MR_RESOLVED DATE NULL DEFAULT NULL,
+ADD COLUMN MR_FINDING VARCHAR(500) NULL DEFAULT NULL;

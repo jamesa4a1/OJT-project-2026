@@ -322,6 +322,56 @@ function handleDisconnect() {
         });
       }
     });
+
+    // Migrate DATEFILED_IN_COURT from DATE to VARCHAR(500) to support JSON arrays (per-respondent dates)
+    db.query("SHOW COLUMNS FROM cases LIKE 'DATEFILED_IN_COURT'", (err, results) => {
+      if (!err && results.length > 0 && results[0].Type.toLowerCase() === 'date') {
+        db.query("ALTER TABLE cases MODIFY COLUMN DATEFILED_IN_COURT VARCHAR(500) DEFAULT NULL", (alterErr) => {
+          if (alterErr) console.error("Error migrating DATEFILED_IN_COURT column:", alterErr);
+          else console.log("✅ Migrated DATEFILED_IN_COURT column from DATE to VARCHAR(500).");
+        });
+      }
+    });
+
+    // Migrate MR_FILED_BY from VARCHAR(200) to VARCHAR(1000) to support JSON arrays
+    db.query("SHOW COLUMNS FROM cases LIKE 'MR_FILED_BY'", (err, results) => {
+      if (!err && results.length > 0 && results[0].Type.toLowerCase().includes('varchar(200)')) {
+        db.query("ALTER TABLE cases MODIFY COLUMN MR_FILED_BY VARCHAR(1000) DEFAULT NULL", (alterErr) => {
+          if (alterErr) console.error("Error migrating MR_FILED_BY column:", alterErr);
+          else console.log("✅ Migrated MR_FILED_BY column to VARCHAR(1000).");
+        });
+      }
+    });
+
+    // Migrate DATE_MR_FILING from DATE to VARCHAR(500) to support JSON arrays
+    db.query("SHOW COLUMNS FROM cases LIKE 'DATE_MR_FILING'", (err, results) => {
+      if (!err && results.length > 0 && results[0].Type.toLowerCase() === 'date') {
+        db.query("ALTER TABLE cases MODIFY COLUMN DATE_MR_FILING VARCHAR(500) DEFAULT NULL", (alterErr) => {
+          if (alterErr) console.error("Error migrating DATE_MR_FILING column:", alterErr);
+          else console.log("✅ Migrated DATE_MR_FILING column from DATE to VARCHAR(500).");
+        });
+      }
+    });
+
+    // Migrate DATE_MR_RESOLVED from DATE to VARCHAR(500) to support JSON arrays
+    db.query("SHOW COLUMNS FROM cases LIKE 'DATE_MR_RESOLVED'", (err, results) => {
+      if (!err && results.length > 0 && results[0].Type.toLowerCase() === 'date') {
+        db.query("ALTER TABLE cases MODIFY COLUMN DATE_MR_RESOLVED VARCHAR(500) DEFAULT NULL", (alterErr) => {
+          if (alterErr) console.error("Error migrating DATE_MR_RESOLVED column:", alterErr);
+          else console.log("✅ Migrated DATE_MR_RESOLVED column from DATE to VARCHAR(500).");
+        });
+      }
+    });
+
+    // Migrate MR_FINDING from VARCHAR(500) to VARCHAR(1000) to support JSON arrays
+    db.query("SHOW COLUMNS FROM cases LIKE 'MR_FINDING'", (err, results) => {
+      if (!err && results.length > 0 && results[0].Type.toLowerCase().includes('varchar(500)')) {
+        db.query("ALTER TABLE cases MODIFY COLUMN MR_FINDING VARCHAR(1000) DEFAULT NULL", (alterErr) => {
+          if (alterErr) console.error("Error migrating MR_FINDING column:", alterErr);
+          else console.log("✅ Migrated MR_FINDING column to VARCHAR(1000).");
+        });
+      }
+    });
   };
 
   // Run column migration
@@ -1206,12 +1256,37 @@ app.post("/update-case", async (req, res) => {
   
   console.log("📝 Update case request received:", JSON.stringify(req.body, null, 2));
   
+  // Debug MR fields specifically
+  if (req.body.updated_fields) {
+    console.log("🔍 MR Fields received:", {
+      MR_FILED_BY: req.body.updated_fields.MR_FILED_BY,
+      DATE_MR_FILING: req.body.updated_fields.DATE_MR_FILING,
+      DATE_MR_RESOLVED: req.body.updated_fields.DATE_MR_RESOLVED,
+      MR_FINDING: req.body.updated_fields.MR_FINDING
+    });
+  }
+  
   try {
     // Validate the request body with Zod
     const validatedData = await CaseEditSchema.parseAsync(req.body);
     const { id, updated_fields } = validatedData;
     
     console.log("✅ Validation passed. ID:", id, "Fields:", Object.keys(updated_fields || {}));
+    console.log("DEBUG - MR fields after validation:", {
+      MR_FILED_BY: updated_fields?.MR_FILED_BY,
+      DATE_MR_FILING: updated_fields?.DATE_MR_FILING,
+      DATE_MR_RESOLVED: updated_fields?.DATE_MR_RESOLVED,
+      MR_FINDING: updated_fields?.MR_FINDING
+    });
+    
+    // Write MR debug to file for troubleshooting
+    const fs = require('fs');
+    fs.appendFileSync('mr_debug.log', `${new Date().toISOString()} - MR Fields: ${JSON.stringify({
+      MR_FILED_BY: updated_fields?.MR_FILED_BY,
+      DATE_MR_FILING: updated_fields?.DATE_MR_FILING,
+      DATE_MR_RESOLVED: updated_fields?.DATE_MR_RESOLVED,
+      MR_FINDING: updated_fields?.MR_FINDING
+    })}\n`);
 
     if (!updated_fields || Object.keys(updated_fields).length === 0) {
       return res.status(400).json(ApiResponse.error("No fields to update", 400));
@@ -1223,7 +1298,15 @@ app.post("/update-case", async (req, res) => {
         updated_fields.REMARKS_DECISION = 'Pending';
       } else {
         const trimmedDecision = String(rawDecision).trim();
-        updated_fields.REMARKS_DECISION = trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase();
+        // If it's a JSON array (per-respondent recommendations), preserve it as-is
+        try {
+          const parsed = JSON.parse(trimmedDecision);
+          updated_fields.REMARKS_DECISION = Array.isArray(parsed)
+            ? trimmedDecision
+            : trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase();
+        } catch {
+          updated_fields.REMARKS_DECISION = trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase();
+        }
       }
     }
 
@@ -1234,7 +1317,8 @@ app.post("/update-case", async (req, res) => {
       }
       
       // Check if this is a date field
-      const dateFields = ['DATE_FILED', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'DATEFILED_IN_COURT', 'DECISION_DATE'];
+      // Note: DATEFILED_IN_COURT is excluded because it stores a JSON array of per-respondent dates
+      const dateFields = ['DATE_FILED', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'DECISION_DATE'];
       if (dateFields.includes(fieldName) && typeof value === 'string') {
         // Handle ISO date strings like '2024-01-09T16:00:00.000Z'
         if (value.includes('T')) {
@@ -1348,12 +1432,21 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
   Object.keys(req.body).forEach((key) => {
     if (!excludedFields.includes(key)) {
       let value = req.body[key];
-      // Normalize REMARKS_DECISION to uppercase first letter
+      // Normalize REMARKS_DECISION — preserve JSON arrays as-is
       if (key === 'REMARKS_DECISION' && typeof value === 'string') {
         const trimmedDecision = value.trim();
-        value = trimmedDecision
-          ? trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase()
-          : 'Pending';
+        if (!trimmedDecision) {
+          value = 'Pending';
+        } else {
+          try {
+            const parsed = JSON.parse(trimmedDecision);
+            value = Array.isArray(parsed)
+              ? trimmedDecision
+              : trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase();
+          } catch {
+            value = trimmedDecision.charAt(0).toUpperCase() + trimmedDecision.slice(1).toLowerCase();
+          }
+        }
       }
       fields.push(key);
       updateValues.push(value);

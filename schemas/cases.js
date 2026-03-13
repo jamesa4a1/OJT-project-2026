@@ -43,6 +43,10 @@ const CaseUpdateSchema = z.object({
   DECISION_DATE: z.string().nullable().optional(),
   STATUS: z.string().nullable().optional(),
   INDEX_CARDS: z.string().nullable().optional(),
+  MR_FILED_BY: z.string().max(1000, 'MR Filed By must be less than 1000 characters').nullable().optional(),
+  DATE_MR_FILING: z.string().max(500).nullable().optional(),
+  DATE_MR_RESOLVED: z.string().max(500).nullable().optional(),
+  MR_FINDING: z.string().max(1000, 'Finding must be less than 1000 characters').nullable().optional(),
 });
 
 // Case edit validation schema (all fields optional)

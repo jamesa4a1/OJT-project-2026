@@ -326,6 +326,7 @@ const AnimatedRoutes = () => {
                 )
               }
             />
+
           </Routes>
         </AnimatePresence>
       </main>

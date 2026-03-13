@@ -37,6 +37,10 @@ const ClearanceGenerate: React.FC = () => {
   const [textColor, setTextColor] = useState<'navy' | 'black'>('navy'); // Text color for certificate
   const [showColorDropdown, setShowColorDropdown] = useState(false); // Color dropdown visibility
   
+  // Multi-respondent state (when printing from a case with multiple respondents)
+  const [respondentForms, setRespondentForms] = useState<FormData[]>([]);
+  const [activeRespondentIndex, setActiveRespondentIndex] = useState(0);
+  
   const getDefaultDate = () => {
     return new Date().toISOString().split('T')[0];
   };
@@ -189,54 +193,109 @@ const ClearanceGenerate: React.FC = () => {
     if (!caseState?.fromCase) return;
     const c = caseState.fromCase;
 
-    // Best-effort respondent name parse (supports JSON array, "LAST, FIRST MIDDLE", or "FIRST MIDDLE LAST")
-    let rawName: string = c.RESPONDENT || '';
+    // Parse all respondent names
+    let allNames: string[] = [];
     try {
       const parsed = JSON.parse(c.RESPONDENT || '[]');
-      if (Array.isArray(parsed) && parsed.length > 0) rawName = parsed[0];
-    } catch { /* plain string — use as-is */ }
-    let firstName = '', middleName = '', lastName = '';
-    if (rawName.includes(',')) {
-      const [last, rest] = rawName.split(',').map((s: string) => s.trim());
-      lastName = last;
-      const parts = rest.split(' ').filter(Boolean);
-      firstName = parts[0] || '';
-      middleName = parts.slice(1).join(' ');
-    } else {
-      const parts = rawName.split(' ').filter(Boolean);
-      firstName = parts[0] || '';
-      lastName = parts[parts.length - 1] || '';
-      middleName = parts.slice(1, -1).join(' ');
-    }
+      if (Array.isArray(parsed)) allNames = parsed.filter(Boolean);
+    } catch { /* plain string */ }
+    if (allNames.length === 0 && c.RESPONDENT) allNames = [c.RESPONDENT];
+
+    // Parse all addresses
+    let allAddresses: string[] = [];
+    try {
+      const parsed = JSON.parse(c.ADDRESS_OF_RESPONDENT || '[]');
+      if (Array.isArray(parsed)) allAddresses = parsed.filter(Boolean);
+    } catch { /* plain string */ }
+    if (allAddresses.length === 0 && c.ADDRESS_OF_RESPONDENT) allAddresses = [c.ADDRESS_OF_RESPONDENT];
+
+    // Helper to parse a name into first/middle/last
+    const parseName = (rawName: string) => {
+      let firstName = '', middleName = '', lastName = '';
+      if (rawName.includes(',')) {
+        const [last, rest] = rawName.split(',').map((s: string) => s.trim());
+        lastName = last;
+        const parts = rest.split(' ').filter(Boolean);
+        firstName = parts[0] || '';
+        middleName = parts.slice(1).join(' ');
+      } else {
+        const parts = rawName.split(' ').filter(Boolean);
+        if (parts.length === 1) {
+          firstName = parts[0];
+          lastName = '';
+          middleName = '';
+        } else {
+          firstName = parts[0] || '';
+          lastName = parts[parts.length - 1] || '';
+          middleName = parts.slice(1, -1).join(' ');
+        }
+      }
+      return { firstName, middleName, lastName };
+    };
 
     const safeDate = (d: string) => (d && d !== '0000-00-00' ? d.split('T')[0] : '');
 
-    setFormData(prev => ({
-      ...prev,
-      format_type: caseState.format || 'A',
-      first_name: firstName,
-      middle_name: middleName,
-      last_name: lastName,
-      address: c.ADDRESS_OF_RESPONDENT || '',
-      crime_description: c.FINAL_OFFENSE || c.OFFENSE || '',
-      case_numbers: c.CRIM_CASE_NO || c.DOCKET_NO || '',
-      case_status: c.REMARKS_DECISION || '',
-      court_branch: c.BRANCH || '',
-      date_of_commission: safeDate(c.DATE_OF_COMMISSION),
-      date_information_filed: safeDate(c.DATE_FILED),
-      criminal_cases: [{
-        case_number: c.CRIM_CASE_NO || c.DOCKET_NO || '',
-        case_number_type: 'Criminal Case No.',
-        crime: c.FINAL_OFFENSE || c.OFFENSE || '',
-        date_info_filed: safeDate(c.DATE_FILED),
-        date_type: 'Date Info Filed',
-        origin: 'Tagbilaran City',
-        status: c.REMARKS_DECISION || '',
-      }],
-    }));
+    // Build a form data object for each respondent
+    const forms: FormData[] = allNames.map((name, i) => {
+      const { firstName, middleName, lastName } = parseName(name);
+      return {
+        ...formData, // inherit defaults
+        format_type: caseState.format || 'A',
+        first_name: firstName,
+        middle_name: middleName,
+        last_name: lastName,
+        address: allAddresses[i] || '',
+        crime_description: c.FINAL_OFFENSE || c.OFFENSE || '',
+        case_numbers: c.CRIM_CASE_NO || c.DOCKET_NO || '',
+        case_status: c.REMARKS_DECISION || '',
+        court_branch: c.BRANCH || '',
+        date_of_commission: safeDate(c.DATE_OF_COMMISSION),
+        date_information_filed: safeDate(c.DATE_FILED),
+        criminal_cases: [{
+          case_number: c.CRIM_CASE_NO || c.DOCKET_NO || '',
+          case_number_type: 'Criminal Case No.',
+          crime: c.FINAL_OFFENSE || c.OFFENSE || '',
+          date_info_filed: safeDate(c.DATE_FILED),
+          date_type: 'Date Info Filed',
+          origin: 'Tagbilaran City',
+          status: c.REMARKS_DECISION || '',
+        }],
+      };
+    });
+
+    // Set the first respondent as the active form
+    if (forms.length > 0) {
+      setFormData(forms[0]);
+    }
+
+    // If multiple respondents, store them all
+    if (forms.length > 1) {
+      setRespondentForms(forms);
+      setActiveRespondentIndex(0);
+    }
+
     setHasCriminalRecord(!!(c.CRIM_CASE_NO || c.FINAL_OFFENSE));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync formData edits back to respondentForms array
+  useEffect(() => {
+    if (respondentForms.length > 1) {
+      setRespondentForms(prev => prev.map((f, i) => i === activeRespondentIndex ? { ...formData } : f));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData]);
+
+  // Switch active respondent
+  const switchRespondent = (index: number) => {
+    if (index === activeRespondentIndex || index < 0 || index >= respondentForms.length) return;
+    // Save current form to array
+    setRespondentForms(prev => prev.map((f, i) => i === activeRespondentIndex ? { ...formData } : f));
+    // Load the selected respondent's form
+    setFormData(respondentForms[index]);
+    setActiveRespondentIndex(index);
+    setFormKey(prev => prev + 1);
+  };
 
   // Note: Form inputs are now properly managed through React state
   // No DOM manipulation is needed - inputs are controlled React components
@@ -668,6 +727,8 @@ const ClearanceGenerate: React.FC = () => {
     setSubmitStatus(null);
     setGeneratedOR(null);
     setHasCriminalRecord(false);
+    setRespondentForms([]);
+    setActiveRespondentIndex(0);
     
     // Increment formKey to force complete form re-render with fresh inputs
     setFormKey(prev => prev + 1);
@@ -817,6 +878,65 @@ const ClearanceGenerate: React.FC = () => {
     };
   };
 
+  // Print all respondent certificates at once
+  const handlePrintAll = () => {
+    if (respondentForms.length <= 1) {
+      handlePrint();
+      return;
+    }
+    // Save current form state to the array first
+    const allForms = respondentForms.map((f, i) => i === activeRespondentIndex ? { ...formData } : f);
+    
+    // Build combined HTML for all respondents
+    const allPages = allForms.map((rf) => {
+      const fullName = [
+        rf.first_name.toUpperCase(),
+        rf.middle_name ? `${rf.middle_name.charAt(0).toUpperCase()}.` : '',
+        rf.last_name.toUpperCase(),
+        rf.suffix ? rf.suffix.toUpperCase() : ''
+      ].filter(Boolean).join(' ');
+      return getPrintTemplate({ formData: rf, fullName, generatedOR, textColor });
+    });
+
+    // Combine into a single print document with page breaks
+    const combinedBody = allPages.map((doc, idx) => {
+      // Extract body content from each full HTML document
+      const bodyMatch = doc.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      const bodyContent = bodyMatch ? bodyMatch[1] : doc;
+      return `<div ${idx > 0 ? 'style="page-break-before: always;"' : ''}>${bodyContent}</div>`;
+    }).join('\n');
+
+    // Use the first template as base for styles
+    const firstDoc = allPages[0];
+    const headMatch = firstDoc.match(/<head[^>]*>([\s\S]*)<\/head>/i);
+    const headContent = headMatch ? headMatch[1] : '';
+
+    const combinedDocument = `<!DOCTYPE html><html><head>${headContent}</head><body>${combinedBody}</body></html>`
+      .replace(/<script>[\s\S]*?<\/script>/gi, '');
+
+    const existingFrame = document.getElementById('print-frame') as HTMLIFrameElement;
+    if (existingFrame) document.body.removeChild(existingFrame);
+    
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;opacity:0';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) { document.body.removeChild(iframe); return; }
+    
+    iframeDoc.open();
+    iframeDoc.write(combinedDocument);
+    iframeDoc.close();
+    
+    iframe.onload = () => {
+      setTimeout(() => {
+        try { iframe.contentWindow?.print(); } catch (e) { console.error('Print failed:', e); }
+        setTimeout(() => { if (document.getElementById('print-frame')) document.body.removeChild(iframe); }, 1000);
+      }, 300);
+    };
+  };
+
   const inputClasses = `w-full px-3 py-2.5 rounded-lg border-2 outline-none transition-all duration-200 text-sm ${
     isDark 
       ? 'bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20' 
@@ -955,6 +1075,52 @@ const ClearanceGenerate: React.FC = () => {
           )}
         </AnimatePresence>
 
+        {/* Respondent Navigation Tabs (shown when multiple respondents) */}
+        {respondentForms.length > 1 && (
+          <div className={`mb-4 p-4 rounded-2xl border ${
+            isDark 
+              ? 'bg-slate-800/70 border-slate-700/60' 
+              : 'bg-white/80 border-slate-200/60 shadow-lg'
+          }`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                isDark ? 'bg-amber-900/50' : 'bg-amber-100'
+              }`}>
+                <i className="fas fa-users text-amber-500 text-sm"></i>
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {respondentForms.length} Respondents Found
+                </p>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Click on a respondent tab to view/edit their certificate
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {respondentForms.map((rf, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => switchRespondent(idx)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border-2 ${
+                    idx === activeRespondentIndex
+                      ? isDark
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/30'
+                        : 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : isDark
+                        ? 'bg-slate-700 border-slate-600 text-slate-300 hover:border-blue-500/50 hover:text-white'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'
+                  }`}
+                >
+                  <i className="fas fa-user mr-1.5 text-xs"></i>
+                  {rf.first_name || rf.last_name ? `${rf.first_name} ${rf.last_name}`.trim() : `Respondent ${idx + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Main Content - Two Column Layout */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
           {/* Left Column - Certificate Preview */}
@@ -1081,6 +1247,19 @@ const ClearanceGenerate: React.FC = () => {
                       <i className="fas fa-print mr-1.5"></i>
                       Print
                     </motion.button>
+
+                    {respondentForms.length > 1 && (
+                      <motion.button
+                        type="button"
+                        onClick={handlePrintAll}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-xs font-semibold rounded-lg text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 shadow-lg shadow-amber-500/40 hover:shadow-xl hover:shadow-amber-500/50 transition-all duration-200 whitespace-nowrap"
+                      >
+                        <i className="fas fa-print mr-1.5"></i>
+                        Print All ({respondentForms.length})
+                      </motion.button>
+                    )}
                   </div>
                 </div>
               </div>

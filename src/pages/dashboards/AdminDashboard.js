@@ -5,13 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-<<<<<<< HEAD
 import { API_BASE } from '../../config/api';
-=======
 import { useSocket, ALL_EVENTS } from '../../hooks/useSocket';
-
-const API_BASE = window.location.origin;
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
 // Circular Progress Ring Component
 const ProgressRing = ({ progress, size = 48, strokeWidth = 4, color = 'blue', isDark }) => {
@@ -645,6 +640,8 @@ const AdminDashboard = () => {
               ></motion.i>
             </div>
           </motion.div>
+
+
         </div>
       </motion.div>
 

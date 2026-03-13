@@ -1,16 +1,12 @@
 import React, { useEffect, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeContext } from '../App';
-<<<<<<< HEAD
 import useAutoRefresh from '../hooks/useAutoRefresh';
-import { API_BASE } from '../config/api';
-=======
 import { useSocket, CASE_EVENTS } from '../hooks/useSocket';
-
-const API_BASE = window.location.origin;
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
+import { API_BASE } from '../config/api';
 
 const Caselist = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
@@ -167,6 +163,132 @@ const Caselist = () => {
     }
   };
 
+  // Function to export terminated cases to Excel
+  const handleExportExcel = () => {
+    if (cases.length === 0) return;
+
+    const formatDate = (val) => {
+      if (!val) return '';
+      const d = new Date(val);
+      return isNaN(d) ? val : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    const parseRespondents = (val) => {
+      if (!val || val === 'N/A') return '';
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).join(', ');
+      } catch { /* not JSON */ }
+      return val;
+    };
+
+    const headers = [
+      'Docket No',
+      'Date Filed',
+      'Complainant',
+      'Respondent',
+      'Offense',
+      'Resolving Prosecutor',
+      'Filed in Court',
+      'Recommendation',
+      'Final Offense',
+      'Penalty',
+      'Decision Date',
+      'Date Resolved',
+      'Status',
+    ];
+
+    // Title row + blank row + header row + data rows
+    const titleRow = [`TERMINATED CASES — Exported ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`];
+    const blankRow = [];
+
+    const dataRows = cases.map((c) => [
+      c.DOCKET_NO || '',
+      formatDate(c.DATE_FILED),
+      c.COMPLAINANT || '',
+      parseRespondents(c.RESPONDENT),
+      c.OFFENSE || '',
+      c.RESOLVING_PROSECUTOR || '',
+      c.FILED_IN_COURT || '',
+      c.REMARKS_DECISION || '',
+      c.FINAL_OFFENSE || '',
+      c.PENALTY || '',
+      formatDate(c.DECISION_DATE),
+      formatDate(c.DATE_RESOLVED),
+      c.STATUS || '',
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([titleRow, blankRow, headers, ...dataRows]);
+
+    // Merge title across all columns
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 18 },  // Docket No
+      { wch: 18 },  // Date Filed
+      { wch: 28 },  // Complainant
+      { wch: 35 },  // Respondent
+      { wch: 30 },  // Offense
+      { wch: 28 },  // Resolving Prosecutor
+      { wch: 18 },  // Filed in Court
+      { wch: 20 },  // Recommendation
+      { wch: 30 },  // Final Offense
+      { wch: 20 },  // Penalty
+      { wch: 18 },  // Decision Date
+      { wch: 18 },  // Date Resolved
+      { wch: 18 },  // Status
+    ];
+
+    // Style title cell
+    if (ws['A1']) {
+      ws['A1'].s = {
+        font: { bold: true, sz: 14 },
+        alignment: { horizontal: 'center', vertical: 'center' },
+      };
+    }
+
+    // Style header row (row index 2 = A3)
+    headers.forEach((_, ci) => {
+      const cellAddr = XLSX.utils.encode_cell({ r: 2, c: ci });
+      if (!ws[cellAddr]) ws[cellAddr] = { v: headers[ci], t: 's' };
+      ws[cellAddr].s = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: 'C0392B' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin', color: { rgb: '000000' } },
+          bottom: { style: 'thin', color: { rgb: '000000' } },
+          left: { style: 'thin', color: { rgb: '000000' } },
+          right: { style: 'thin', color: { rgb: '000000' } },
+        },
+      };
+    });
+
+    // Style data rows with alternating colors and borders
+    dataRows.forEach((row, ri) => {
+      const isEven = ri % 2 === 0;
+      row.forEach((_, ci) => {
+        const cellAddr = XLSX.utils.encode_cell({ r: ri + 3, c: ci });
+        if (!ws[cellAddr]) ws[cellAddr] = { v: '', t: 's' };
+        ws[cellAddr].s = {
+          fill: { fgColor: { rgb: isEven ? 'FFFFFF' : 'FDECEA' } },
+          alignment: { vertical: 'center', wrapText: true },
+          border: {
+            top: { style: 'thin', color: { rgb: 'DDDDDD' } },
+            bottom: { style: 'thin', color: { rgb: 'DDDDDD' } },
+            left: { style: 'thin', color: { rgb: 'DDDDDD' } },
+            right: { style: 'thin', color: { rgb: 'DDDDDD' } },
+          },
+        };
+      });
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Terminated Cases');
+    XLSX.writeFile(wb, `Terminated_Cases_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   // Function to download Excel file
   const handleDownloadExcel = async () => {
     setIsDownloading(true);
@@ -192,47 +314,7 @@ const Caselist = () => {
     }
   };
 
-<<<<<<< HEAD
   const fetchDeletedCases = useCallback(() => {
-=======
-  // Function to configure automatic deletion
-  const handleAutoDeleteConfig = async () => {
-    try {
-      console.log('Auto-delete configuration:', autoDeleteConfig);
-
-      // Call API to set up automatic deletion schedule
-      const response = await axios.post(`${API_BASE}/configure-auto-delete`, {
-        scheduleType: autoDeleteConfig.scheduleType,
-        dayOfWeek: autoDeleteConfig.dayOfWeek,
-        dayOfMonth: autoDeleteConfig.dayOfMonth,
-        time: autoDeleteConfig.time,
-      });
-
-      setNotification({
-        type: 'success',
-        title: 'Auto-Delete Configured!',
-        message: `Deleted cases will be permanently deleted ${autoDeleteConfig.scheduleType} at ${autoDeleteConfig.time}.`,
-        icon: 'fa-check-circle',
-      });
-
-      setTimeout(() => setNotification(null), 4000);
-      setShowAutoDeleteModal(false);
-    } catch (error) {
-      console.error('Error configuring auto-delete:', error);
-      setNotification({
-        type: 'error',
-        title: 'Configuration Failed',
-        message: 'Failed to configure automatic deletion. Please try again.',
-        icon: 'fa-exclamation-circle',
-      });
-
-      setTimeout(() => setNotification(null), 5000);
-    }
-  };
-
-  const fetchDeletedCases = () => {
-    setIsLoading(true);
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
     axios
       .get(`${API_BASE}/deleted-cases`)
       .then((response) => {
@@ -243,13 +325,12 @@ const Caselist = () => {
         console.error('There was an error fetching the deleted cases!', error);
         setIsLoading(false);
       });
-  };
+  }, []);
 
   useEffect(() => {
     fetchDeletedCases();
-  }, []);
+  }, [fetchDeletedCases]);
 
-<<<<<<< HEAD
   useEffect(() => {
     setIsLoading(true);
     fetchDeletedCases();
@@ -257,10 +338,9 @@ const Caselist = () => {
 
   // Auto-refresh every 5 seconds — paused while a deletion is in progress to prevent overwriting state
   useAutoRefresh(fetchDeletedCases, 5000, isDeleting === null && !isDeletingAll);
-=======
+
   // Real-time updates: auto-refresh when cases change on any PC
   useSocket(CASE_EVENTS, fetchDeletedCases);
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 
   const handleSort = (option, direction) => {
     setSortOption(option);
@@ -402,6 +482,21 @@ const Caselist = () => {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={handleExportExcel}
+              disabled={cases.length === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl
+                         bg-emerald-600 text-white font-medium
+                         hover:bg-emerald-700 transition-all duration-300 shadow-sm cursor-pointer
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i className="fas fa-file-excel"></i>
+              <span>Export Excel</span>
+            </motion.button>
+
+            {/* Delete All Button */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setShowDeleteAllModal(true)}
               disabled={cases.length === 0}
               className="flex items-center gap-2 px-4 py-2 rounded-xl
@@ -470,14 +565,30 @@ const Caselist = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 align-middle">
-                        <span className="font-medium text-slate-800 text-xs line-clamp-1">
-                          {caseItem.COMPLAINANT}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          {(() => {
+                            try {
+                              const arr = JSON.parse(caseItem.COMPLAINANT);
+                              if (Array.isArray(arr)) return arr.filter(Boolean).map((name, i) => (
+                                <span key={i} className="font-medium text-slate-800 text-xs">{name}</span>
+                              ));
+                            } catch {}
+                            return <span className="font-medium text-slate-800 text-xs">{caseItem.COMPLAINANT}</span>;
+                          })()}
+                        </div>
                       </td>
                       <td className="px-3 py-3 align-middle">
-                        <span className="font-medium text-slate-800 text-xs line-clamp-1">
-                          {caseItem.RESPONDENT}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          {(() => {
+                            try {
+                              const arr = JSON.parse(caseItem.RESPONDENT);
+                              if (Array.isArray(arr)) return arr.filter(Boolean).map((name, i) => (
+                                <span key={i} className="font-medium text-slate-800 text-xs">{name}</span>
+                              ));
+                            } catch {}
+                            return <span className="font-medium text-slate-800 text-xs">{caseItem.RESPONDENT}</span>;
+                          })()}
+                        </div>
                       </td>
                       <td className="px-3 py-3 align-middle">
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-100 text-orange-800 text-xs font-semibold whitespace-nowrap">
@@ -664,6 +775,36 @@ const Caselist = () => {
                         </div>
                       </div>
                     ))}
+
+                    {/* MR Filed Section */}
+                    {(selectedCase.MR_FILED_BY || selectedCase.DATE_MR_FILING || selectedCase.DATE_MR_RESOLVED || selectedCase.MR_FINDING) && (
+                      <div className="mt-2">
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 mb-3">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
+                            <i className="fas fa-folder-open text-white text-sm"></i>
+                          </div>
+                          <span className="text-amber-700 font-medium text-sm uppercase tracking-wide">MR Filed Information</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { label: 'MR Filed By', value: selectedCase.MR_FILED_BY, icon: 'fa-user' },
+                            { label: 'Date of MR Filing', value: selectedCase.DATE_MR_FILING, icon: 'fa-calendar' },
+                            { label: 'Date MR Resolved', value: selectedCase.DATE_MR_RESOLVED, icon: 'fa-calendar-check' },
+                            { label: 'Finding', value: selectedCase.MR_FINDING, icon: 'fa-search' },
+                          ].map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/60 border border-amber-100">
+                              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                <i className={`fas ${item.icon} text-amber-600 text-sm`}></i>
+                              </div>
+                              <div>
+                                <p className="text-xs text-amber-600 font-medium uppercase">{item.label}</p>
+                                <p className="text-slate-800 font-medium">{item.value || 'N/A'}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {selectedCase.INDEX_CARDS && selectedCase.INDEX_CARDS !== 'N/A' && (
                       <div className="space-y-3">

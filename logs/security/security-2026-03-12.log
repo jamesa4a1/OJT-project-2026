@@ -1,0 +1,8 @@
+{"timestamp":"2026-03-12T00:31:49.642Z","severity":"INFO","eventType":"LOGOUT","userId":1}
+{"timestamp":"2026-03-12T00:32:42.202Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-12T01:49:30.087Z","severity":"INFO","eventType":"LOGOUT","userId":1}
+{"timestamp":"2026-03-12T01:49:38.384Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-12T11:24:31.283Z","severity":"INFO","eventType":"LOGOUT","userId":1}
+{"timestamp":"2026-03-12T11:24:40.521Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-03-12T14:12:15.138Z","severity":"WARN","eventType":"ACCOUNT_DELETED","adminId":1,"targetUserId":"5","targetEmail":"edwin@gmail.com"}
+{"timestamp":"2026-03-12T14:13:21.460Z","severity":"INFO","eventType":"LOGOUT","userId":1}
