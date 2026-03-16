@@ -215,9 +215,17 @@ const Deletecase = () => {
         return nameA.localeCompare(nameB);
       });
     } else if (sortOption === 'date-asc') {
-      sorted.sort((a, b) => new Date(a.DATE_FILED || 0) - new Date(b.DATE_FILED || 0));
+      sorted.sort((a, b) => {
+        const dateA = a.DATE_FILED || '0000-00-00';
+        const dateB = b.DATE_FILED || '0000-00-00';
+        return dateA.localeCompare(dateB);
+      });
     } else if (sortOption === 'date-desc') {
-      sorted.sort((a, b) => new Date(b.DATE_FILED || 0) - new Date(a.DATE_FILED || 0));
+      sorted.sort((a, b) => {
+        const dateA = a.DATE_FILED || '0000-00-00';
+        const dateB = b.DATE_FILED || '0000-00-00';
+        return dateB.localeCompare(dateA);
+      });
     }
 
     setFilteredCases(sorted);

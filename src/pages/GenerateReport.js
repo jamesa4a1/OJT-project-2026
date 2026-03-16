@@ -375,6 +375,32 @@ const GenerateReport = () => {
           ))}
         </div>
 
+        {/* Summary Statistics Cards */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-6 no-print">
+          {activeTab === 'disposition' && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <StatCard icon="fa-folder-open" label="Total Cases" value={filteredCases.length} color="blue" />
+              <StatCard icon="fa-hourglass-half" label="Pending" value={totalPending} color="yellow" sub={`${filteredCases.length > 0 ? ((totalPending / filteredCases.length) * 100).toFixed(1) : 0}%`} />
+              <StatCard icon="fa-gavel" label="Convicted" value={totalConvicted} color="green" sub={`${convictionRate}%`} />
+              <StatCard icon="fa-ban" label="Dismissed" value={totalDismissed} color="red" sub={`${filteredCases.length > 0 ? ((totalDismissed / filteredCases.length) * 100).toFixed(1) : 0}%`} />
+              <StatCard icon="fa-landmark" label="Filed in Court" value={totalFiledInCourt} color="purple" />
+              <StatCard icon="fa-clock" label="Avg. Resolution" value={`${avgResolutionDays}d`} color="orange" sub="days average" />
+            </div>
+          )}
+          
+          {activeTab === 'monthly' && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <StatCard icon="fa-plus-circle" label="New Cases" value={monthlyData.newCases} color="blue"
+                sub={monthlyData.changePercent > 0 ? `↑ ${monthlyData.changePercent}% vs last month` : monthlyData.changePercent < 0 ? `↓ ${Math.abs(monthlyData.changePercent)}% vs last month` : 'Same as last month'} />
+              <StatCard icon="fa-check-circle" label="Resolved" value={monthlyData.resolved} color="green" />
+              <StatCard icon="fa-hourglass-half" label="Pending" value={monthlyData.pending} color="yellow" />
+              <StatCard icon="fa-gavel" label="Convicted" value={monthlyData.convicted} color="emerald" />
+              <StatCard icon="fa-ban" label="Dismissed" value={monthlyData.dismissed} color="red" />
+              <StatCard icon="fa-landmark" label="Filed in Court" value={monthlyData.filedInCourt} color="purple" />
+            </div>
+          )}
+        </motion.div>
+
         {/* Filters */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className={`rounded-2xl p-5 mb-6 no-print ${isDark ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white shadow-md border border-slate-100'}`}
@@ -478,16 +504,6 @@ const GenerateReport = () => {
             {/* ═══════════════════════ DISPOSITION REPORT ═══════════════════════ */}
             {activeTab === 'disposition' && (
               <motion.div key="disposition" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
-                {/* Summary Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <StatCard icon="fa-folder-open" label="Total Cases" value={filteredCases.length} color="blue" />
-                  <StatCard icon="fa-hourglass-half" label="Pending" value={totalPending} color="yellow" sub={`${filteredCases.length > 0 ? ((totalPending / filteredCases.length) * 100).toFixed(1) : 0}%`} />
-                  <StatCard icon="fa-gavel" label="Convicted" value={totalConvicted} color="green" sub={`${convictionRate}%`} />
-                  <StatCard icon="fa-ban" label="Dismissed" value={totalDismissed} color="red" sub={`${filteredCases.length > 0 ? ((totalDismissed / filteredCases.length) * 100).toFixed(1) : 0}%`} />
-                  <StatCard icon="fa-landmark" label="Filed in Court" value={totalFiledInCourt} color="purple" />
-                  <StatCard icon="fa-clock" label="Avg. Resolution" value={`${avgResolutionDays}d`} color="orange" sub="days average" />
-                </div>
-
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Recommendation Distribution Pie */}
@@ -632,17 +648,6 @@ const GenerateReport = () => {
             {/* ═══════════════════════ MONTHLY PERFORMANCE ═══════════════════════ */}
             {activeTab === 'monthly' && (
               <motion.div key="monthly" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
-                {/* Monthly Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <StatCard icon="fa-plus-circle" label="New Cases" value={monthlyData.newCases} color="blue"
-                    sub={monthlyData.changePercent > 0 ? `↑ ${monthlyData.changePercent}% vs last month` : monthlyData.changePercent < 0 ? `↓ ${Math.abs(monthlyData.changePercent)}% vs last month` : 'Same as last month'} />
-                  <StatCard icon="fa-check-circle" label="Resolved" value={monthlyData.resolved} color="green" />
-                  <StatCard icon="fa-hourglass-half" label="Pending" value={monthlyData.pending} color="yellow" />
-                  <StatCard icon="fa-gavel" label="Convicted" value={monthlyData.convicted} color="emerald" />
-                  <StatCard icon="fa-ban" label="Dismissed" value={monthlyData.dismissed} color="red" />
-                  <StatCard icon="fa-landmark" label="Filed in Court" value={monthlyData.filedInCourt} color="purple" />
-                </div>
-
                 {/* Trend Chart */}
                 <div className={`rounded-2xl p-6 ${isDark ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white shadow-md border border-slate-100'}`}>
                   <h3 className={`text-sm font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>

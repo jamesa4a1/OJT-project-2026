@@ -163,7 +163,14 @@ const AdminDashboard = () => {
           thisMonth: monthCases,
         }));
 
-        setRecentCases(mappedCases.slice(0, 3));
+        // Sort cases by ID (descending) to get most recently added cases
+        const sortedCases = [...mappedCases].sort((a, b) => {
+          const idA = a.id || 0;
+          const idB = b.id || 0;
+          return idB - idA; // Descending order: newest first
+        });
+
+        setRecentCases(sortedCases.slice(0, 3));
         setAllCases(mappedCases);
       }
     } catch (error) {
@@ -348,7 +355,25 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="transition-colors duration-300 space-y-6">
+    <div className="relative transition-colors duration-500 space-y-6 min-h-screen pb-10">
+      {/* Ambient Background for Glassmorphism */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {isDark && (
+          <>
+            <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full blur-[120px] opacity-20 bg-blue-600/40 mix-blend-screen animate-pulse" style={{ animationDuration: '8s' }} />
+            <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] rounded-full blur-[120px] opacity-20 bg-purple-600/40 mix-blend-screen animate-pulse" style={{ animationDuration: '10s' }} />
+            <div className="absolute top-[40%] left-[30%] w-[400px] h-[400px] rounded-full blur-[100px] opacity-10 bg-cyan-500/30 mix-blend-screen" />
+          </>
+        )}
+        {!isDark && (
+          <>
+             <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] opacity-30 bg-blue-400/30" />
+             <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full blur-[120px] opacity-30 bg-purple-400/30" />
+          </>
+        )}
+      </div>
+
+      <div className="relative z-10 space-y-8">
       {/* Admin Welcome Banner - Enhanced with glassmorphism */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -449,7 +474,7 @@ const AdminDashboard = () => {
             {/* Date/Time Widget */}
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className={`hidden md:flex flex-col items-end px-5 py-3 rounded-2xl`}>
+              className={`hidden md:flex flex-col items-end px-5 py-3 rounded-2xl backdrop-blur-md border border-white/20 bg-white/10 shadow-lg`}>
               <span className="text-white/95 text-sm font-bold tracking-wide">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
               </span>
@@ -462,10 +487,10 @@ const AdminDashboard = () => {
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleExportCSV}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl
-                       bg-white text-blue-600 font-bold text-sm
-                       hover:bg-blue-50 transition-all duration-300 border-none cursor-pointer 
-                       shadow-xl shadow-blue-900/30"
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl
+                       bg-white/90 backdrop-blur-xl text-blue-600 font-bold text-sm
+                       hover:bg-white transition-all duration-300 border border-white/50 cursor-pointer 
+                       shadow-xl shadow-blue-900/20"
             >
               <i className="fas fa-download"></i>
               Export Cases
@@ -525,15 +550,19 @@ const AdminDashboard = () => {
           <motion.div
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
             onClick={() => navigate('/newcase')}
-            className={`relative rounded-2xl p-6 cursor-pointer group overflow-hidden transition-all duration-300 ${
+            className={`relative rounded-3xl p-6 cursor-pointer group overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700/50 hover:border-cyan-500/50' 
-                : 'bg-white border border-slate-100 hover:border-cyan-300 shadow-lg hover:shadow-xl'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-cyan-500/40 shadow-cyan-900/20' 
+                : 'bg-white/70 border border-white/60 hover:border-cyan-400 shadow-cyan-200/40'
             }`}
           >
-            <div className={`absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 
-                          opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+            
+            <div className={`absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/5 
+                          opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <motion.div
@@ -565,15 +594,19 @@ const AdminDashboard = () => {
           <motion.div
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
             onClick={() => navigate('/managecases')}
-            className={`relative rounded-2xl p-6 cursor-pointer group overflow-hidden transition-all duration-300 ${
+            className={`relative rounded-3xl p-6 cursor-pointer group overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700/50 hover:border-sky-500/50' 
-                : 'bg-white border border-slate-100 hover:border-sky-300 shadow-lg hover:shadow-xl'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-sky-500/40 shadow-sky-900/20' 
+                : 'bg-white/70 border border-white/60 hover:border-sky-400 shadow-sky-200/40'
             }`}
           >
-            <div className={`absolute inset-0 bg-gradient-to-br from-sky-500/10 to-indigo-500/10 
-                          opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
+            <div className={`absolute inset-0 bg-gradient-to-br from-sky-500/10 to-indigo-500/5 
+                          opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <motion.div
@@ -605,15 +638,19 @@ const AdminDashboard = () => {
           <motion.div
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
             onClick={() => navigate('/excel-sync')}
-            className={`relative rounded-3xl p-6 cursor-pointer group overflow-hidden transition-all duration-300 ${
+            className={`relative rounded-3xl p-6 cursor-pointer group overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700/50 hover:border-emerald-500/50' 
-                : 'bg-white border border-slate-100 hover:border-emerald-300 shadow-lg hover:shadow-xl'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-emerald-500/40 shadow-emerald-900/20' 
+                : 'bg-white/70 border border-white/60 hover:border-emerald-400 shadow-emerald-200/40'
             }`}
           >
-            <div className={`absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 
-                          opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
+            <div className={`absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 
+                          opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <motion.div
@@ -671,13 +708,19 @@ const AdminDashboard = () => {
           {/* Total Cases Card */}
           <motion.div
             whileHover={{ scale: 1.03, y: -4 }}
-            className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+            className={`relative rounded-3xl overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-blue-500/50' 
-                : 'bg-gradient-to-br from-white to-slate-50 border border-slate-100 shadow-lg hover:shadow-2xl hover:border-blue-300'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-blue-500/40 shadow-blue-900/20' 
+                : 'bg-white/70 border border-white/60 shadow-blue-200/40 hover:border-blue-300'
             }`}
           >
-            <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/5 rounded-full -mr-10 -mt-10" />
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+            
+            <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 blur-2xl ${
+              isDark ? 'bg-blue-500/10' : 'bg-blue-500/5'
+            }`} />
             <div className="relative p-6 flex flex-col h-full">
               <div className="flex items-start justify-between mb-2">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
@@ -705,13 +748,19 @@ const AdminDashboard = () => {
           {/* Pending Cases Card */}
           <motion.div
             whileHover={{ scale: 1.03, y: -4 }}
-            className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+            className={`relative rounded-3xl overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-orange-500/50' 
-                : 'bg-gradient-to-br from-white to-slate-50 border border-slate-100 shadow-lg hover:shadow-2xl hover:border-orange-300'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-orange-500/40 shadow-orange-900/20' 
+                : 'bg-white/70 border border-white/60 shadow-orange-200/40 hover:border-orange-300'
             }`}
           >
-            <div className="absolute top-0 right-0 w-28 h-28 bg-orange-500/5 rounded-full -mr-10 -mt-10" />
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
+            <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 blur-2xl ${
+              isDark ? 'bg-orange-500/10' : 'bg-orange-500/5'
+            }`} />
             <div className="relative p-6 flex flex-col h-full">
               <div className="flex items-start justify-between mb-2">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
@@ -739,13 +788,19 @@ const AdminDashboard = () => {
           {/* This Month Card */}
           <motion.div
             whileHover={{ scale: 1.03, y: -4 }}
-            className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+            className={`relative rounded-3xl overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-violet-500/50' 
-                : 'bg-gradient-to-br from-white to-slate-50 border border-slate-100 shadow-lg hover:shadow-2xl hover:border-violet-300'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-violet-500/40 shadow-violet-900/20' 
+                : 'bg-white/70 border border-white/60 shadow-violet-200/40 hover:border-violet-300'
             }`}
           >
-            <div className="absolute top-0 right-0 w-28 h-28 bg-violet-500/5 rounded-full -mr-10 -mt-10" />
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
+            <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-10 -mt-10 blur-2xl ${
+              isDark ? 'bg-violet-500/10' : 'bg-violet-500/5'
+            }`} />
             <div className="relative p-6 flex flex-col h-full">
               <div className="flex items-start justify-between mb-2">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
@@ -779,14 +834,17 @@ const AdminDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className={`rounded-3xl overflow-hidden transition-all duration-300 ${
+          className={`rounded-3xl overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl border ${
             isDark 
-              ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50' 
-              : 'bg-white border border-slate-100 shadow-xl'
+              ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border-white/10 shadow-black/20' 
+              : 'bg-white/70 border-white/60 shadow-blue-100/50'
           }`}
         >
+          {/* Inner Glow Effect for Dark Mode */}
+          {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
           {/* Header */}
-          <div className={`px-6 py-5 border-b ${isDark ? 'border-slate-700/50' : 'border-slate-100'}`}>
+          <div className={`px-6 py-5 border-b backdrop-blur-sm ${isDark ? 'border-white/5' : 'border-slate-200/50'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -996,19 +1054,22 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
 
-      {/* User Management Section - Enhanced with HeroUI Table styling */}
+      {/* User Management Section - Enhanced with Glassmorphism */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className={`rounded-3xl overflow-hidden transition-all duration-300 ${
+        className={`rounded-3xl overflow-hidden transition-all duration-500 backdrop-blur-2xl shadow-xl border ${
           isDark 
-            ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50' 
-            : 'bg-white border border-slate-100 shadow-xl'
+            ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border-white/10 shadow-black/20' 
+            : 'bg-white/70 border-white/60 shadow-blue-100/50'
         }`}
       >
+        {/* Inner Glow Effect for Dark Mode */}
+        {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
         {/* Header */}
-        <div className={`px-6 py-5 border-b ${isDark ? 'border-slate-700/50' : 'border-slate-100'}`}>
+        <div className={`px-6 py-5 border-b backdrop-blur-sm ${isDark ? 'border-white/5' : 'border-slate-200/50'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -1234,13 +1295,17 @@ const AdminDashboard = () => {
           <motion.div
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
             onClick={() => navigate('/managecases')}
-            className={`rounded-2xl p-5 cursor-pointer group transition-all duration-300 ${
+            className={`rounded-3xl p-5 cursor-pointer group transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-slate-800/50 border border-slate-700/50 hover:border-blue-500/30' 
-                : 'bg-white border border-slate-100 hover:border-blue-200 shadow-md hover:shadow-lg'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-blue-500/40 shadow-blue-900/20' 
+                : 'bg-white/70 border border-white/60 hover:border-blue-300 shadow-blue-100/50'
             }`}
           >
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+            
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
                 isDark 
@@ -1263,13 +1328,17 @@ const AdminDashboard = () => {
           <motion.div
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
             onClick={() => navigate('/caselist')}
-            className={`rounded-2xl p-5 cursor-pointer group transition-all duration-300 ${
+            className={`rounded-3xl p-5 cursor-pointer group transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-slate-800/50 border border-slate-700/50 hover:border-amber-500/30' 
-                : 'bg-white border border-slate-100 hover:border-amber-200 shadow-md hover:shadow-lg'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-amber-500/40 shadow-amber-900/20' 
+                : 'bg-white/70 border border-white/60 hover:border-amber-300 shadow-amber-100/50'
             }`}
           >
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
                 isDark 
@@ -1292,13 +1361,17 @@ const AdminDashboard = () => {
           <motion.div
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15 }}
             onClick={() => navigate('/settings')}
-            className={`rounded-2xl p-5 cursor-pointer group transition-all duration-300 ${
+            className={`rounded-3xl p-5 cursor-pointer group transition-all duration-500 backdrop-blur-2xl shadow-xl ${
               isDark 
-                ? 'bg-slate-800/50 border border-slate-700/50 hover:border-slate-500/30' 
-                : 'bg-white border border-slate-100 hover:border-slate-200 shadow-md hover:shadow-lg'
+                ? 'bg-gradient-to-br from-slate-900/60 to-slate-800/60 border border-white/10 hover:border-slate-500/40 shadow-slate-900/20' 
+                : 'bg-white/70 border border-white/60 hover:border-slate-300 shadow-slate-200/50'
             }`}
           >
+            {/* Inner Glow Effect for Dark Mode */}
+            {isDark && <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/5 pointer-events-none" />}
+
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
                 isDark 
@@ -1324,14 +1397,14 @@ const AdminDashboard = () => {
         </div>
       </motion.div>
 
-      {/* Create User Modal - Enhanced HeroUI Style */}
+      {/* Create User Modal - Enhanced with Glassmorphism */}
       <AnimatePresence>
         {showCreateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-4"
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
@@ -1339,16 +1412,16 @@ const AdminDashboard = () => {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className={`rounded-3xl w-full max-w-md shadow-2xl overflow-hidden ${
-                isDark ? 'bg-slate-800' : 'bg-white'
+              className={`rounded-3xl w-full max-w-md shadow-2xl overflow-hidden backdrop-blur-3xl border border-white/20 ${
+                isDark ? 'bg-slate-900/80' : 'bg-white/80'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header with gradient */}
-              <div className={`px-6 pt-6 pb-4 ${
+              {/* Modal Header with glass gradient */}
+              <div className={`px-6 pt-6 pb-4 border-b ${
                 isDark 
-                  ? 'bg-gradient-to-br from-slate-700 to-slate-800' 
-                  : 'bg-gradient-to-br from-blue-50 to-indigo-50'
+                  ? 'border-white/10' 
+                  : 'border-white/40'
               }`}>
                 <div className="flex items-center gap-4">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
@@ -1523,14 +1596,14 @@ const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Modal - Enhanced HeroUI Style */}
+      {/* Delete Confirmation Modal - Enhanced with Glassmorphism */}
       <AnimatePresence>
         {showDeleteModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-4"
             onClick={() => setShowDeleteModal(false)}
           >
             <motion.div
@@ -1538,8 +1611,8 @@ const AdminDashboard = () => {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className={`rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center ${
-                isDark ? 'bg-slate-800' : 'bg-white'
+              className={`rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center backdrop-blur-3xl border border-white/20 ${
+                isDark ? 'bg-slate-900/80' : 'bg-white/80'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -1604,6 +1677,7 @@ const AdminDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 };

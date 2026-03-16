@@ -129,8 +129,15 @@ const ClerkDashboard = () => {
           thisMonth: monthCases,
         });
 
+        // Sort cases by ID (descending) to get most recently added cases
+        const sortedCases = [...mappedCases].sort((a, b) => {
+          const idA = a.id || 0;
+          const idB = b.id || 0;
+          return idB - idA; // Descending order: newest first
+        });
+
         // Get recent cases (last 5)
-        setRecentCases(mappedCases.slice(0, 5));
+        setRecentCases(sortedCases.slice(0, 5));
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
