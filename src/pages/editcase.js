@@ -738,80 +738,96 @@ const Editcase = () => {
 
               {/* Court Information Section — shown when New Status = Filed in Court */}
               {isStatusFiledInCourt && (
-              <div className="mb-6">
-                <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                  <i className="fas fa-landmark text-emerald-500"></i>
-                  Court Information
-                </h4>
-                <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-gavel text-amber-500 mr-2"></i>Criminal Case Number
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        editedCase.CRIM_CASE_NO !== undefined
-                          ? editedCase.CRIM_CASE_NO
-                          : caseData[0].CRIM_CASE_NO || ''
-                      }
-                      onChange={(e) => handleFieldChange('CRIM_CASE_NO', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                      placeholder="Enter criminal case number"
-                    />
-                  </div>
+              <div className="mb-3">
+                <div className="bg-emerald-50/40 rounded-lg border border-emerald-100 p-2">
+                  <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+                    <i className="fas fa-landmark text-emerald-600"></i>
+                    Court Information
+                  </h4>
+                  
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {/* Criminal Case Number */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                        Crim Case No
+                      </label>
+                      <div className="relative">
+                        <i className="fas fa-gavel absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                        <input
+                          type="text"
+                          value={
+                            editedCase.CRIM_CASE_NO !== undefined
+                              ? editedCase.CRIM_CASE_NO
+                              : caseData[0].CRIM_CASE_NO || ''
+                          }
+                          onChange={(e) => handleFieldChange('CRIM_CASE_NO', e.target.value)}
+                          className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                          placeholder="Ex. CRIM-2024-001"
+                        />
+                      </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-building text-amber-500 mr-2"></i>Branch
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        editedCase.BRANCH !== undefined
-                          ? editedCase.BRANCH
-                          : caseData[0].BRANCH || ''
-                      }
-                      onChange={(e) => handleFieldChange('BRANCH', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                      placeholder="Enter court branch"
-                    />
-                  </div>
+                    {/* Branch */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                        Branch
+                      </label>
+                      <div className="relative">
+                        <i className="fas fa-building absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                        <input
+                          type="text"
+                          value={
+                            editedCase.BRANCH !== undefined
+                              ? editedCase.BRANCH
+                              : caseData[0].BRANCH || ''
+                          }
+                          onChange={(e) => handleFieldChange('BRANCH', e.target.value)}
+                          className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                          placeholder="Ex. Branch 1"
+                        />
+                      </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-landmark text-amber-500 mr-2"></i>Date Filed in Court
-                    </label>
-                    <input
-                      type="date"
-                      value={
-                        editedCase.DATEFILED_IN_COURT !== undefined
-                          ? editedCase.DATEFILED_IN_COURT
-                          : caseData[0].DATEFILED_IN_COURT?.split('T')[0] || ''
-                      }
-                      onChange={(e) => handleFieldChange('DATEFILED_IN_COURT', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                    />
-                  </div>
+                    {/* Date Filed in Court */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                        Date Filed
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={
+                            editedCase.DATEFILED_IN_COURT !== undefined
+                              ? editedCase.DATEFILED_IN_COURT
+                              : caseData[0].DATEFILED_IN_COURT?.split('T')[0] || ''
+                          }
+                          onChange={(e) => handleFieldChange('DATEFILED_IN_COURT', e.target.value)}
+                          className="w-full px-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                        />
+                      </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      <i className="fas fa-exclamation-circle text-amber-500 mr-2"></i>Final Offense
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        editedCase.FINAL_OFFENSE !== undefined
-                          ? editedCase.FINAL_OFFENSE
-                          : caseData[0].FINAL_OFFENSE || ''
-                      }
-                      onChange={(e) => handleFieldChange('FINAL_OFFENSE', e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                      placeholder="Enter final offense"
-                    />
+                    {/* Final Offense */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                        Final Offense
+                      </label>
+                      <div className="relative">
+                        <i className="fas fa-exclamation-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                        <input
+                          type="text"
+                          value={
+                            editedCase.FINAL_OFFENSE !== undefined
+                              ? editedCase.FINAL_OFFENSE
+                              : caseData[0].FINAL_OFFENSE || ''
+                          }
+                          onChange={(e) => handleFieldChange('FINAL_OFFENSE', e.target.value)}
+                          className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                          placeholder="Final offense"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
                 </div>
               </div>
               )}
@@ -842,24 +858,24 @@ const Editcase = () => {
                       <i className="fas fa-folder-open text-amber-500"></i>
                       <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">MR Filed Information</span>
                     </div>
-                    <div className="flex gap-3 mb-1.5">
-                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    <div className="flex gap-3 mb-1.5 px-0.5">
+                      <label className="flex-[2] text-[11px] font-bold uppercase tracking-widest text-slate-500 whitespace-nowrap">
                         <i className="fas fa-user text-amber-500 mr-1.5"></i>MR Filed By
                       </label>
-                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500 whitespace-nowrap">
                         <i className="fas fa-calendar-alt text-amber-500 mr-1.5"></i>Date of MR Filing
                       </label>
-                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500 whitespace-nowrap">
                         <i className="fas fa-calendar-check text-amber-500 mr-1.5"></i>Date MR Resolved
                       </label>
-                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                      <label className="flex-1 text-[11px] font-bold uppercase tracking-widest text-slate-500 whitespace-nowrap">
                         <i className="fas fa-search text-amber-500 mr-1.5"></i>Finding
                       </label>
                       <span className="w-9 flex-shrink-0"></span>
                     </div>
                     {editMRFiledBy.map((_, mrIndex) => (
                       <div key={mrIndex} className={`flex gap-3 ${mrIndex > 0 ? 'mt-2' : ''}`}>
-                        <div className="flex-1 flex gap-2">
+                        <div className="flex-[2] flex gap-2">
                           <select
                             value={editMRFiledByType[mrIndex] || 'Respondents'}
                             onChange={(e) => { const u = [...editMRFiledByType]; u[mrIndex] = e.target.value; setEditMRFiledByType(u); }}
@@ -871,6 +887,7 @@ const Editcase = () => {
                           <input
                             type="text"
                             value={editMRFiledBy[mrIndex] || ''}
+                            title={editMRFiledBy[mrIndex] || ''}
                             onChange={(e) => { const u = [...editMRFiledBy]; u[mrIndex] = e.target.value; setEditMRFiledBy(u); }}
                             placeholder={(editMRFiledByType[mrIndex] || 'Respondents') === 'Complainants' ? 'Enter complainant name' : 'Enter respondent name'}
                             className="flex-1 px-3 py-2.5 rounded-xl border-2 border-amber-200 bg-white text-slate-800 text-sm font-medium placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 focus:outline-none transition-all"

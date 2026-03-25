@@ -562,12 +562,46 @@ app.post("/api/auth/register", loginLimiter, validateRequest(UserRegisterSchema)
 
 // Get all users (Admin only)
 app.get("/api/users", authMiddleware, adminOnly, (req, res) => {
-  db.query("SELECT id, name, email, role, profile_picture, last_login, created_at, is_active, is_online FROM users ORDER BY created_at DESC", (err, results) => {
+  // Query that safely handles the is_online field
+  const query = `
+    SELECT 
+      id, 
+      name, 
+      email, 
+      role, 
+      profile_picture, 
+      last_login, 
+      created_at, 
+      is_active, 
+      COALESCE(is_online, 0) as is_online 
+    FROM users 
+    ORDER BY created_at DESC
+  `;
+  
+  db.query(query, (err, results) => {
     if (err) {
-      console.error("Database error:", err);
-      return res.status(500).json({ success: false, message: "Database error" });
+      // If is_online column doesn't exist, fall back to a simpler query
+      if (err.message.includes('is_online')) {
+        console.log('is_online column not found, using fallback query');
+        db.query("SELECT id, name, email, role, profile_picture, last_login, created_at, is_active FROM users ORDER BY created_at DESC", (err, results) => {
+          if (err) {
+            console.error("Database error:", err);
+            return res.status(500).json({ success: false, message: "Database error" });
+          }
+          // Add is_online field with default value for UI consistency
+          const resultsWithOnlineStatus = results.map(user => ({
+            ...user,
+            is_online: 0
+          }));
+          res.json({ success: true, users: resultsWithOnlineStatus });
+        });
+      } else {
+        console.error("Database error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+    } else {
+      res.json({ success: true, users: results });
     }
-    res.json({ success: true, users: results });
   });
 });
 
@@ -1116,15 +1150,44 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
     // Validate the request body with Zod
     const validatedData = await CaseCreateSchema.parseAsync(req.body);
     
-    // Get the image path if uploaded
-    const INDEX_CARDS = req.file ? `/uploads/index_cards/${req.file.filename}` : 'N/A';
-    const normalizedDecision = validatedData.REMARKS_DECISION && validatedData.REMARKS_DECISION.trim()
-      ? validatedData.REMARKS_DECISION.charAt(0).toUpperCase() + validatedData.REMARKS_DECISION.slice(1).toLowerCase()
-      : 'Pending';
+    // Check if DOCKET_NO already exists (BEFORE inserting)
+    db.query("SELECT id FROM cases WHERE DOCKET_NO = ? AND is_deleted = 0", [validatedData.DOCKET_NO], (checkErr, checkResults) => {
+      if (checkErr) {
+        console.error("Error checking duplicate case:", checkErr);
+        return res.status(500).json(ApiResponse.error("Database error", 500));
+      }
+      
+      if (checkResults && checkResults.length > 0) {
+        // Duplicate found
+        console.warn("Attempted to add duplicate case:", validatedData.DOCKET_NO);
+        return res.status(409).json(ApiResponse.error("This case (Docket No: " + validatedData.DOCKET_NO + ") already exists in the system.", 409));
+      }
+      
+      // No duplicate, proceed with insert
+      const INDEX_CARDS = req.file ? `/uploads/index_cards/${req.file.filename}` : 'N/A';
+      let normalizedDecision = 'Pending';
+      if (validatedData.REMARKS_DECISION && validatedData.REMARKS_DECISION.trim()) {
+        const rawDecision = validatedData.REMARKS_DECISION.trim();
+        try {
+          const parsedDecision = JSON.parse(rawDecision);
+          if (Array.isArray(parsedDecision)) {
+            normalizedDecision = JSON.stringify(
+              parsedDecision.map((entry) => {
+                const value = (entry || '').toString().trim();
+                return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : 'Pending';
+              })
+            );
+          } else {
+            normalizedDecision = rawDecision.charAt(0).toUpperCase() + rawDecision.slice(1).toLowerCase();
+          }
+        } catch {
+          normalizedDecision = rawDecision.charAt(0).toUpperCase() + rawDecision.slice(1).toLowerCase();
+        }
+      }
 
-    const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, FINAL_OFFENSE, REMARKS_DECISION, PENALTY, DECISION_DATE, STATUS, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, FINAL_OFFENSE, REMARKS_DECISION, PENALTY, DECISION_DATE, STATUS, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(sql, [
+      db.query(sql, [
       validatedData.DOCKET_NO, 
       validatedData.DATE_FILED, 
       validatedData.COMPLAINANT, 
@@ -1165,6 +1228,7 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
         id: result.insertId,
         indexCardPath: INDEX_CARDS 
       }));
+      });
     });
   } catch (error) {
     // Handle Zod validation errors
@@ -1256,41 +1320,19 @@ app.post("/update-case", async (req, res) => {
   
   console.log("📝 Update case request received:", JSON.stringify(req.body, null, 2));
   
-  // Debug MR fields specifically
-  if (req.body.updated_fields) {
-    console.log("🔍 MR Fields received:", {
-      MR_FILED_BY: req.body.updated_fields.MR_FILED_BY,
-      DATE_MR_FILING: req.body.updated_fields.DATE_MR_FILING,
-      DATE_MR_RESOLVED: req.body.updated_fields.DATE_MR_RESOLVED,
-      MR_FINDING: req.body.updated_fields.MR_FINDING
-    });
-  }
-  
   try {
-    // Validate the request body with Zod
-    const validatedData = await CaseEditSchema.parseAsync(req.body);
-    const { id, updated_fields } = validatedData;
-    
-    console.log("✅ Validation passed. ID:", id, "Fields:", Object.keys(updated_fields || {}));
-    console.log("DEBUG - MR fields after validation:", {
-      MR_FILED_BY: updated_fields?.MR_FILED_BY,
-      DATE_MR_FILING: updated_fields?.DATE_MR_FILING,
-      DATE_MR_RESOLVED: updated_fields?.DATE_MR_RESOLVED,
-      MR_FINDING: updated_fields?.MR_FINDING
-    });
-    
-    // Write MR debug to file for troubleshooting
-    const fs = require('fs');
-    fs.appendFileSync('mr_debug.log', `${new Date().toISOString()} - MR Fields: ${JSON.stringify({
-      MR_FILED_BY: updated_fields?.MR_FILED_BY,
-      DATE_MR_FILING: updated_fields?.DATE_MR_FILING,
-      DATE_MR_RESOLVED: updated_fields?.DATE_MR_RESOLVED,
-      MR_FINDING: updated_fields?.MR_FINDING
-    })}\n`);
+    // Simple validation - just check for required id and updated_fields
+    const { id, updated_fields } = req.body;
+
+    if (!id || typeof id !== 'number') {
+      return res.status(400).json(ApiResponse.error("Valid case ID is required", 400));
+    }
 
     if (!updated_fields || Object.keys(updated_fields).length === 0) {
       return res.status(400).json(ApiResponse.error("No fields to update", 400));
     }
+
+    console.log("✅ Validation passed. ID:", id, "Fields:", Object.keys(updated_fields || {}));
 
     if (Object.prototype.hasOwnProperty.call(updated_fields, 'REMARKS_DECISION')) {
       const rawDecision = updated_fields.REMARKS_DECISION;
@@ -1337,7 +1379,22 @@ app.post("/update-case", async (req, res) => {
     let updateQuery = "UPDATE cases SET ";
     const updateValues = [];
 
-    const fields = Object.keys(updated_fields).filter(field => updated_fields[field] !== undefined);
+    // Whitelist of allowed fields to prevent SQL injection
+    const ALLOWED_FIELDS = [
+      'DOCKET_NO', 'DATE_FILED', 'COMPLAINANT', 'RESPONDENT', 'ADDRESS_OF_RESPONDENT',
+      'OFFENSE', 'FINAL_OFFENSE', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'status',
+      'RESOLVING_PROSECUTOR', 'CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT',
+      'REMARKS_DECISION', 'PENALTY', 'DECISION_DATE', 'INDEX_CARDS',
+      'MR_FILED_BY', 'DATE_MR_FILING', 'DATE_MR_RESOLVED', 'MR_FINDING'
+    ];
+
+    const fields = Object.keys(updated_fields)
+      .filter(field => ALLOWED_FIELDS.includes(field) && updated_fields[field] !== undefined);
+    
+    if (fields.length === 0) {
+      return res.status(400).json(ApiResponse.error("No valid fields to update", 400));
+    }
+
     fields.forEach((field, index) => {
       updateQuery += `${field} = ?`;
       if (index < fields.length - 1) updateQuery += ", ";
@@ -1356,7 +1413,9 @@ app.post("/update-case", async (req, res) => {
 
     db.query(updateQuery, updateValues, (err, result) => {
       if (err) {
-        console.error("Error updating case:", err);
+        console.error("❌ Error updating case - Query:", updateQuery);
+        console.error("❌ Error updating case - Values:", updateValues);
+        console.error("❌ Error updating case - Error Details:", err);
         return res.status(500).json(ApiResponse.error("Error updating case: " + err.message, 500));
       }
       if (result.affectedRows === 0) {
@@ -1378,19 +1437,8 @@ app.post("/update-case", async (req, res) => {
       return res.json(ApiResponse.success("Case updated successfully"));
     });
   } catch (error) {
-    console.error("Error in update-case endpoint:", error);
-    // Handle Zod validation errors
-    if (error.name === 'ZodError' || error.issues) {
-      const zodErrors = error.errors || error.issues || [];
-      const errors = Array.isArray(zodErrors) ? zodErrors.map(err => ({
-        field: err.path ? err.path.join('.') : 'unknown',
-        message: err.message || 'Validation error',
-      })) : [{ field: 'unknown', message: 'Validation failed' }];
-      return res.status(400).json(ApiResponse.error("Validation failed", 400, { errors }));
-    }
-    
-    console.error("Error updating case:", error);
-    return res.status(500).json(ApiResponse.error("Internal server error", 500));
+    console.error("❌ Error in update-case endpoint:", error);
+    return res.status(500).json(ApiResponse.error("Internal server error: " + error.message, 500));
   }
 });
 
@@ -1420,6 +1468,15 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
   const updateValues = [];
   const fields = [];
 
+  // Whitelist of allowed fields
+  const ALLOWED_FIELDS = [
+    'DOCKET_NO', 'DATE_FILED', 'COMPLAINANT', 'RESPONDENT', 'ADDRESS_OF_RESPONDENT',
+    'OFFENSE', 'FINAL_OFFENSE', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'status',
+    'RESOLVING_PROSECUTOR', 'CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT',
+    'REMARKS_DECISION', 'PENALTY', 'DECISION_DATE', 'INDEX_CARDS',
+    'MR_FILED_BY', 'DATE_MR_FILING', 'DATE_MR_RESOLVED', 'MR_FINDING'
+  ];
+
   // Add the image path
   if (req.file) {
     fields.push('INDEX_CARDS');
@@ -1427,10 +1484,10 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
     console.log("Image uploaded:", req.file.filename);
   }
 
-  // Add other updated fields (exclude audit fields that shouldn't be manually updated)
+  // Add other updated fields - with whitelist validation
   const excludedFields = ['id', 'indexCardImage', 'created_by', 'created_at', 'updated_by', 'updated_at'];
   Object.keys(req.body).forEach((key) => {
-    if (!excludedFields.includes(key)) {
+    if (!excludedFields.includes(key) && ALLOWED_FIELDS.includes(key)) {
       let value = req.body[key];
       // Normalize REMARKS_DECISION — preserve JSON arrays as-is
       if (key === 'REMARKS_DECISION' && typeof value === 'string') {
@@ -3292,6 +3349,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           CRIM_CASE_NO: getColumnValue(row, ['Criminal Case No', 'CRIM_CASE_NO', 'Case Number', 'Case No']) || '',
           BRANCH: getColumnValue(row, ['Branch', 'BRANCH']) || '',
           DATEFILED_IN_COURT: getDateColumnValue(row, ['Date Filed in Court', 'DATEFILED_IN_COURT', 'Court Filing Date']),
+          FINAL_OFFENSE: getColumnValue(row, ['Final Offense', 'FINAL_OFFENSE', 'FinalOffense']) || '',
           REMARKS_DECISION: getColumnValue(row, ['Remarks Decision', 'REMARKS_DECISION', 'Decision', 'Remarks']) || '',
           PENALTY: getColumnValue(row, ['Penalty', 'PENALTY']) || '',
           DECISION_DATE: getDateColumnValue(row, ['Decision Date', 'DECISION_DATE', 'DecisionDate']),
@@ -3327,7 +3385,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             ADDRESS_OF_RESPONDENT = ?, OFFENSE = ?, DATE_OF_COMMISSION = ?,
             DATE_RESOLVED = ?, RESOLVING_PROSECUTOR = ?, 
             CRIM_CASE_NO = ?, BRANCH = ?, DATEFILED_IN_COURT = ?, 
-            REMARKS_DECISION = ?, PENALTY = ?, DECISION_DATE = ?, INDEX_CARDS = ?
+            FINAL_OFFENSE = ?, REMARKS_DECISION = ?, PENALTY = ?, DECISION_DATE = ?, INDEX_CARDS = ?
             WHERE DOCKET_NO = ?`;
           
           await new Promise((resolve, reject) => {
@@ -3336,7 +3394,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
               caseData.RESPONDENT, caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, 
               caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
               caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
-              caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
+              caseData.DATEFILED_IN_COURT, caseData.FINAL_OFFENSE, caseData.REMARKS_DECISION, 
               caseData.PENALTY, caseData.DECISION_DATE, caseData.INDEX_CARDS, caseData.DOCKET_NO
             ], (updateErr) => {
               if (updateErr) reject(updateErr);
@@ -3351,8 +3409,8 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           const insertQuery = `INSERT INTO cases 
             (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
             OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, 
-            CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, REMARKS_DECISION, PENALTY, DECISION_DATE, INDEX_CARDS) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, FINAL_OFFENSE, REMARKS_DECISION, PENALTY, DECISION_DATE, INDEX_CARDS) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
           
           await new Promise((resolve, reject) => {
             db.query(insertQuery, [
@@ -3360,7 +3418,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
               caseData.RESPONDENT, caseData.ADDRESS_OF_RESPONDENT, caseData.OFFENSE, 
               caseData.DATE_OF_COMMISSION, caseData.DATE_RESOLVED, 
               caseData.RESOLVING_PROSECUTOR, caseData.CRIM_CASE_NO, caseData.BRANCH, 
-              caseData.DATEFILED_IN_COURT, caseData.REMARKS_DECISION, 
+              caseData.DATEFILED_IN_COURT, caseData.FINAL_OFFENSE, caseData.REMARKS_DECISION, 
               caseData.PENALTY, caseData.DECISION_DATE, caseData.INDEX_CARDS
             ], (insertErr) => {
               if (insertErr) reject(insertErr);

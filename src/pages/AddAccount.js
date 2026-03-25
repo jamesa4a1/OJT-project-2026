@@ -42,7 +42,33 @@ const AddAccount = () => {
     return headers;
   };
 
-  const fetchUsers = async () => {
+  // Attempt to refresh the JWT token
+  const refreshToken = async () => {
+    try {
+      const token = localStorage.getItem('ocpToken');
+      if (!token) return false;
+
+      const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token) {
+          localStorage.setItem('ocpToken', data.token);
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
+    }
+  };
+
+  const fetchUsers = async (isRetry = false) => {
     try {
       const response = await fetch(`${API_BASE}/api/users`, {
         headers: getAuthHeaders(),
@@ -52,13 +78,31 @@ const AddAccount = () => {
         const data = await response.json();
         if (data.success) {
           setUsers(data.users);
+          // Clear any previous errors
+          if (status.type === 'error') {
+            setStatus({ type: '', message: '', details: [] });
+          }
+        }
+      } else if (response.status === 401 && !isRetry) {
+        // Token expired, attempt refresh and retry
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          // Retry the fetch with the new token
+          return fetchUsers(true);
+        } else {
+          // Refresh failed, prompt user to login again
+          setUsers([]);
+          setStatus({
+            type: 'error',
+            message: 'Session expired. Please log out and log in again as Admin to continue.',
+          });
         }
       } else {
         const data = await response.json().catch(() => ({}));
         setUsers([]);
         setStatus({
           type: 'error',
-          message: data.message || 'Unauthorized. Please log out and log in again as Admin.',
+          message: data.message || 'Failed to load accounts. Please check your permissions.',
         });
       }
     } catch (error) {
@@ -451,6 +495,34 @@ const AddAccount = () => {
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {status.type === 'error' && (status.message.includes('Session expired') || status.message.includes('Unauthorized') || status.message.includes('Invalid or expired token')) && (
+                    <div className="mt-3 flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fetchUsers()}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold border-none cursor-pointer transition-all ${
+                          isDark
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                        }`}
+                      >
+                        <i className="fas fa-sync-alt mr-2"></i>Retry
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => navigate('/login')}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold border-none cursor-pointer transition-all ${
+                          isDark
+                            ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                            : 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+                        }`}
+                      >
+                        <i className="fas fa-sign-in-alt mr-2"></i>Login Again
+                      </motion.button>
+                    </div>
                   )}
                 </div>
               </div>

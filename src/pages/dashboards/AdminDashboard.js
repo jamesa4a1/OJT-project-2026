@@ -355,7 +355,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="relative transition-colors duration-500 space-y-6 min-h-screen pb-10">
+    <div className="relative transition-colors duration-500 space-y-6 min-h-screen pb-10 w-full">
       {/* Ambient Background for Glassmorphism */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         {isDark && (

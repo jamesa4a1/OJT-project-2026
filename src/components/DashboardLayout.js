@@ -313,7 +313,7 @@ const DashboardLayout = ({ children }) => {
 
         {/* Main Content */}
         <main
-          className={`flex-1 overflow-x-hidden overflow-y-auto px-6 py-8 transition-colors duration-300 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}
+          className={`flex-1 overflow-x-hidden overflow-y-auto px-4 md:px-8 lg:px-12 py-8 transition-colors duration-300 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}
         >
           <div className="w-full h-full">{children}</div>
         </main>

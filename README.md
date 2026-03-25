@@ -306,7 +306,6 @@ npm run build        # Build for production
 
 C:\xampp\xampp_start.exe
 
-
 # if you want to start the server
 
 docker compose up -d
@@ -316,14 +315,11 @@ docker-compose down
 
 latest
 
-
 Main PC: http://localhost
 for the database connection: http://localhost:5000
 Other laptops: http://192.168.1.20 ← Share this new URL
 
 Pro tip: IP addresses can change when you restart your router or reconnect to WiFi. If this happens again, just run ipconfig and update the .env file with the new IP.
-
-
 
 STEPS TO EDIT CODE AND DEPLOY CHANGES:
 
@@ -346,18 +342,15 @@ docker compose up -d
 
 # Step 5:
 
-Test at http://localhost:3000
+http://localhost
 
 # Step 6: If it works, push to GitHub
 
 ## to Push to GitHub (after making changes):
 
-
 git add .
 git commit -m "Update project"
 git push origin main
-
-
 
 # if you want to pull from github the latest changes
 
@@ -366,7 +359,6 @@ git checkout main
 git pull origin main
 docker compose up -d --build
 
-
 if push directly on the server pc
 
 cd C:\Users\galam\OneDrive\Desktop\deploymenttesting>
@@ -374,3 +366,6 @@ git add .
 git commit -m "Update project"
 git push origin main
 
+##REfresh command
+
+docker compose down --remove-orphans; docker compose build --no-cache; docker compose up -d --force-recreate

@@ -784,7 +784,7 @@ const Deletecase = () => {
                     <th className="px-2 py-3 text-left font-semibold text-xs w-[12%]">Status</th>
                     <th className="px-2 py-3 text-left font-semibold text-xs w-[9%]">Offense</th>
                     <th className="px-2 py-3 text-center font-semibold text-xs w-[13%]">Final Offense</th>
-                    <th className="px-2 py-3 text-center font-semibold text-xs w-[7%]">Decision Date</th>
+                    <th className="px-2 py-3 text-center font-semibold text-xs w-[7%] whitespace-nowrap">Decision Date</th>
                     <th className="px-2 py-3 text-center font-semibold text-xs w-[18%]">Actions</th>
                   </tr>
                 </thead>
@@ -1563,14 +1563,18 @@ const Deletecase = () => {
                       <button
                         type="button"
                         onClick={() => setEditComplainants([...editComplainants, ''])}
-                        className={`mt-1.5 flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg transition-colors border-none cursor-pointer ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                        className={`mt-2.5 flex items-center justify-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl transition-all duration-300 border-2 cursor-pointer shadow-md hover:shadow-lg transform hover:scale-105 ${
+                          isDark
+                            ? 'bg-gradient-to-r from-green-600 to-green-700 text-white border-green-500 hover:from-green-700 hover:to-green-800'
+                            : 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-400 hover:from-green-600 hover:to-green-700'
+                        }`}
                       >
                         <i className="fas fa-plus text-xs"></i>Add Complainant
                       </button>
                     </div>
 
                     <div className="col-span-8">
-                      <div className="flex gap-3 mb-1.5">
+                      <div className="flex gap-2 mb-1.5">
                         <label className={`flex-1 text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                           <i className="fas fa-user-shield text-green-500 mr-1.5"></i>Respondent
                         </label>
@@ -1580,6 +1584,7 @@ const Deletecase = () => {
                         <label className={`w-36 flex-shrink-0 text-[11px] font-bold uppercase tracking-widest pl-0.4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                           <i className="fas fa-clipboard-check text-green-500 mr-1.5"></i>Recommendation
                         </label>
+                        {editRespondents.length > 1 && <div className="w-9 flex-shrink-0"></div>}
                       </div>
                       {editRespondents.map((r, index) => (
                         <div key={index}>
@@ -1654,35 +1659,35 @@ const Deletecase = () => {
                           </div>
                           {/* Court Info — shown per respondent when Filed in Court */}
                           {(editRecommendations[index] || '').toLowerCase() === 'filed in court' && (
-                            <div className={`mt-2 p-4 rounded-2xl border-2 ${isDark ? 'border-emerald-700/50 bg-emerald-900/15' : 'border-emerald-200 bg-emerald-50/40'}`}>
-                              <div className="flex items-center gap-2 mb-3">
+                            <div className={`mt-2 p-4 rounded-xl border-2 ${isDark ? 'border-emerald-700/60 bg-emerald-900/20' : 'border-emerald-200 bg-emerald-50/30'}`}>
+                              <div className="flex items-center gap-2 mb-2.5">
                                 <i className="fas fa-landmark text-emerald-500 text-xs"></i>
-                                <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Court Information</span>
+                                <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Court Information</span>
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className={`block text-[11px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    <i className="fas fa-file-contract text-emerald-500 mr-1.5"></i>Criminal Case No
+                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <i className="fas fa-file-contract text-emerald-500"></i>Criminal Case No
                                   </label>
-                                  <input type="text" value={editCrimCaseNos[index] || ''} onChange={(e) => { const u = [...editCrimCaseNos]; u[index] = e.target.value; setEditCrimCaseNos(u); }} placeholder="Enter criminal case no" className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
+                                  <input type="text" value={editCrimCaseNos[index] || ''} onChange={(e) => { const u = [...editCrimCaseNos]; u[index] = e.target.value; setEditCrimCaseNos(u); }} placeholder="Enter case number" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
                                 </div>
                                 <div>
-                                  <label className={`block text-[11px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    <i className="fas fa-building text-emerald-500 mr-1.5"></i>Branch
+                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <i className="fas fa-building text-emerald-500"></i>Branch
                                   </label>
-                                  <input type="text" value={editBranches[index] || ''} onChange={(e) => { const u = [...editBranches]; u[index] = e.target.value; setEditBranches(u); }} placeholder="Enter branch" className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
+                                  <input type="text" value={editBranches[index] || ''} onChange={(e) => { const u = [...editBranches]; u[index] = e.target.value; setEditBranches(u); }} placeholder="Enter branch" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
                                 </div>
                                 <div>
-                                  <label className={`block text-[11px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    <i className="fas fa-calendar-check text-emerald-500 mr-1.5"></i>Date Filed in Court
+                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <i className="fas fa-calendar-check text-emerald-500"></i>Date Filed in Court
                                   </label>
-                                  <input type="date" value={editDatesFiledInCourt[index] || ''} onChange={(e) => { const u = [...editDatesFiledInCourt]; u[index] = e.target.value; setEditDatesFiledInCourt(u); }} className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
+                                  <input type="date" value={editDatesFiledInCourt[index] || ''} onChange={(e) => { const u = [...editDatesFiledInCourt]; u[index] = e.target.value; setEditDatesFiledInCourt(u); }} className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
                                 </div>
                                 <div>
-                                  <label className={`block text-[11px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    <i className="fas fa-gavel text-emerald-500 mr-1.5"></i>Final Offense
+                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <i className="fas fa-gavel text-emerald-500"></i>Final Offense
                                   </label>
-                                  <input type="text" value={editFinalOffenses[index] || ''} onChange={(e) => { const u = [...editFinalOffenses]; u[index] = e.target.value; setEditFinalOffenses(u); }} placeholder="Enter final offense" className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
+                                  <input type="text" value={editFinalOffenses[index] || ''} onChange={(e) => { const u = [...editFinalOffenses]; u[index] = e.target.value; setEditFinalOffenses(u); }} placeholder="Enter final offense" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
                                 </div>
                               </div>
                             </div>
@@ -1777,24 +1782,24 @@ const Deletecase = () => {
                           <i className="fas fa-folder-open text-amber-500"></i>
                           <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>MR Filed Information</span>
                         </div>
-                        <div className="flex gap-3 mb-2">
-                          <div className="flex-[2] flex flex-col">
-                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <div className="flex gap-3 mb-2 px-0.5">
+                          <div className="flex-[3] flex flex-col">
+                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                               <i className="fas fa-user text-amber-500 mr-1.5"></i>MR Filed By
                             </label>
                           </div>
                           <div className="flex-1 flex flex-col">
-                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                               <i className="fas fa-calendar-alt text-amber-500 mr-1.5"></i>Date of MR Filing
                             </label>
                           </div>
                           <div className="flex-1 flex flex-col">
-                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5  pl-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                               <i className="fas fa-calendar-check text-amber-500 mr-1.5"></i>Date MR Resolved
                             </label>
                           </div>
                           <div className="flex-1 flex flex-col">
-                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 pl-12 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <label className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                               <i className="fas fa-search text-amber-500 mr-1.5"></i>Finding
                             </label>
                           </div>
@@ -1802,7 +1807,7 @@ const Deletecase = () => {
                         </div>
                         {editMRFiledBy.map((_, mrIndex) => (
                           <div key={mrIndex} className={`flex gap-3 ${mrIndex > 0 ? 'mt-2' : ''}`}>
-                            <div className="flex-[2] flex gap-2">
+                            <div className="flex-[3] flex gap-2">
                               <select
                                 value={editMRFiledByType[mrIndex] || 'Respondents'}
                                 onChange={(e) => { const u = [...editMRFiledByType]; u[mrIndex] = e.target.value; setEditMRFiledByType(u); }}
@@ -1815,10 +1820,11 @@ const Deletecase = () => {
                                 <input
                                   type="text"
                                   value={editMRFiledBy[mrIndex] || ''}
+                                  title={editMRFiledBy[mrIndex] || ''}
                                   onChange={(e) => { const u = [...editMRFiledBy]; u[mrIndex] = e.target.value; setEditMRFiledBy(u); }}
                                   onFocus={() => setMrNameDropdownOpen(mrIndex)}
                                   placeholder={(editMRFiledByType[mrIndex] || 'Respondents') === 'Complainants' ? 'Enter complainant name' : 'Enter respondent name'}
-                                  className={`w-full pl-3 pr-8 py-2.5 rounded-xl border-2 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-amber-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-amber-400 focus:ring-amber-400/20' : 'border-amber-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500/15'}`}
+                                  className={`w-full pl-3 pr-8 py-2.5 rounded-xl border-2 text-sm font-medium text-ellipsis focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-amber-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-amber-400 focus:ring-amber-400/20' : 'border-amber-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500/15'}`}
                                 />
                                 <button
                                   type="button"
@@ -1849,7 +1855,7 @@ const Deletecase = () => {
                                             setEditMRFiledBy(u);
                                             setMrNameDropdownOpen(null);
                                           }}
-                                          className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-none ${
+                                          className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors break-words whitespace-normal cursor-pointer border-none ${
                                             isDark
                                               ? 'text-slate-100 hover:bg-amber-900/40'
                                               : 'text-slate-800 hover:bg-amber-50'

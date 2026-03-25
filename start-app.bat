@@ -1,6 +1,6 @@
 @echo off
 title OJT Application - Running
-cd /d "C:\Users\galam\OneDrive\Desktop\deploymenttesting"
+cd /d "C:\Users\HP User\Desktop\OJT PROJECT 2026(1)"
 
 echo.
 echo ========================================
@@ -39,13 +39,8 @@ echo ========================================
 echo   Access the application:
 echo ========================================
 echo.
-<<<<<<< HEAD
-echo   Main PC:                         http://localhost
-echo   Depends on other PCs Ip address: http://192.168.1.10  
-=======
 echo   Main PC:      http://localhost
 echo   Other PCs:    http://%LOCAL_IP%
->>>>>>> d1cc9cf1af9151e3943874dbb90188b63d904089
 echo.
 echo   (Nginx reverse proxy on port 80)
 echo ========================================

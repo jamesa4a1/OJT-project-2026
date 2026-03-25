@@ -49,10 +49,10 @@ const CaseUpdateSchema = z.object({
   MR_FINDING: z.string().max(1000, 'Finding must be less than 1000 characters').nullable().optional(),
 });
 
-// Case edit validation schema (all fields optional)
+// Case edit validation schema (all fields optional, flexible)
 const CaseEditSchema = z.object({
   id: z.number().int().positive('ID must be a positive number'),
-  updated_fields: CaseUpdateSchema.partial().optional(),
+  updated_fields: z.record(z.any()).optional(), // Accept any fields for maximum flexibility
 });
 
 // Case search validation schema

@@ -55,7 +55,7 @@ const Homepage = () => {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 max-w-6xl mx-auto px-4 py-12 md:py-20"
+        className="relative z-10 w-full px-4 md:px-8 py-12 md:py-20"
       >
         {/* Header Section */}
         <motion.div variants={itemVariants} className="text-center mb-8">
@@ -101,7 +101,7 @@ const Homepage = () => {
         {/* Decorative Line */}
         <motion.div variants={itemVariants} className="flex justify-center mb-10">
           <div
-            className="w-full max-w-2xl h-1 rounded-full 
+            className="w-full h-1 rounded-full 
                                     bg-gradient-to-r from-transparent via-blue-500 to-transparent 
                                     opacity-60"
           ></div>
@@ -145,7 +145,7 @@ const Homepage = () => {
         {/* Stats Section */}
         <motion.div
           variants={itemVariants}
-          className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"
+          className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-4"
         >
           {[
             { icon: 'fa-gavel', label: 'Digital Docketing', desc: 'Modern case tracking' },
