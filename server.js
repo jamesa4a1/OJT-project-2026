@@ -20,11 +20,13 @@ const { ApiResponse } = require("./utils/apiResponse");
 const { sanitizeInput } = require("./middleware/sanitize");
 const { requirePermission, requireRole, adminOnly, staffOrAdmin } = require("./middleware/rbac");
 const { authMiddleware, authorize } = require("./middleware/authMiddleware");
-const { loginLimiter } = require("./middleware/rateLimiter");
+const { apiLimiter, loginLimiter, sensitiveOpLimiter } = require("./middleware/rateLimiter");
 const { ipWhitelist, getWhitelistInfo, getRealIP } = require("./middleware/ipWhitelist");
+const { securityHeaders, customSecurityHeaders } = require("./middleware/securityHeaders");
 const securityLogger = require("./utils/securityLogger");
 
 const app = express();
+const PORT = Number(process.env.PORT || 5000);
 
 // Create HTTP server and attach Socket.io
 const server = http.createServer(app);
@@ -60,6 +62,7 @@ const emitRealtimeEvent = (event, data) => {
 // Trust proxy - needed so Express reads X-Forwarded-For from Nginx
 // Set to 1 (one hop) since Nginx is the only proxy in front of Express
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_key_12345678901234567890123456789012";
 
@@ -167,18 +170,26 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+app.use(securityHeaders());
+app.use(customSecurityHeaders);
+
 // IP Whitelisting - Disabled in Docker (use Windows Firewall instead)
 // Docker Desktop on Windows hides real client IPs behind NAT (all appear as 172.18.0.1)
 // IP filtering is handled by Windows Firewall rules at the OS level
 app.use(ipWhitelist({
-  enabled: false,                   // Disabled - Windows Firewall handles IP filtering
-  skipPaths: ['/api/health'],      // Health check endpoint accessible from anywhere
+  enabled: String(process.env.ENABLE_IP_WHITELIST || 'false').toLowerCase() === 'true',
+  skipPaths: ['/api/health', '/health'],
   allowLocalhost: true,            // Always allow localhost
-  customIPs: []                    // Additional temporary IPs
+  customIPs: (process.env.ADDITIONAL_ALLOWED_IPS || '')
+    .split(',')
+    .map(ip => ip.trim())
+    .filter(Boolean)
 }));
 
 // Security middleware - apply before parsing
 app.use(sanitizeInput({ strict: true }));
+app.use(apiLimiter);
+app.use(['/delete-case', '/permanent-delete-case', '/restore-case', '/configure-auto-delete'], sensitiveOpLimiter);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -266,10 +277,13 @@ const indexCardUpload = multer({
 
 // Connection with automatic reconnection
 let db;
+let dbInitializationDone = false;
+let initialExcelSyncDone = false;
 
 function handleDisconnect() {
   db = mysql.createConnection({
     host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT || 3306),
     user: process.env.DB_USER || "root",
     password: process.env.DB_PASSWORD || "",
     database: process.env.DB_NAME || "ocp_docketing",
@@ -283,12 +297,29 @@ function handleDisconnect() {
   db.connect((err) => {
     if (err) {
       console.error("❌ Database connection failed: " + err.message);
-      console.error("⚠️  Please make sure MySQL/XAMPP is running and the database exists.");
+      console.error("⚠️  Please make sure MySQL/XAMPP is running, the database exists, and DB_PORT is correct (usually 3306 or 3307).");
       console.error("🔄 Will retry connection in 5 seconds...");
       setTimeout(handleDisconnect, 5000);
       return;
     }
-    console.log("✅ Connected to MySQL database.");
+    console.log(`✅ Connected to MySQL database on ${process.env.DB_HOST || "localhost"}:${Number(process.env.DB_PORT || 3306)}.`);
+
+    if (!dbInitializationDone) {
+      dbInitializationDone = true;
+      runInitialDbSetup();
+    }
+
+    if (!initialExcelSyncDone) {
+      initialExcelSyncDone = true;
+      exportCasesToExcel()
+        .then(() => {
+          console.log("✅ Initial Excel file generated after DB connection.");
+        })
+        .catch((excelErr) => {
+          initialExcelSyncDone = false;
+          console.error("Error generating initial Excel file:", excelErr?.message || excelErr);
+        });
+    }
   });
 
   db.on('error', (err) => {
@@ -374,11 +405,12 @@ function handleDisconnect() {
     });
   };
 
-  // Run column migration
-  addNewColumns();
-  
-  // Create users table if it doesn't exist
-  const createUsersTable = `
+  const runInitialDbSetup = () => {
+    // Run column migration
+    addNewColumns();
+
+    // Create users table if it doesn't exist
+    const createUsersTable = `
     CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -391,123 +423,149 @@ function handleDisconnect() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
-  `;
-  
-  db.query(createUsersTable, async (err) => {
-    if (err) {
-      console.error("Error creating users table:", err);
-    } else {
-      console.log("Users table ready.");
+    `;
+
+    db.query(createUsersTable, async (err) => {
+      if (err) {
+        console.error("Error creating users table:", err);
+      } else {
+        console.log("Users table ready.");
       
-      // Add last_login column if it doesn't exist (for existing tables)
-      db.query("SHOW COLUMNS FROM users LIKE 'last_login'", (err, results) => {
-        if (!err && results.length === 0) {
-          db.query("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL DEFAULT NULL AFTER profile_picture", (alterErr) => {
-            if (alterErr) console.error("Error adding last_login column:", alterErr);
-            else console.log("Added last_login column to users table.");
-          });
-        }
-      });
+        // Add last_login column if it doesn't exist (for existing tables)
+        db.query("SHOW COLUMNS FROM users LIKE 'last_login'", (err, results) => {
+          if (!err && results.length === 0) {
+            db.query("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL DEFAULT NULL AFTER profile_picture", (alterErr) => {
+              if (alterErr) console.error("Error adding last_login column:", alterErr);
+              else console.log("Added last_login column to users table.");
+            });
+          }
+        });
       
-      // Add is_active column if it doesn't exist (for existing tables)
-      db.query("SHOW COLUMNS FROM users LIKE 'is_active'", (err, results) => {
-        if (!err && results.length === 0) {
-          db.query("ALTER TABLE users ADD COLUMN is_active TINYINT DEFAULT 1 AFTER profile_picture", (alterErr) => {
-            if (alterErr) console.error("Error adding is_active column:", alterErr);
-            else console.log("✅ Added is_active column to users table.");
-          });
-        }
-      });
+        // Add is_active column if it doesn't exist (for existing tables)
+        db.query("SHOW COLUMNS FROM users LIKE 'is_active'", (err, results) => {
+          if (!err && results.length === 0) {
+            db.query("ALTER TABLE users ADD COLUMN is_active TINYINT DEFAULT 1 AFTER profile_picture", (alterErr) => {
+              if (alterErr) console.error("Error adding is_active column:", alterErr);
+              else console.log("✅ Added is_active column to users table.");
+            });
+          }
+        });
       
-      // Add is_online column if it doesn't exist (for real-time online status)
-      db.query("SHOW COLUMNS FROM users LIKE 'is_online'", (err, results) => {
-        if (!err && results.length === 0) {
-          db.query("ALTER TABLE users ADD COLUMN is_online TINYINT DEFAULT 0 AFTER is_active", (alterErr) => {
-            if (alterErr) console.error("Error adding is_online column:", alterErr);
-            else console.log("✅ Added is_online column to users table.");
-          });
-        }
-      });
+        // Add is_online column if it doesn't exist (for real-time online status)
+        db.query("SHOW COLUMNS FROM users LIKE 'is_online'", (err, results) => {
+          if (!err && results.length === 0) {
+            db.query("ALTER TABLE users ADD COLUMN is_online TINYINT DEFAULT 0 AFTER is_active", (alterErr) => {
+              if (alterErr) console.error("Error adding is_online column:", alterErr);
+              else console.log("✅ Added is_online column to users table.");
+            });
+          }
+        });
       
-      // Update role enum to include Staff if it doesn't
-      db.query("SHOW COLUMNS FROM users LIKE 'role'", (err, results) => {
-        if (!err && results.length > 0 && !results[0].Type.includes("'Staff'")) {
-          db.query("ALTER TABLE users MODIFY role ENUM('Admin', 'Clerk', 'Staff') DEFAULT 'Clerk'", (alterErr) => {
-            if (alterErr) console.error("Error updating role enum:", alterErr);
-            else console.log("✅ Updated role enum to include Staff.");
-          });
-        }
-      });
+        // Update role enum to include Staff if it doesn't
+        db.query("SHOW COLUMNS FROM users LIKE 'role'", (err, results) => {
+          if (!err && results.length > 0 && !results[0].Type.includes("'Staff'")) {
+            db.query("ALTER TABLE users MODIFY role ENUM('Admin', 'Clerk', 'Staff') DEFAULT 'Clerk'", (alterErr) => {
+              if (alterErr) console.error("Error updating role enum:", alterErr);
+              else console.log("✅ Updated role enum to include Staff.");
+            });
+          }
+        });
       
-      // Create default admin account if not exists
-      const adminEmail = "james@gmail.com";
-      const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD || bcrypt.hashSync("ChangeMe@123456", 10);
-      const adminName = "James Admin";
-      
-      db.query("SELECT * FROM users WHERE email = ?", [adminEmail], async (err, results) => {
-        if (err) {
-          console.error("Error checking for admin:", err);
-          return;
-        }
-        
-        if (results.length === 0) {
-          // Create admin account
-          const hashedPassword = await bcrypt.hash(adminPassword, 10);
-          db.query(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'Admin')",
-            [adminName, adminEmail, hashedPassword],
-            (insertErr) => {
-              if (insertErr) {
-                console.error("Error creating admin account:", insertErr);
-              } else {
-                console.log("Default admin account created (james@gmail.com)");
-              }
-            }
-          );
-        } else {
-          console.log("Admin account already exists.");
-        }
-      });
-      
-      // Auto-delete accounts inactive for more than 1 year (except Admin)
-      const deleteInactiveAccounts = () => {
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        
-        // First check if last_login column exists
-        db.query("SHOW COLUMNS FROM users LIKE 'last_login'", (checkErr, cols) => {
-          if (checkErr || cols.length === 0) {
-            console.log("Skipping cleanup - last_login column not ready yet.");
+        // Create default admin account if not exists
+        const adminEmail = "james@gmail.com";
+        const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD || bcrypt.hashSync("ChangeMe@123456", 10);
+        const adminName = "James Admin";
+
+        db.query("SELECT * FROM users WHERE email = ?", [adminEmail], async (err, results) => {
+          if (err) {
+            console.error("Error checking for admin:", err);
             return;
           }
-          
-          db.query(
-            `DELETE FROM users 
-             WHERE role != 'Admin' 
-             AND (
-               (last_login IS NOT NULL AND last_login < ?) 
-               OR (last_login IS NULL AND created_at < ?)
-             )`,
-            [oneYearAgo, oneYearAgo],
-            (err, result) => {
-              if (err) {
-                console.error("Error cleaning up inactive accounts:", err);
-              } else if (result.affectedRows > 0) {
-                console.log(`Deleted ${result.affectedRows} inactive account(s).`);
+
+          if (results.length === 0) {
+            // Create admin account
+            const hashedPassword = await bcrypt.hash(adminPassword, 10);
+            db.query(
+              "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'Admin')",
+              [adminName, adminEmail, hashedPassword],
+              (insertErr) => {
+                if (insertErr) {
+                  console.error("Error creating admin account:", insertErr);
+                } else {
+                  console.log("Default admin account created (james@gmail.com)");
+                }
               }
-            }
-          );
+            );
+          } else {
+            console.log("Admin account already exists.");
+          }
         });
-      };
       
-      // Run cleanup after a delay to allow column to be added
-      setTimeout(deleteInactiveAccounts, 3000);
-      
-      // Run cleanup every 24 hours
-      setInterval(deleteInactiveAccounts, 24 * 60 * 60 * 1000);
-    }
-  });
+        // Auto-delete accounts inactive for more than 1 year (except Admin)
+        const deleteInactiveAccounts = () => {
+          const oneYearAgo = new Date();
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+          // First check if last_login column exists
+          db.query("SHOW COLUMNS FROM users LIKE 'last_login'", (checkErr, cols) => {
+            if (checkErr || cols.length === 0) {
+              console.log("Skipping cleanup - last_login column not ready yet.");
+              return;
+            }
+
+            db.query(
+              `DELETE FROM users 
+               WHERE role != 'Admin' 
+               AND (
+                 (last_login IS NOT NULL AND last_login < ?) 
+                 OR (last_login IS NULL AND created_at < ?)
+               )`,
+              [oneYearAgo, oneYearAgo],
+              (err, result) => {
+                if (err) {
+                  console.error("Error cleaning up inactive accounts:", err);
+                } else if (result.affectedRows > 0) {
+                  console.log(`Deleted ${result.affectedRows} inactive account(s).`);
+                }
+              }
+            );
+          });
+        };
+
+        // Run cleanup after a delay to allow column to be added
+        setTimeout(deleteInactiveAccounts, 3000);
+
+        // Run cleanup every 24 hours
+        setInterval(deleteInactiveAccounts, 24 * 60 * 60 * 1000);
+      }
+    });
+  };
 }
+
+const isDbConnectionReady = () => {
+  return !!db && (db.state === "connected" || db.state === "authenticated");
+};
+
+// Lightweight health endpoint for local diagnostics and reverse-proxy checks
+app.get('/api/health', (req, res) => {
+  const connected = isDbConnectionReady();
+  const payload = {
+    success: connected,
+    status: connected ? 'ok' : 'degraded',
+    dbState: db?.state || 'disconnected',
+    serverPort: PORT,
+    timestamp: new Date().toISOString()
+  };
+
+  if (!connected) {
+    return res.status(503).json({
+      ...payload,
+      message: 'Database is not connected. Start XAMPP MySQL and verify DB_PORT in .env.'
+    });
+  }
+
+  res.json(payload);
+});
 
 // Initialize database connection
 handleDisconnect();
@@ -760,10 +818,23 @@ app.put("/api/user/:id/role", authMiddleware, adminOnly, (req, res) => {
 // Login user
 app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req, res) => {
   const { email, password } = req.body;
+
+  if (!isDbConnectionReady()) {
+    return res.status(503).json(ApiResponse.error(
+      "Database connection is not available. Please start XAMPP MySQL and verify DB_PORT in .env (3306 or 3307).",
+      503
+    ));
+  }
   
   db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
     if (err) {
       console.error("Database error:", err);
+      if (["PROTOCOL_CONNECTION_LOST", "PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR", "ECONNREFUSED"].includes(err.code)) {
+        return res.status(503).json(ApiResponse.error(
+          "Database connection is not available. Please start XAMPP MySQL and verify DB_PORT in .env (3306 or 3307).",
+          503
+        ));
+      }
       return res.status(500).json(ApiResponse.error("Database error", 500));
     }
     
@@ -778,6 +849,13 @@ app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req
       console.log(`❌ Login blocked: User ${email} account is deactivated (is_active = ${user.is_active})`);
       return res.status(403).json(ApiResponse.error("Your account has been deactivated. Please contact the administrator.", 403));
     }
+
+    // Enforce single active session per account.
+    // If account is already online, block another login from a second device/browser.
+    if (user.is_online === 1) {
+      console.log(`⛔ Login blocked: User ${email} is already signed in on another session`);
+      return res.status(409).json(ApiResponse.error("This account is already active on another device. Please log out from the first session before signing in again.", 409));
+    }
     
     // Compare passwords
     const isValidPassword = await bcrypt.compare(password, user.password);
@@ -788,7 +866,7 @@ app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req
       return res.status(401).json(ApiResponse.error("Invalid credentials", 401));
     }
     
-    console.log(`✅ Login successful: ${email} (is_active = ${user.is_active})`);
+    console.log(`✅ Login successful: ${email} (is_active = ${user.is_active}, is_online -> 1)`);
     
     // Log successful login
     securityLogger.loginSuccess(user.id, user.email, req.ip);
@@ -2921,24 +2999,33 @@ app.get('/api/my-ip', (req, res) => {
 // END FORMAT MANAGEMENT API ENDPOINTS
 // =====================================================
 
-server.listen(5000, () => {
-  console.log("Server running on port 5000");
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use.`);
+    console.error('Another backend instance is likely already running.');
+    console.error(`Use this command to check: netstat -ano | findstr :${PORT}`);
+    return process.exit(1);
+  }
+  throw err;
+});
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
   console.log("📡 Socket.io real-time updates enabled");
-  
-  // Generate initial Excel file on server start
-  exportCasesToExcel()
-    .then(() => {
-      console.log("Initial Excel file generated on server start");
-    })
-    .catch(err => {
-      console.error("Error generating initial Excel file:", err);
-    });
+
+  if (!isDbConnectionReady()) {
+    console.log("ℹ️ Skipping initial Excel generation until DB connection is ready.");
+  }
 });
 
 // ==================== EXCEL EXPORT ENDPOINTS ====================
 
 // Download Excel file (auto-downloads to user's computer)
 app.get("/download-excel", (req, res) => {
+  if (!isDbConnectionReady()) {
+    return res.status(503).json({ error: 'Database is not connected. Start XAMPP MySQL first.' });
+  }
+
   // First, regenerate the Excel file with latest data
   exportCasesToExcel()
     .then(() => {
@@ -2962,6 +3049,10 @@ app.get("/download-excel", (req, res) => {
 
 // Manually trigger Excel sync (useful for bulk operations)
 app.post("/sync-excel", (req, res) => {
+  if (!isDbConnectionReady()) {
+    return res.status(503).json({ success: false, error: 'Database is not connected. Start XAMPP MySQL first.' });
+  }
+
   exportCasesToExcel()
     .then(() => {
       res.json({ 

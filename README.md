@@ -342,7 +342,6 @@ docker compose up -d
 
 # Step 5:
 
-http://localhost
 
 # Step 6: If it works, push to GitHub
 
@@ -369,3 +368,9 @@ git push origin main
 ##REfresh command
 
 docker compose down --remove-orphans; docker compose build --no-cache; docker compose up -d --force-recreate
+
+## TO RUN THE HOST
+
+docker compose up
+
+[http://localhost](vscode-file://vscode-app/c:/Users/HP%20User/AppData/Local/Programs/Microsoft%20VS%20Code/07ff9d6178/resources/app/out/vs/code/electron-browser/workbench/workbench.html)

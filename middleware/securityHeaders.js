@@ -20,6 +20,7 @@ const securityHeaders = () => {
         connectSrc: ["'self'"],
       },
     },
+    crossOriginEmbedderPolicy: false,
     hsts: {
       maxAge: 31536000, // 1 year
       includeSubDomains: true,
@@ -28,8 +29,7 @@ const securityHeaders = () => {
     frameguard: {
       action: 'deny', // Prevents clickjacking
     },
-    noSniff: true, // Prevents MIME-type sniffing
-    xssFilter: true, // Old XSS protection (modern browsers use CSP)
+    xContentTypeOptions: true, // Prevents MIME-type sniffing
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   });
 };
@@ -45,7 +45,9 @@ const customSecurityHeaders = (req, res, next) => {
   
   // Prevent information leakage
   res.removeHeader('X-Powered-By');
-  res.setHeader('X-Powered-By', 'MyApp');
+  if (res.getHeader('Server')) {
+    res.removeHeader('Server');
+  }
   
   // Additional security headers
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), payment=()');

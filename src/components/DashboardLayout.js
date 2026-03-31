@@ -13,6 +13,8 @@ const DashboardLayout = ({ children }) => {
     toggleTheme: () => {},
   };
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [typedTitle, setTypedTitle] = useState('');
+  const [showTypingCursor, setShowTypingCursor] = useState(true);
   const profileMenuRef = useRef(null);
 
   // Close profile menu when clicking outside
@@ -87,6 +89,46 @@ const DashboardLayout = ({ children }) => {
   const currentRole = roleConfig[user?.role] || roleConfig.Clerk;
 
   const isActive = (path) => location.pathname === path;
+
+  const dashboardTitle =
+    user?.role === 'Admin'
+      ? 'ADMIN DASHBOARD'
+      : user?.role === 'Staff'
+        ? 'STAFF DASHBOARD'
+        : 'CLERK DASHBOARD';
+
+  useEffect(() => {
+    let typingInterval;
+    let restartTimeout;
+
+    const startTypingCycle = () => {
+      let charIndex = 0;
+      setTypedTitle('');
+      setShowTypingCursor(true);
+
+      typingInterval = setInterval(() => {
+        charIndex += 1;
+        setTypedTitle(dashboardTitle.slice(0, charIndex));
+
+        if (charIndex >= dashboardTitle.length) {
+          clearInterval(typingInterval);
+          setShowTypingCursor(false);
+
+          // Keep the completed title fully static for 10 seconds before restarting.
+          restartTimeout = setTimeout(() => {
+            startTypingCycle();
+          }, 10000);
+        }
+      }, 90);
+    };
+
+    startTypingCycle();
+
+    return () => {
+      clearInterval(typingInterval);
+      clearTimeout(restartTimeout);
+    };
+  }, [dashboardTitle]);
 
   return (
     <div className="h-screen w-screen bg-slate-100 flex flex-col overflow-hidden">
@@ -239,15 +281,10 @@ const DashboardLayout = ({ children }) => {
             className={`px-4 pt-8 pb-4 border-b transition-colors duration-300 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}
           >
             <motion.span
-              animate={{ x: [0, 2, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               className={`inline-block text-base font-bold uppercase tracking-wider ${user?.role === 'Admin' ? 'text-blue-600' : user?.role === 'Staff' ? 'text-teal-600' : 'text-sky-600'}`}
             >
-              {user?.role === 'Admin'
-                ? 'Admin Dashboard'
-                : user?.role === 'Staff'
-                  ? 'Staff Dashboard'
-                  : 'Clerk Dashboard'}
+              {typedTitle}
+              {showTypingCursor ? <span className="ml-0.5">|</span> : null}
             </motion.span>
           </motion.div>
 

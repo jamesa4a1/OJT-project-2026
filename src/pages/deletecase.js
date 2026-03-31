@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useContext, useRef } from 'react';
+﻿import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -124,7 +124,26 @@ const Deletecase = () => {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return parsed.filter(Boolean);
     } catch { /* JSON parse failed, treat as plain string */ }
-    return [value];
+
+    const raw = String(value).trim();
+    if (!raw) return [];
+
+    // Handle multiline respondent/address strings.
+    const lines = raw
+      .split(/\r?\n+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => part.replace(/^\d+[.)]\s*/, '').trim())
+      .filter(Boolean);
+    if (lines.length > 1) return lines;
+
+    // Handle single-line numbered lists like "1. Name 2. Name 3. Name".
+    const numberedMatches = [...raw.matchAll(/(?:^|\s)\d+[.)]\s*([^\d].*?)(?=(?:\s+\d+[.)]\s*)|$)/g)]
+      .map((match) => (match[1] || '').trim())
+      .filter(Boolean);
+    if (numberedMatches.length > 1) return numberedMatches;
+
+    return [raw.replace(/^\d+[.)]\s*/, '').trim()].filter(Boolean);
   };
 
   const isValidImagePath = (imagePath) => {
@@ -607,6 +626,53 @@ const Deletecase = () => {
     }
   };
 
+  const getStatusBadge = (val) => {
+    const d = (val || 'Pending').toLowerCase();
+    if (d === 'pending') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>Pending</span>;
+    if (d === 'dismissed') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>Dismissed</span>;
+    if (d === 'convicted') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'}`}>Convicted</span>;
+    if (d === 'filed in court') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>Filed in Court</span>;
+    return <div className={`px-2 py-1 rounded-md text-xs font-semibold max-w-full overflow-hidden ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}><MarqueeText>{val || 'Pending'}</MarqueeText></div>;
+  };
+
+  const tableRows = useMemo(() => {
+    return filteredCases.flatMap((caseItem) => {
+      const respondents = parseRespondents(caseItem.RESPONDENT);
+      const addresses = parseRespondents(caseItem.ADDRESS_OF_RESPONDENT);
+
+      let decisions = [];
+      try {
+        const arr = JSON.parse(caseItem.REMARKS_DECISION || '');
+        decisions = Array.isArray(arr) ? arr : [caseItem.REMARKS_DECISION || 'Pending'];
+      } catch {
+        decisions = [caseItem.REMARKS_DECISION || 'Pending'];
+      }
+
+      let finalOffenses = [];
+      try {
+        const arr = JSON.parse(caseItem.FINAL_OFFENSE || '');
+        finalOffenses = Array.isArray(arr) ? arr : (caseItem.FINAL_OFFENSE && caseItem.FINAL_OFFENSE.trim() ? [caseItem.FINAL_OFFENSE] : []);
+      } catch {
+        finalOffenses = caseItem.FINAL_OFFENSE && caseItem.FINAL_OFFENSE.trim() ? [caseItem.FINAL_OFFENSE] : [];
+      }
+
+      const rowCount = Math.max(respondents.length, addresses.length, decisions.length, finalOffenses.length, 1);
+
+      return Array.from({ length: rowCount }, (_, respondentIndex) => {
+        const decision = decisions[respondentIndex] || decisions[0] || 'Pending';
+        return {
+          rowKey: `${caseItem.id || caseItem.DOCKET_NO || 'case'}-${respondentIndex}`,
+          caseItem,
+          respondentIndex,
+          respondent: respondents[respondentIndex] || (respondents.length === 0 && respondentIndex === 0 ? 'N/A' : '—'),
+          address: addresses[respondentIndex] || '—',
+          decision,
+          finalOffense: finalOffenses[respondentIndex] || '',
+        };
+      });
+    });
+  }, [filteredCases]);
+
   return (
     <div
       className={`min-h-screen py-2 px-2 relative overflow-hidden ${
@@ -743,8 +809,8 @@ const Deletecase = () => {
 
         {/* Cases Count */}
         <div className={`mb-4 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-          <span className="font-semibold">{filteredCases.length}</span> case
-          {filteredCases.length !== 1 ? 's' : ''} found
+          <span className="font-semibold">{tableRows.length}</span> row
+          {tableRows.length !== 1 ? 's' : ''} found
         </div>
 
         {/* Cases Table */}
@@ -766,7 +832,7 @@ const Deletecase = () => {
               }`}></div>
               <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>Loading cases...</p>
             </div>
-          ) : filteredCases.length === 0 ? (
+          ) : tableRows.length === 0 ? (
             <div className="p-12 text-center">
               <i className={`fas fa-folder-open text-6xl mb-4 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}></i>
               <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>No cases found</p>
@@ -789,9 +855,11 @@ const Deletecase = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCases.map((caseItem, index) => (
+                  {tableRows.map((row, index) => {
+                    const { caseItem } = row;
+                    return (
                     <motion.tr
-                      key={caseItem.id || index}
+                      key={row.rowKey}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.03 }}
@@ -823,60 +891,24 @@ const Deletecase = () => {
                         })()}
                       </td>
                       <td className={`px-2 py-3 text-xs overflow-hidden ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        {(() => {
-                          const rList = parseRespondents(caseItem.RESPONDENT);
-                          if (rList.length === 0) return <span>N/A</span>;
-                          return (
-                            <div className="flex flex-col gap-0.5">
-                              {rList.map((name, i) => (
-                                <MarqueeText key={i} className="block">{i + 1}. {name}</MarqueeText>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                        <MarqueeText className="block">
+                          {row.respondent === 'N/A' || row.respondent === '—'
+                            ? row.respondent
+                            : `${row.respondentIndex + 1}. ${row.respondent}`}
+                        </MarqueeText>
                       </td>
                       <td className={`px-2 py-3 text-xs overflow-hidden ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {(() => {
-                          const rList = parseRespondents(caseItem.RESPONDENT);
-                          const aList = parseRespondents(caseItem.ADDRESS_OF_RESPONDENT);
-                          if (rList.length === 0) return <span>—</span>;
-                          return (
-                            <div className="flex flex-col gap-0.5">
-                              {rList.map((_, i) => (
-                                <MarqueeText key={i} className="block italic">
-                                  {i + 1}. {aList[i] || '—'}
-                                </MarqueeText>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                        <MarqueeText className="block italic">
+                          {row.respondent === 'N/A' || row.respondent === '—'
+                            ? row.address
+                            : `${row.respondentIndex + 1}. ${row.address}`}
+                        </MarqueeText>
                       </td>
                       <td className="px-0 py-3 text-left overflow-hidden">
-                        {(() => {
-                          const rawDecision = caseItem.REMARKS_DECISION || 'Pending';
-                          let decisions;
-                          try {
-                            const arr = JSON.parse(rawDecision);
-                            decisions = Array.isArray(arr) ? arr : [rawDecision];
-                          } catch { decisions = [rawDecision]; }
-                          const rList = parseRespondents(caseItem.RESPONDENT);
-                          const count = Math.max(decisions.length, rList.length || 1);
-                          const getStatusBadge = (val) => {
-                            const d = (val || 'Pending').toLowerCase();
-                            if (d === 'pending') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>Pending</span>;
-                            if (d === 'dismissed') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>Dismissed</span>;
-                            if (d === 'convicted') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'}`}>Convicted</span>;
-                            if (d === 'filed in court') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>Filed in Court</span>;
-                            return <div className={`px-2 py-1 rounded-md text-xs font-semibold max-w-full overflow-hidden ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}><MarqueeText>{val || 'Pending'}</MarqueeText></div>;
-                          };
-                          return (
-                            <div className="flex flex-col gap-1 items-start">
-                              {Array.from({ length: count }).map((_, i) => (
-                                <span key={i} className="inline-flex items-center gap-1 max-w-full overflow-hidden"><span className="min-w-[1.25rem] text-right shrink-0">{i + 1}.</span> {getStatusBadge(decisions[i])}</span>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                        <span className="inline-flex items-center gap-1 max-w-full overflow-hidden">
+                          <span className="min-w-[1.25rem] text-right shrink-0">{row.respondentIndex + 1}.</span>
+                          {getStatusBadge(row.decision)}
+                        </span>
                       </td>
                       <td className="px-2 py-3 overflow-hidden">
                         <div className={`px-2 py-1 rounded-md text-xs overflow-hidden ${
@@ -888,41 +920,11 @@ const Deletecase = () => {
                         </div>
                       </td>
                       <td className="px-2 py-3 text-center">
-                        {(() => {
-                          let allOffenses = [];
-                          try {
-                            const arr = JSON.parse(caseItem.FINAL_OFFENSE);
-                            allOffenses = Array.isArray(arr) ? arr : (caseItem.FINAL_OFFENSE && caseItem.FINAL_OFFENSE.trim() ? [caseItem.FINAL_OFFENSE] : []);
-                          } catch {
-                            allOffenses = caseItem.FINAL_OFFENSE && caseItem.FINAL_OFFENSE.trim() ? [caseItem.FINAL_OFFENSE] : [];
-                          }
-                          let allDecisions = [];
-                          try {
-                            const arr = JSON.parse(caseItem.REMARKS_DECISION);
-                            allDecisions = Array.isArray(arr) ? arr : [caseItem.REMARKS_DECISION || 'Pending'];
-                          } catch {
-                            allDecisions = [caseItem.REMARKS_DECISION || 'Pending'];
-                          }
-                          // Only show offenses for respondents whose decision is "Filed in Court"
-                          // Keep the original index so the number matches the respondent number
-                          const offensesWithIndex = allOffenses
-                            .map((o, i) => ({ offense: o, origIndex: i }))
-                            .filter(({ offense, origIndex }) =>
-                              offense && offense.trim() && (allDecisions[origIndex] || '').toLowerCase() === 'filed in court'
-                            );
-                          
-                          if (!offensesWithIndex.length) return null;
-                          
-                          return (
-                            <div className={offensesWithIndex.length === 1 ? '' : 'flex flex-col gap-0.5'}>
-                              {offensesWithIndex.map(({ offense, origIndex }) => (
-                                <span key={origIndex} className={`px-2 py-1 rounded-md text-xs font-semibold inline-block break-words ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'}`} title={offense}>
-                                  {origIndex + 1}. {offense}
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                        {(row.decision || '').toLowerCase() === 'filed in court' && row.finalOffense ? (
+                          <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block break-words ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'}`} title={row.finalOffense}>
+                            {row.respondentIndex + 1}. {row.finalOffense}
+                          </span>
+                        ) : null}
                       </td>
                       <td className={`px-2 py-3 text-center text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {formatDate(caseItem.DECISION_DATE)}
@@ -992,7 +994,8 @@ const Deletecase = () => {
                         </div>
                       </td>
                     </motion.tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             </div>
@@ -1048,6 +1051,11 @@ const Deletecase = () => {
                         label: 'Date Filed',
                         value: formatDate(selectedCase.DATE_FILED),
                         icon: 'fa-calendar',
+                      },
+                      {
+                        label: 'Date of Commission',
+                        value: formatDate(selectedCase.DATE_OF_COMMISSION),
+                        icon: 'fa-calendar-day',
                       },
                       { label: 'Complainant', values: parseRespondents(selectedCase.COMPLAINANT), icon: 'fa-user', placeholder: 'No complainants' },
                       { type: 'respondentAddress', colSpan: 3 },

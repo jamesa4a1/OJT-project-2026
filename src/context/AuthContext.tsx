@@ -179,6 +179,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           errorMessage = 'Too many login attempts.';
         } else if (response.status === 403) {
           errorMessage = 'Your account has been deactivated. Please contact the administrator.';
+        } else if (response.status === 409) {
+          errorMessage = 'This account is already active on another device. Please log out from the first session first.';
         }
         return { success: false, message: errorMessage, retryAfter };
       }
