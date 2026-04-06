@@ -280,6 +280,37 @@ const AdminDashboard = () => {
         return;
       }
 
+      const formatExcelDate = (value) => {
+        if (!value) return '';
+        const rawValue = String(value).trim();
+
+        // Handle common ISO/date-only strings from API/DB before generic parsing.
+        const datePrefixMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (datePrefixMatch) {
+          const year = Number(datePrefixMatch[1]);
+          const month = Number(datePrefixMatch[2]) - 1;
+          const day = Number(datePrefixMatch[3]);
+          const normalizedDate = new Date(year, month, day);
+          if (!Number.isNaN(normalizedDate.getTime())) {
+            return normalizedDate.toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            });
+          }
+        }
+
+        const parsed = new Date(rawValue);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          });
+        }
+        return rawValue.replace(/T00:00:00\.000Z$/, '');
+      };
+
       // Prepare headers (removed ID)
       const headers = [
         'Docket No',
@@ -302,17 +333,17 @@ const AdminDashboard = () => {
       // Prepare data rows (removed c.id)
       const data = cases.map((c) => [
         c.DOCKET_NO || c.docket_no || '',
-        c.DATE_FILED || c.date_filed || '',
+        formatExcelDate(c.DATE_FILED || c.date_filed),
         c.COMPLAINANT || c.complainant || '',
         c.RESPONDENT || c.respondent || '',
         c.ADDRESS_OF_RESPONDENT || c.address_of_respondent || '',
         c.OFFENSE || c.offense || '',
-        c.DATE_OF_COMMISSION || c.date_of_commission || '',
-        c.DATE_RESOLVED || c.date_resolved || '',
+        formatExcelDate(c.DATE_OF_COMMISSION || c.date_of_commission),
+        formatExcelDate(c.DATE_RESOLVED || c.date_resolved),
         c.RESOLVING_PROSECUTOR || c.resolving_prosecutor || '',
         c.CRIM_CASE_NO || c.crim_case_no || '',
         c.BRANCH || c.branch || '',
-        c.DATEFILED_IN_COURT || c.datefiled_in_court || '',
+        formatExcelDate(c.DATEFILED_IN_COURT || c.datefiled_in_court),
         c.REMARKS_DECISION || c.remarks_decision || '',
         c.PENALTY || c.penalty || '',
         c.INDEX_CARDS || c.index_cards || '',
@@ -344,7 +375,10 @@ const AdminDashboard = () => {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Cases');
 
       // Write file
-      const filename = `cases_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const now = new Date();
+      const datePart = now.toISOString().split('T')[0];
+      const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+      const filename = `cases_export_${datePart}_${timePart}.xlsx`;
       XLSX.writeFile(workbook, filename);
       
       console.log(`✅ Excel file exported successfully: ${filename}`);
