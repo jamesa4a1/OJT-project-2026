@@ -68,6 +68,7 @@ const Deletecase = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
+  const [selectedDeleteRow, setSelectedDeleteRow] = useState(null);
   const [editedCase, setEditedCase] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [isCustomDecision, setIsCustomDecision] = useState(false);
@@ -90,6 +91,8 @@ const Deletecase = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showMoveAllConfirm, setShowMoveAllConfirm] = useState(false);
+  const [isMovingAll, setIsMovingAll] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
   const [printDropdownCase, setPrintDropdownCase] = useState(null);
   const [printDropdownPos, setPrintDropdownPos] = useState({ top: 0, left: 0 });
@@ -136,6 +139,15 @@ const Deletecase = () => {
       .map((part) => part.replace(/^\d+[.)]\s*/, '').trim())
       .filter(Boolean);
     if (lines.length > 1) return lines;
+
+    // Handle comma/semicolon/pipe separated values from legacy imports.
+    const delimited = raw
+      .split(/\s*[;,|]\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => part.replace(/^\d+[.)]\s*/, '').trim())
+      .filter(Boolean);
+    if (delimited.length > 1) return delimited;
 
     // Handle single-line numbered lists like "1. Name 2. Name 3. Name".
     const numberedMatches = [...raw.matchAll(/(?:^|\s)\d+[.)]\s*([^\d].*?)(?=(?:\s+\d+[.)]\s*)|$)/g)]
@@ -253,8 +265,9 @@ const Deletecase = () => {
   // Real-time updates: auto-refresh when cases change on any PC
   useSocket(CASE_EVENTS, fetchAllCases);
 
-  const handleDeleteClick = (caseItem) => {
-    setSelectedCase(caseItem);
+  const handleDeleteClick = (row) => {
+    setSelectedCase(row.caseItem);
+    setSelectedDeleteRow(row);
     setShowConfirm(true);
   };
 
@@ -552,12 +565,16 @@ const Deletecase = () => {
   };
 
   const handleDelete = async () => {
-    if (!selectedCase) return;
+    if (!selectedCase || !selectedDeleteRow) return;
     setIsLoading(true);
     setError('');
     try {
       await axios.delete(`${API_BASE}/delete-case`, {
-        data: { docket_no: selectedCase.DOCKET_NO },
+        data: {
+          docket_no: selectedCase.DOCKET_NO,
+          respondent_index: selectedDeleteRow.respondentIndex,
+          respondent: selectedDeleteRow.respondent,
+        },
       });
       
       // Refresh the entire cases list from server after successful deletion
@@ -565,6 +582,7 @@ const Deletecase = () => {
       
       setShowConfirm(false);
       setSelectedCase(null);
+      setSelectedDeleteRow(null);
       
       // Show success message
       setError(''); // Clear any previous errors
@@ -585,6 +603,7 @@ const Deletecase = () => {
         setError('Error deleting case. Please try again.');
       }
     }
+    setSelectedDeleteRow(null);
     setIsLoading(false);
   };
 
@@ -613,6 +632,29 @@ const Deletecase = () => {
     navigate('/clearances/generate', {
       state: { fromCase: caseItem, format },
     });
+  };
+
+  const handleMoveAllCases = async () => {
+    setIsMovingAll(true);
+    setError('');
+
+    try {
+      await axios.post(`${API_BASE}/delete-all-cases`);
+      await fetchAllCases();
+      setShowMoveAllConfirm(false);
+      navigate('/caselist');
+    } catch (err) {
+      console.error('Move all cases error:', err);
+      if (err.response) {
+        setError(err.response.data?.message || 'Error moving all cases to terminated cases.');
+      } else if (err.request) {
+        setError(`Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
+      } else {
+        setError('Error moving all cases: ' + err.message);
+      }
+    } finally {
+      setIsMovingAll(false);
+    }
   };
 
 
@@ -787,6 +829,25 @@ const Deletecase = () => {
             >
               <i className={`fas fa-sync-alt ${isLoading ? 'animate-spin' : ''}`}></i>
               <span className="font-medium hidden sm:inline">Refresh</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: tableRows.length > 0 && !isMovingAll ? 1.05 : 1 }}
+              whileTap={{ scale: tableRows.length > 0 && !isMovingAll ? 0.95 : 1 }}
+              onClick={() => setShowMoveAllConfirm(true)}
+              disabled={tableRows.length === 0 || isMovingAll}
+              className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-all duration-300 shadow-sm min-w-fit font-medium whitespace-nowrap text-sm ${
+                tableRows.length === 0 || isMovingAll
+                  ? 'bg-slate-400 text-white cursor-not-allowed opacity-70'
+                  : isDark
+                    ? 'bg-red-700 text-white hover:bg-red-600 cursor-pointer'
+                    : 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+              }`}
+            >
+              <i className={`fas fa-box-archive ${isMovingAll ? 'animate-pulse' : ''}`}></i>
+              <span className="font-medium hidden sm:inline">
+                {isMovingAll ? 'Moving All...' : 'Move All'}
+              </span>
             </motion.button>
           </div>
         </div>
@@ -982,7 +1043,7 @@ const Deletecase = () => {
                             <motion.button
                               whileHover={{ scale: 1.15 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => handleDeleteClick(caseItem)}
+                              onClick={() => handleDeleteClick(row)}
                               className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 
                                        transition-all duration-2 shadow-lg shadow-red-500/40 hover:shadow-xl hover:shadow-red-500/60
                                        flex items-center justify-center cursor-pointer border-none text-base font-semibold"
@@ -2031,7 +2092,7 @@ const Deletecase = () => {
 
         {/* Delete Confirmation Modal */}
         <AnimatePresence>
-          {showConfirm && selectedCase && (
+          {showConfirm && selectedCase && selectedDeleteRow && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -2106,7 +2167,7 @@ const Deletecase = () => {
                         <p className={`text-xs leading-relaxed ${
                           isDark ? 'text-slate-400' : 'text-slate-600'
                         }`}>
-                          {selectedCase.COMPLAINANT} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>vs</span> {parseRespondents(selectedCase.RESPONDENT)[0] || 'N/A'}{parseRespondents(selectedCase.RESPONDENT).length > 1 ? ` +${parseRespondents(selectedCase.RESPONDENT).length - 1} more` : ''}
+                          {selectedCase.COMPLAINANT} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>vs</span> {selectedDeleteRow.respondent || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -2128,7 +2189,7 @@ const Deletecase = () => {
                     <p className={`text-xs leading-relaxed font-medium ${
                       isDark ? 'text-blue-300/90' : 'text-blue-900/75'
                     }`}>
-                      This case will be stored in Terminated Cases where you can restore it or delete it permanently.
+                      This respondent will be moved to Terminated Cases where you can restore it or delete it permanently.
                     </p>
                   </motion.div>
                 </div>
@@ -2141,7 +2202,10 @@ const Deletecase = () => {
                     type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowConfirm(false)}
+                    onClick={() => {
+                      setShowConfirm(false);
+                      setSelectedDeleteRow(null);
+                    }}
                     className={`flex-1 py-2.5 rounded-lg font-semibold text-sm border-2 transition-all ${
                       isDark
                         ? 'bg-transparent border-slate-600/50 text-slate-300 hover:bg-slate-700/30 hover:border-slate-500'
@@ -2170,6 +2234,92 @@ const Deletecase = () => {
                       <>
                         <i className="fas fa-archive text-sm"></i>
                         <span>Move</span>
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Move All Confirmation Modal */}
+        <AnimatePresence>
+          {showMoveAllConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-lg"
+              onClick={() => !isMovingAll && setShowMoveAllConfirm(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.93, y: 24 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.93, y: 24 }}
+                transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+                className={`rounded-2xl shadow-2xl max-w-md w-full overflow-hidden ${
+                  isDark ? 'bg-gradient-to-br from-slate-800 to-slate-900' : 'bg-gradient-to-br from-white to-slate-50'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="h-1 bg-gradient-to-r from-red-500 via-red-600 to-red-500"></div>
+
+                <div className={`p-6 text-center border-b ${
+                  isDark ? 'border-slate-700/30' : 'border-slate-200/50'
+                }`}>
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-red-500 via-red-600 to-red-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-500/40">
+                    <i className="fas fa-box-archive text-2xl text-white"></i>
+                  </div>
+                  <h3 className={`text-xl font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                    Move All Cases
+                  </h3>
+                </div>
+
+                <div className="p-6">
+                  <p className={`text-sm leading-relaxed text-center ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    Are you sure you want to move all this cases to terminated cases?
+                  </p>
+                </div>
+
+                <div className={`flex gap-3 p-6 pt-4 border-t ${
+                  isDark ? 'border-slate-700/30' : 'border-slate-200/50'
+                }`}>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowMoveAllConfirm(false)}
+                    disabled={isMovingAll}
+                    className={`flex-1 py-2.5 rounded-lg font-semibold text-sm border-2 transition-all ${
+                      isDark
+                        ? 'bg-transparent border-slate-600/50 text-slate-300 hover:bg-slate-700/30 hover:border-slate-500'
+                        : 'bg-transparent border-slate-300/50 text-slate-700 hover:bg-slate-100/50 hover:border-slate-400'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    Cancel
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleMoveAllCases}
+                    disabled={isMovingAll}
+                    className="flex-1 py-2.5 rounded-lg font-semibold text-sm bg-gradient-to-r from-red-600 via-red-600 to-red-700
+                             text-white hover:from-red-700 hover:via-red-700 hover:to-red-800 transition-all
+                             flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed
+                             shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
+                  >
+                    {isMovingAll ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Moving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-check text-sm"></i>
+                        <span>Confirm</span>
                       </>
                     )}
                   </motion.button>

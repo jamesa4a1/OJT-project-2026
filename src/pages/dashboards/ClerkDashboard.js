@@ -155,6 +155,37 @@ const ClerkDashboard = () => {
         const cases = await response.json();
         console.log(`✅ Fetched ${cases.length} cases for export`);
 
+        const formatExcelDate = (value) => {
+          if (!value) return '';
+          const rawValue = String(value).trim();
+
+          // Handle common ISO/date-only strings from API/DB before generic parsing.
+          const datePrefixMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (datePrefixMatch) {
+            const year = Number(datePrefixMatch[1]);
+            const month = Number(datePrefixMatch[2]) - 1;
+            const day = Number(datePrefixMatch[3]);
+            const normalizedDate = new Date(year, month, day);
+            if (!Number.isNaN(normalizedDate.getTime())) {
+              return normalizedDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              });
+            }
+          }
+
+          const parsed = new Date(rawValue);
+          if (!Number.isNaN(parsed.getTime())) {
+            return parsed.toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            });
+          }
+          return rawValue.replace(/T00:00:00\.000Z$/, '');
+        };
+
         // Prepare headers
         const headers = [
           'Docket No',
@@ -177,17 +208,17 @@ const ClerkDashboard = () => {
         // Prepare data rows
         const data = cases.map((c) => [
           c.DOCKET_NO || '',
-          c.DATE_FILED || '',
+          formatExcelDate(c.DATE_FILED),
           c.COMPLAINANT || '',
           c.RESPONDENT || '',
           c.ADDRESS_OF_RESPONDENT || '',
           c.OFFENSE || '',
-          c.DATE_OF_COMMISSION || '',
-          c.DATE_RESOLVED || '',
+          formatExcelDate(c.DATE_OF_COMMISSION),
+          formatExcelDate(c.DATE_RESOLVED),
           c.RESOLVING_PROSECUTOR || '',
           c.CRIM_CASE_NO || '',
           c.BRANCH || '',
-          c.DATEFILED_IN_COURT || '',
+          formatExcelDate(c.DATEFILED_IN_COURT),
           c.REMARKS_DECISION || '',
           c.PENALTY || '',
           c.INDEX_CARDS || '',
@@ -219,7 +250,10 @@ const ClerkDashboard = () => {
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Cases');
 
         // Write file
-        const filename = `cases_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const now = new Date();
+        const datePart = now.toISOString().split('T')[0];
+        const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+        const filename = `cases_export_${datePart}_${timePart}.xlsx`;
         XLSX.writeFile(workbook, filename);
         
         console.log(`✅ Excel file exported successfully: ${filename}`);
