@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
-import * as XLSX from 'xlsx';
 import { API_BASE } from '../../config/api';
 import { useSocket, ALL_EVENTS } from '../../hooks/useSocket';
 
@@ -73,9 +72,12 @@ const ClerkDashboard = () => {
     total: 0,
     resolved: 0,
     pending: 0,
+    provisionalDismissal: 0,
+    archived: 0,
     thisMonth: 0,
   });
   const [recentCases, setRecentCases] = useState([]);
+  const normalizeDecision = (value) => (value || '').toLowerCase().trim();
 
   // Fetch stats and recent cases
   useEffect(() => {
@@ -105,17 +107,23 @@ const ClerkDashboard = () => {
 
         const resolved = mappedCases.filter(
           (c) =>
-            c.status?.toLowerCase() === 'resolved' ||
-            c.status?.toLowerCase() === 'closed' ||
-            c.status?.toLowerCase() === 'terminated' ||
-            c.status?.toLowerCase() === 'guilty' ||
-            c.status?.toLowerCase() === 'acquitted'
+            normalizeDecision(c.status) === 'resolved' ||
+            normalizeDecision(c.status) === 'closed' ||
+            normalizeDecision(c.status) === 'terminated' ||
+            normalizeDecision(c.status) === 'guilty' ||
+            normalizeDecision(c.status) === 'acquitted'
         ).length;
         const pending = mappedCases.filter(
           (c) =>
-            c.status?.toLowerCase() === 'pending' ||
-            c.status?.toLowerCase() === 'open' ||
-            c.status?.toLowerCase() === 'ongoing'
+            normalizeDecision(c.status) === 'pending' ||
+            normalizeDecision(c.status) === 'open' ||
+            normalizeDecision(c.status) === 'ongoing'
+        ).length;
+        const provisionalDismissal = mappedCases.filter(
+          (c) => normalizeDecision(c.status) === 'provisional dismissal'
+        ).length;
+        const archived = mappedCases.filter(
+          (c) => normalizeDecision(c.status) === 'archived'
         ).length;
         const monthCases = mappedCases.filter((c) => {
           const caseDate = new Date(c.date_filed);
@@ -126,6 +134,8 @@ const ClerkDashboard = () => {
           total: mappedCases.length,
           resolved: resolved,
           pending: pending,
+          provisionalDismissal,
+          archived,
           thisMonth: monthCases,
         });
 
@@ -146,123 +156,6 @@ const ClerkDashboard = () => {
 
   // Real-time updates: auto-refresh when cases/clearances change on any PC
   useSocket(ALL_EVENTS, fetchDashboardData);
-
-  const handleExportCSV = async () => {
-    try {
-      console.log('📥 Starting Excel export...');
-      const response = await fetch(`${API_BASE}/cases`);
-      if (response.ok) {
-        const cases = await response.json();
-        console.log(`✅ Fetched ${cases.length} cases for export`);
-
-        const formatExcelDate = (value) => {
-          if (!value) return '';
-          const rawValue = String(value).trim();
-
-          // Handle common ISO/date-only strings from API/DB before generic parsing.
-          const datePrefixMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
-          if (datePrefixMatch) {
-            const year = Number(datePrefixMatch[1]);
-            const month = Number(datePrefixMatch[2]) - 1;
-            const day = Number(datePrefixMatch[3]);
-            const normalizedDate = new Date(year, month, day);
-            if (!Number.isNaN(normalizedDate.getTime())) {
-              return normalizedDate.toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              });
-            }
-          }
-
-          const parsed = new Date(rawValue);
-          if (!Number.isNaN(parsed.getTime())) {
-            return parsed.toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            });
-          }
-          return rawValue.replace(/T00:00:00\.000Z$/, '');
-        };
-
-        // Prepare headers
-        const headers = [
-          'Docket No',
-          'Date Filed',
-          'Complainant',
-          'Respondent',
-          'Address of Respondent',
-          'Offense',
-          'Date of Commission',
-          'Date Resolved',
-          'Resolving Prosecutor',
-          'Criminal Case No',
-          'Branch',
-          'Date Filed in Court',
-          'Remarks Decision',
-          'Penalty',
-          'Index Cards',
-        ];
-
-        // Prepare data rows
-        const data = cases.map((c) => [
-          c.DOCKET_NO || '',
-          formatExcelDate(c.DATE_FILED),
-          c.COMPLAINANT || '',
-          c.RESPONDENT || '',
-          c.ADDRESS_OF_RESPONDENT || '',
-          c.OFFENSE || '',
-          formatExcelDate(c.DATE_OF_COMMISSION),
-          formatExcelDate(c.DATE_RESOLVED),
-          c.RESOLVING_PROSECUTOR || '',
-          c.CRIM_CASE_NO || '',
-          c.BRANCH || '',
-          formatExcelDate(c.DATEFILED_IN_COURT),
-          c.REMARKS_DECISION || '',
-          c.PENALTY || '',
-          c.INDEX_CARDS || '',
-        ]);
-
-        // Create worksheet
-        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
-
-        // Auto-fit column widths based on content
-        const columnWidths = headers.map((header, idx) => {
-          let maxWidth = header.length;
-          
-          // Check content in each row
-          data.forEach((row) => {
-            const cellContent = String(row[idx] || '').length;
-            if (cellContent > maxWidth) {
-              maxWidth = cellContent;
-            }
-          });
-          
-          // Add padding and return width object
-          return { wch: Math.min(maxWidth + 2, 50) }; // Max width 50 to prevent extremely wide columns
-        });
-
-        worksheet['!cols'] = columnWidths;
-
-        // Create workbook
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Cases');
-
-        // Write file
-        const now = new Date();
-        const datePart = now.toISOString().split('T')[0];
-        const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '-');
-        const filename = `cases_export_${datePart}_${timePart}.xlsx`;
-        XLSX.writeFile(workbook, filename);
-        
-        console.log(`✅ Excel file exported successfully: ${filename}`);
-      }
-    } catch (error) {
-      console.error('❌ Error exporting Excel:', error);
-      alert('Error exporting Excel: ' + error.message);
-    }
-  };
 
   const roleConfig = {
     Admin: {
@@ -410,21 +303,6 @@ const ClerkDashboard = () => {
                 {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </motion.div>
-            
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleExportCSV}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm
-                       transition-all duration-300 border-none cursor-pointer shadow-xl ${
-                         isDark
-                           ? 'bg-amber-500 text-slate-900 hover:bg-amber-400 shadow-amber-500/30'
-                           : 'bg-white text-orange-600 hover:bg-orange-50 shadow-orange-900/30'
-                       }`}
-            >
-              <i className="fas fa-download"></i>
-              Export Cases
-            </motion.button>
           </div>
         </div>
         
@@ -433,7 +311,7 @@ const ClerkDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className={`relative grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t ${
+          className={`relative grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 gap-4 mt-8 pt-6 border-t ${
             isDark ? 'border-amber-500/20' : 'border-white/10'
           }`}
         >
@@ -441,6 +319,8 @@ const ClerkDashboard = () => {
             { label: 'Total Cases', value: stats.total, icon: 'fa-folder-open' },
             { label: 'Pending Review', value: stats.pending, icon: 'fa-hourglass-half' },
             { label: 'This Month', value: stats.thisMonth, icon: 'fa-calendar-days' },
+              { label: 'Provisional dismissal', value: stats.provisionalDismissal, icon: 'fa-scale-balanced' },
+              { label: 'Archived', value: stats.archived, icon: 'fa-box-archive' },
           ].map((item, idx) => (
             <div key={idx} className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl backdrop-blur-sm flex items-center justify-center ${

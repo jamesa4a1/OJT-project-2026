@@ -27,7 +27,37 @@ if %errorlevel% neq 0 (
 echo     Docker Desktop is ready!
 echo.
 
+echo [*] Building and starting containers...
 docker compose up -d --build
+if %errorlevel% neq 0 (
+    echo [!] Failed to start containers. Check Docker Desktop and run again.
+    pause
+    exit /b 1
+)
+
+echo [*] Waiting for frontend container to run...
+:wait_frontend
+for /f %%s in ('docker inspect -f "{{.State.Running}}" ocp_frontend_app 2^>nul') do set FRONTEND_RUNNING=%%s
+if /i not "%FRONTEND_RUNNING%"=="true" (
+    timeout /t 2 /nobreak >nul
+    goto wait_frontend
+)
+
+echo [*] Waiting for backend container to run...
+:wait_backend
+for /f %%s in ('docker inspect -f "{{.State.Running}}" ocp_backend_api 2^>nul') do set BACKEND_RUNNING=%%s
+if /i not "%BACKEND_RUNNING%"=="true" (
+    timeout /t 2 /nobreak >nul
+    goto wait_backend
+)
+
+echo [*] Waiting for application endpoint to be ready...
+:wait_http
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost' -UseBasicParsing -TimeoutSec 5; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if %errorlevel% neq 0 (
+    timeout /t 2 /nobreak >nul
+    goto wait_http
+)
 
 REM Use the static IP (192.168.1.15 is the permanent main PC IP)
 set LOCAL_IP=192.168.1.15

@@ -1,9 +1,9 @@
-import React, { useState, useContext, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useContext, ChangeEvent, useEffect, useRef } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { ThemeContext } from '../App';
 import { motion } from 'framer-motion';
-import { Button, Alert, Card, LoadingSpinner } from '../components/ui';
+import { Button, Alert, Card } from '../components/ui';
 import config from '../config';
 
 interface ThemeContextType {
@@ -11,13 +11,22 @@ interface ThemeContextType {
 }
 
 type MessageType = 'success' | 'error' | 'info' | '';
-
-interface ColumnError {
-  message: string;
-}
+type UploadPhase = 'idle' | 'uploading' | 'success' | 'error';
 
 interface ExcelSyncProps {
   isDark?: boolean;
+}
+
+interface ExcelUploadResponse {
+  success?: boolean;
+  message?: string;
+  mode?: 'replace' | 'merge' | string;
+  totalRows?: number;
+  rowsInserted?: number;
+  added?: number;
+  updated?: number;
+  skippedRows?: number;
+  warnings?: string[];
 }
 
 /**
@@ -35,6 +44,90 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [columnErrors, setColumnErrors] = useState<string[]>([]);
   const [validatingColumns, setValidatingColumns] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>('idle');
+
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearProgressTimers = (): void => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    if (progressResetTimeoutRef.current) {
+      clearTimeout(progressResetTimeoutRef.current);
+      progressResetTimeoutRef.current = null;
+    }
+  };
+
+  const startProgressSimulation = (): void => {
+    clearProgressTimers();
+    setUploadProgress(8);
+
+    progressIntervalRef.current = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 92) {
+          return prev;
+        }
+        const next = prev + Math.random() * 8 + 2;
+        return Math.min(next, 92);
+      });
+    }, 220);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearProgressTimers();
+    };
+  }, []);
+
+  const buildImportSuccessMessage = (data: ExcelUploadResponse): string => {
+    const totalRows = Number(data.totalRows ?? 0);
+    const skippedRows = Number(data.skippedRows ?? 0);
+    const validRows = Math.max(totalRows - skippedRows, 0);
+    const inserted = Number(data.rowsInserted ?? data.added ?? 0);
+    const updated = Number(data.updated ?? 0);
+    const isReplaceMode = String(data.mode || '').toLowerCase() === 'replace';
+
+    if (isReplaceMode) {
+      return `Import completed successfully. Current website data was replaced with ${validRows || inserted || updated} case row(s) from the Excel file.`;
+    }
+
+    if (validRows > 0) {
+      return `Import completed successfully. ${validRows} valid rows uploaded (excluding rows without docket).`;
+    }
+
+    if (inserted === 0 && updated === 0) {
+      return 'Import completed successfully. No new changes found.';
+    }
+
+    return `Import completed successfully. ${inserted} inserted, ${updated} updated.`;
+  };
+
+  const getProcessedRowsFromResponse = (data: ExcelUploadResponse): number => {
+    const totalRows = Number(data.totalRows ?? 0);
+    const skippedRows = Number(data.skippedRows ?? 0);
+    const validRows = Math.max(totalRows - skippedRows, 0);
+    if (validRows > 0) {
+      return validRows;
+    }
+
+    const inserted = Number(data.rowsInserted ?? data.added ?? 0);
+    const updated = Number(data.updated ?? 0);
+    const structuredTotal = inserted + updated;
+    if (structuredTotal > 0) {
+      return structuredTotal;
+    }
+
+    const messageText = String(data.message || '');
+    const insertedMatch = messageText.match(/(\d+)\s*(?:rows?\s*)?inserted/i);
+    const updatedMatch = messageText.match(/(\d+)\s*updated/i);
+    const parsedInserted = Number(insertedMatch?.[1] || 0);
+    const parsedUpdated = Number(updatedMatch?.[1] || 0);
+
+    return parsedInserted + parsedUpdated;
+  };
 
   // Expected column names constant
   const expectedColumns: string[] = [
@@ -47,9 +140,13 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
     'Date of Commission',
     'Date Resolved',
     'Resolving Prosecutor',
+    'MR DATE FILED(mm/dd/yyyy)',
+    'MR DATE RESOLVED (mm/dd/yyyy)',
+    'MR STATUS',
     'Criminal Case No',
     'Branch',
     'Date Filed in Court',
+    'Final Offense',
     'Remarks Decision',
     'Penalty',
     'Decision Date',
@@ -133,7 +230,6 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
 
       setMessage('Excel file downloaded successfully!');
       setMessageType('success');
-      setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('Error downloading Excel:', error);
       const errorMessage =
@@ -239,6 +335,8 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
     }
 
     setUploading(true);
+    setUploadPhase('uploading');
+    startProgressSimulation();
     setMessage('Uploading and processing Excel file...');
     setMessageType('info');
 
@@ -246,29 +344,42 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await axios.post(`${config.api.baseURL}/api/excel/upload`, formData, {
+      const response = await axios.post<ExcelUploadResponse>(`${config.api.baseURL}/api/excel/upload?replace=true`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: config.api.timeout,
+        timeout: 0,
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) {
+            return;
+          }
+          const networkProgress = Math.round((progressEvent.loaded / progressEvent.total) * 75);
+          setUploadProgress((prev) => Math.max(prev, Math.min(networkProgress + 10, 92)));
+        },
       });
 
-      setMessage(response.data.message);
-      setMessageType('success');
+      clearProgressTimers();
+      setUploadProgress(100);
+      setUploadPhase('success');
 
-      if (
-        response.data.warnings &&
-        Array.isArray(response.data.warnings) &&
-        response.data.warnings.length > 0
-      ) {
-        const warningMessage = `\n\nWarnings:\n${response.data.warnings.join('\n')}`;
-        setMessage(response.data.message + warningMessage);
+      const processedRows = getProcessedRowsFromResponse(response.data || {});
+      if (processedRows > 0) {
+        localStorage.setItem('excelLastImportTotalRows', String(processedRows));
+        localStorage.setItem('excelLastImportUpdatedAt', new Date().toISOString());
       }
 
-      setSelectedFile(null);
+      setMessage(buildImportSuccessMessage(response.data || {}));
+      setMessageType('success');
 
-      setTimeout(() => setMessage(''), 5000);
+      setSelectedFile(null);
+      progressResetTimeoutRef.current = setTimeout(() => {
+        setUploadPhase('idle');
+        setUploadProgress(0);
+      }, 2200);
     } catch (error) {
+      clearProgressTimers();
+      setUploadPhase('error');
+      setUploadProgress(0);
       console.error('Error uploading Excel:', error);
       const errorMessage =
         error instanceof axios.AxiosError
@@ -477,6 +588,21 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
                   >
                     Upload to Database
                   </Button>
+
+                  {uploadPhase !== 'idle' && (
+                    <div className="space-y-1">
+                      <p className={`text-sm font-semibold ${uploadPhase === 'success' ? 'text-green-600' : isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {uploadPhase === 'success' ? 'Upload complete!' : 'Loading...'}
+                      </p>
+                      <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-600' : 'bg-slate-200'}`}>
+                        <motion.div
+                          className={`h-full rounded-full ${uploadPhase === 'success' ? 'bg-green-500' : 'bg-green-500'}`}
+                          animate={{ width: `${uploadProgress}%` }}
+                          transition={{ duration: uploadPhase === 'success' ? 0.25 : 0.35, ease: 'easeOut' }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
