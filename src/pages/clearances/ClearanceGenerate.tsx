@@ -40,6 +40,102 @@ const ClearanceGenerate: React.FC = () => {
   // Multi-respondent state (when printing from a case with multiple respondents)
   const [respondentForms, setRespondentForms] = useState<FormData[]>([]);
   const [activeRespondentIndex, setActiveRespondentIndex] = useState(0);
+
+  const normalizeCaseField = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+
+    const normalizePrimitive = (raw: unknown): string => {
+      const str = String(raw ?? '').trim();
+      if (!str) return '';
+      if (/^(n\/a|na|null|undefined)$/i.test(str)) return '';
+      return str;
+    };
+
+    const direct = normalizePrimitive(value);
+    if (!direct) return '';
+
+    // Common case from Manage Cases: values stored as JSON arrays like ["Pending"] or [""].
+    if (direct.startsWith('[') || direct.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(direct);
+        if (Array.isArray(parsed)) {
+          const joined = parsed
+            .map((item) => normalizePrimitive(item))
+            .filter(Boolean)
+            .join(', ');
+          return joined;
+        }
+        return normalizePrimitive(parsed);
+      } catch {
+        // Fall through to conservative cleanup when not valid JSON.
+      }
+    }
+
+    // Fallback cleanup for bracket-wrapped single values.
+    const cleaned = direct
+      .replace(/^\[\s*['"]?/, '')
+      .replace(/['"]?\s*\]$/, '')
+      .trim();
+
+    return normalizePrimitive(cleaned);
+  };
+
+  const normalizeCaseFieldList = (value: unknown): string[] => {
+    if (value === null || value === undefined) return [];
+    const raw = String(value).trim();
+    if (!raw) return [];
+
+    if (raw.startsWith('[') || raw.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => normalizeCaseField(item)).filter(Boolean);
+        }
+        const single = normalizeCaseField(parsed);
+        return single ? [single] : [];
+      } catch {
+        // Fall through to comma-split fallback
+      }
+    }
+
+    return raw
+      .split(',')
+      .map((item) => normalizeCaseField(item))
+      .filter(Boolean);
+  };
+
+  const parseCaseStringArray = (value: unknown): string[] => {
+    if (value === null || value === undefined) return [];
+
+    const raw = String(value).trim();
+    if (!raw) return [];
+
+    const looksSerialized =
+      (raw.startsWith('[') && raw.endsWith(']')) ||
+      (raw.startsWith('{') && raw.endsWith('}'));
+
+    if (raw.startsWith('[') || raw.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => normalizeCaseField(item)).filter(Boolean);
+        }
+
+        const single = normalizeCaseField(parsed);
+        return single ? [single] : [];
+      } catch {
+        // Fall through to single-value normalization.
+      }
+    }
+
+    const single = normalizeCaseField(raw);
+    if (!single) return [];
+
+    // Avoid leaking malformed serialized strings such as [""] into the UI/preview.
+    if (looksSerialized) return [];
+
+    return [single];
+  };
   
   const getDefaultDate = () => {
     return new Date().toISOString().split('T')[0];
@@ -117,12 +213,12 @@ const ClearanceGenerate: React.FC = () => {
           let reconstructedCriminalCases: CriminalCase[] = [];
           
           if (data.case_numbers || data.crime_description) {
-            // Split case numbers by comma or create single case
-            const caseNumbers = data.case_numbers ? data.case_numbers.split(',').map((c: string) => c.trim()) : [''];
-            const crimeDescriptions = data.crime_description ? data.crime_description.split(',').map((c: string) => c.trim()) : [''];
+            // Split case values from JSON arrays or comma-separated strings.
+            const caseNumbers = normalizeCaseFieldList(data.case_numbers);
+            const crimeDescriptions = normalizeCaseFieldList(data.crime_description);
             
             // Create criminal case objects with proper defaults for dropdown fields
-            const maxLength = Math.max(caseNumbers.length, crimeDescriptions.length);
+            const maxLength = Math.max(caseNumbers.length, crimeDescriptions.length, 1);
             for (let i = 0; i < maxLength; i++) {
               reconstructedCriminalCases.push({
                 case_number: caseNumbers[i] || '',
@@ -131,7 +227,7 @@ const ClearanceGenerate: React.FC = () => {
                 date_info_filed: data.date_information_filed?.split('T')[0] || '',
                 date_type: 'Date Info Filed', // Default value
                 origin: 'Tagbilaran City',
-                status: data.case_status || ''
+                status: normalizeCaseField(data.case_status || '')
               });
             }
           }
@@ -168,13 +264,13 @@ const ClearanceGenerate: React.FC = () => {
             prc_id_number: data.prc_id_number || '',
             validity_period: data.validity_period || '6 Months',
             validity_expiry: data.validity_expiry?.split('T')[0] || getExpiryDate(getDefaultDate(), '6 Months'),
-            case_numbers: data.case_numbers || '',
-            crime_description: data.crime_description || '',
+            case_numbers: normalizeCaseFieldList(data.case_numbers).join(', '),
+            crime_description: normalizeCaseFieldList(data.crime_description).join(', '),
             legal_statute: data.legal_statute || '',
             date_of_commission: data.date_of_commission?.split('T')[0] || '',
             date_information_filed: data.date_information_filed?.split('T')[0] || '',
-            case_status: data.case_status || '',
-            court_branch: data.court_branch || '',
+            case_status: normalizeCaseField(data.case_status || ''),
+            court_branch: normalizeCaseField(data.court_branch || ''),
             notes: data.notes || '',
             criminal_cases: reconstructedCriminalCases,
           });
@@ -193,21 +289,9 @@ const ClearanceGenerate: React.FC = () => {
     if (!caseState?.fromCase) return;
     const c = caseState.fromCase;
 
-    // Parse all respondent names
-    let allNames: string[] = [];
-    try {
-      const parsed = JSON.parse(c.RESPONDENT || '[]');
-      if (Array.isArray(parsed)) allNames = parsed.filter(Boolean);
-    } catch { /* plain string */ }
-    if (allNames.length === 0 && c.RESPONDENT) allNames = [c.RESPONDENT];
-
-    // Parse all addresses
-    let allAddresses: string[] = [];
-    try {
-      const parsed = JSON.parse(c.ADDRESS_OF_RESPONDENT || '[]');
-      if (Array.isArray(parsed)) allAddresses = parsed.filter(Boolean);
-    } catch { /* plain string */ }
-    if (allAddresses.length === 0 && c.ADDRESS_OF_RESPONDENT) allAddresses = [c.ADDRESS_OF_RESPONDENT];
+    // Parse respondent and address values safely from either JSON arrays or plain strings.
+    const allNames = parseCaseStringArray(c.RESPONDENT);
+    const allAddresses = parseCaseStringArray(c.ADDRESS_OF_RESPONDENT);
 
     // Helper to parse a name into first/middle/last
     const parseName = (rawName: string) => {
@@ -235,6 +319,11 @@ const ClearanceGenerate: React.FC = () => {
 
     const safeDate = (d: string) => (d && d !== '0000-00-00' ? d.split('T')[0] : '');
 
+    const normalizedCrime = normalizeCaseField(c.FINAL_OFFENSE || c.OFFENSE || '');
+    const normalizedCaseNo = normalizeCaseField(c.CRIM_CASE_NO || c.DOCKET_NO || '');
+    const normalizedStatus = normalizeCaseField(c.REMARKS_DECISION || '');
+    const normalizedBranch = normalizeCaseField(c.BRANCH || '');
+
     // Build a form data object for each respondent
     const forms: FormData[] = allNames.map((name, i) => {
       const { firstName, middleName, lastName } = parseName(name);
@@ -245,20 +334,20 @@ const ClearanceGenerate: React.FC = () => {
         middle_name: middleName,
         last_name: lastName,
         address: allAddresses[i] || '',
-        crime_description: c.FINAL_OFFENSE || c.OFFENSE || '',
-        case_numbers: c.CRIM_CASE_NO || c.DOCKET_NO || '',
-        case_status: c.REMARKS_DECISION || '',
-        court_branch: c.BRANCH || '',
+        crime_description: normalizedCrime,
+        case_numbers: normalizedCaseNo,
+        case_status: normalizedStatus,
+        court_branch: normalizedBranch,
         date_of_commission: safeDate(c.DATE_OF_COMMISSION),
         date_information_filed: safeDate(c.DATE_FILED),
         criminal_cases: [{
-          case_number: c.CRIM_CASE_NO || c.DOCKET_NO || '',
+          case_number: normalizedCaseNo,
           case_number_type: 'Criminal Case No.',
-          crime: c.FINAL_OFFENSE || c.OFFENSE || '',
+          crime: normalizedCrime,
           date_info_filed: safeDate(c.DATE_FILED),
           date_type: 'Date Info Filed',
           origin: 'Tagbilaran City',
-          status: c.REMARKS_DECISION || '',
+          status: normalizedStatus,
         }],
       };
     });
@@ -274,7 +363,7 @@ const ClearanceGenerate: React.FC = () => {
       setActiveRespondentIndex(0);
     }
 
-    setHasCriminalRecord(!!(c.CRIM_CASE_NO || c.FINAL_OFFENSE));
+    setHasCriminalRecord(!!(normalizedCaseNo || normalizedCrime));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2704,6 +2793,18 @@ const ClearanceGenerate: React.FC = () => {
                     >
                       <i className="fas fa-download mr-2"></i>
                       Download PDF
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      onClick={handlePrint}
+                      disabled={!formData.first_name || !formData.last_name}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      className="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs font-semibold rounded-lg text-white bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 shadow-lg shadow-orange-500/40 hover:shadow-xl hover:shadow-orange-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      <i className="fas fa-print mr-2"></i>
+                      Print Certificate
                     </motion.button>
                     
 

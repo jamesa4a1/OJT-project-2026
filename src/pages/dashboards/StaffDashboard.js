@@ -13,14 +13,18 @@ const StaffDashboard = () => {
   const [allCases, setAllCases] = useState([]);
   const [filteredCases, setFilteredCases] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'dismissed', 'convicted'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'dismissed', 'provisional dismissal', 'convicted', 'archived'
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
     dismissed: 0,
+    provisionalDismissal: 0,
     convicted: 0,
+    archived: 0,
   });
+
+  const normalizeDecision = (value) => (value || '').toLowerCase().trim();
 
   // Fetch all cases
   useEffect(() => {
@@ -42,22 +46,32 @@ const StaffDashboard = () => {
 
         // Calculate stats
         const pending = cases.filter((c) => {
-          const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+          const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
           return decision === 'pending';
         }).length;
         const dismissed = cases.filter((c) => {
-          const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+          const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
           return decision === 'dismissed';
         }).length;
+        const provisionalDismissal = cases.filter((c) => {
+          const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
+          return decision === 'provisional dismissal';
+        }).length;
         const convicted = cases.filter((c) => {
-          const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+          const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
           return decision === 'convicted';
+        }).length;
+        const archived = cases.filter((c) => {
+          const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
+          return decision === 'archived';
         }).length;
         setStats({
           total: cases.length,
           pending,
           dismissed,
+          provisionalDismissal,
           convicted,
+          archived,
         });
       }
     } catch (error) {
@@ -76,18 +90,28 @@ const StaffDashboard = () => {
     // Apply status filter
     if (statusFilter === 'pending') {
       result = result.filter((c) => {
-        const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+        const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
         return decision === 'pending';
       });
     } else if (statusFilter === 'dismissed') {
       result = result.filter((c) => {
-        const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+        const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
         return decision === 'dismissed';
+      });
+    } else if (statusFilter === 'provisional dismissal') {
+      result = result.filter((c) => {
+        const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
+        return decision === 'provisional dismissal';
       });
     } else if (statusFilter === 'convicted') {
       result = result.filter((c) => {
-        const decision = (c.REMARKS_DECISION || c.remarks_decision || '').toLowerCase();
+        const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
         return decision === 'convicted';
+      });
+    } else if (statusFilter === 'archived') {
+      result = result.filter((c) => {
+        const decision = normalizeDecision(c.REMARKS_DECISION || c.remarks_decision);
+        return decision === 'archived';
       });
     }
 
@@ -109,7 +133,7 @@ const StaffDashboard = () => {
   };
 
   const getStatusBadge = (caseItem) => {
-    const decision = (caseItem.REMARKS_DECISION || caseItem.remarks_decision || '').toLowerCase();
+    const decision = normalizeDecision(caseItem.REMARKS_DECISION || caseItem.remarks_decision);
     if (decision === 'pending') {
       return (
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -132,6 +156,17 @@ const StaffDashboard = () => {
           Dismissed
         </span>
       );
+    } else if (decision === 'provisional dismissal') {
+      return (
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          isDark 
+            ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' 
+            : 'bg-violet-100 text-violet-700'
+        }`}>
+          <i className="fas fa-scale-balanced mr-1"></i>
+          Provisional dismissal
+        </span>
+      );
     } else if (decision === 'convicted') {
       return (
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -141,6 +176,17 @@ const StaffDashboard = () => {
         }`}>
           <i className="fas fa-gavel mr-1"></i>
           Convicted
+        </span>
+      );
+    } else if (decision === 'archived') {
+      return (
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          isDark 
+            ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' 
+            : 'bg-slate-100 text-slate-700'
+        }`}>
+          <i className="fas fa-box-archive mr-1"></i>
+          Archived
         </span>
       );
     }
@@ -361,6 +407,47 @@ const StaffDashboard = () => {
         </motion.div>
       </div>
 
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-5 shadow-lg border mb-8`}>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm font-medium m-0`}>Status Breakdown</p>
+            <h3 className={`text-lg font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'} m-0`}>Separate counts for each case decision</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'All Cases', count: stats.total, icon: 'fa-list', tone: 'teal' },
+              { key: 'pending', label: 'Pending', count: stats.pending, icon: 'fa-clock', tone: 'amber' },
+              { key: 'dismissed', label: 'Dismissed', count: stats.dismissed, icon: 'fa-times-circle', tone: 'blue' },
+              { key: 'provisional dismissal', label: 'Provisional dismissal', count: stats.provisionalDismissal, icon: 'fa-scale-balanced', tone: 'violet' },
+              { key: 'convicted', label: 'Convicted', count: stats.convicted, icon: 'fa-gavel', tone: 'green' },
+              { key: 'archived', label: 'Archived', count: stats.archived, icon: 'fa-box-archive', tone: 'slate' },
+            ].map((item) => {
+              const active = statusFilter === item.key;
+              const toneClasses = {
+                teal: active ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                amber: active ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                blue: active ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                violet: active ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/30' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                green: active ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                slate: active ? 'bg-slate-500 text-white shadow-lg shadow-slate-500/30' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+              }[item.tone];
+
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setStatusFilter(item.key)}
+                  className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer inline-flex items-center gap-2 ${toneClasses}`}
+                >
+                  <i className={`fas ${item.icon}`}></i>
+                  <span>{item.label}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${active ? 'bg-white/20' : isDark ? 'bg-slate-600 text-slate-200' : 'bg-white text-slate-600'}`}>{item.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filter Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -429,6 +516,18 @@ const StaffDashboard = () => {
               Dismissed
             </button>
             <button
+              onClick={() => setStatusFilter('provisional dismissal')}
+              className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
+                                      ${
+                                        statusFilter === 'provisional dismissal'
+                                          ? isDark ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/30' : 'bg-violet-500 text-white shadow-lg'
+                                          : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                      }`}
+            >
+              <i className="fas fa-scale-balanced mr-2"></i>
+              Provisional dismissal
+            </button>
+            <button
               onClick={() => setStatusFilter('convicted')}
               className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
                                       ${
@@ -439,6 +538,18 @@ const StaffDashboard = () => {
             >
               <i className="fas fa-gavel mr-2"></i>
               Convicted
+            </button>
+            <button
+              onClick={() => setStatusFilter('archived')}
+              className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border-none cursor-pointer
+                                      ${
+                                        statusFilter === 'archived'
+                                          ? isDark ? 'bg-slate-500 text-white shadow-lg shadow-slate-500/30' : 'bg-slate-500 text-white shadow-lg'
+                                          : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                      }`}
+            >
+              <i className="fas fa-box-archive mr-2"></i>
+              Archived
             </button>
           </div>
         </div>

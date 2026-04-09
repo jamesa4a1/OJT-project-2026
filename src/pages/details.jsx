@@ -32,6 +32,101 @@ const Details = () => {
   // Check if user is staff (read-only mode)
   const isStaff = user?.role === 'Staff';
 
+  const parseArrayValue = (value) => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+      }
+    } catch {
+      // Fall back to a plain string below.
+    }
+    const text = String(value).trim();
+    return text ? [text] : [];
+  };
+
+  const formatDisplayValue = (value) => {
+    const values = parseArrayValue(value);
+    if (values.length === 0) return 'N/A';
+    return values.join(', ');
+  };
+
+  const renderRespondentCourtSection = () => {
+    if (!caseDetails) return null;
+
+    const respondents = parseArrayValue(caseDetails.RESPONDENT);
+    const crimCaseNos = parseArrayValue(caseDetails.CRIM_CASE_NO);
+    const branches = parseArrayValue(caseDetails.BRANCH);
+    const datesFiledInCourt = parseArrayValue(caseDetails.DATEFILED_IN_COURT);
+    const finalOffenses = parseArrayValue(caseDetails.FINAL_OFFENSE);
+    const rowCount = Math.max(respondents.length, crimCaseNos.length, branches.length, datesFiledInCourt.length, finalOffenses.length, 1);
+
+    return (
+      <div
+        className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} mb-6 p-6 rounded-2xl border`}
+      >
+        <h3
+          className={`text-lg font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'} mb-4 flex items-center gap-2`}
+        >
+          <i className="fas fa-landmark text-teal-500"></i>
+          Respondent Court Information
+        </h3>
+        <div className="space-y-4">
+          {Array.from({ length: rowCount }).map((_, index) => (
+            <div
+              key={index}
+              className={`${isDark ? 'bg-slate-800/70 border-slate-600' : 'bg-white border-slate-200'} rounded-xl border p-4`}
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <p className={`text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                  {respondents[index] ? `${index + 1}. ${respondents[index]}` : `Respondent ${index + 1}`}
+                </p>
+                <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Court Record
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div>
+                  <label className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}>
+                    Criminal Case No.
+                  </label>
+                  <div className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium break-words`}>
+                    {crimCaseNos[index] || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}>
+                    Branch
+                  </label>
+                  <div className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium break-words`}>
+                    {branches[index] || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}>
+                    Date Filed in Court
+                  </label>
+                  <div className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium break-words`}>
+                    {datesFiledInCourt[index] || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-wide mb-2 block`}>
+                    Final Offense
+                  </label>
+                  <div className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-900 text-slate-200' : 'bg-slate-50 text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium break-words`}>
+                    {finalOffenses[index] || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const fetchCaseDetails = async () => {
     try {
       const response = await axios.get(`${API_BASE}/get-case?docket_no=${docketNo}`);
@@ -107,7 +202,7 @@ const Details = () => {
           className="text-center"
         >
           <div
-            className={`w-16 h-16 border-4 ${isDark ? 'border-blue-500/20 border-t-blue-500' : 'border-doj-navy/20 border-t-doj-navy'} rounded-full animate-spin mx-auto mb-4`}
+            className={`w-16 h-16 border-4 ${isDark ? 'border-slate-600 border-t-blue-400' : 'border-slate-200 border-t-blue-500'} rounded-full animate-spin mx-auto mb-4`}
           ></div>
           <p className={`${isDark ? 'text-slate-300' : 'text-slate-600'} font-medium`}>
             Loading case details...
@@ -275,7 +370,7 @@ const Details = () => {
                     <div
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
-                      {caseDetails.CRIM_CASE_NO || 'N/A'}
+                      {formatDisplayValue(caseDetails.CRIM_CASE_NO)}
                     </div>
                   </div>
                 </div>
@@ -469,6 +564,8 @@ const Details = () => {
                 </div>
               </div>
 
+              {renderRespondentCourtSection()}
+
               {/* Remarks Section */}
               <div
                 className={`mb-6 p-6 rounded-2xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'} border ${isDark ? 'border-slate-600' : 'border-slate-200'}`}
@@ -569,6 +666,38 @@ const Details = () => {
               </div>
             </div>
 
+            {/* Case Identification Strip */}
+            <div className="p-6 pb-0">
+              <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl border ${isDark ? 'bg-slate-900/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                <div>
+                  <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Docket Number
+                  </p>
+                  <div className={`px-3 py-2 rounded-lg text-sm font-semibold break-words ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800 border border-slate-200'}`}>
+                    {caseDetails.DOCKET_NO || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Date Filed
+                  </p>
+                  <div className={`px-3 py-2 rounded-lg text-sm font-semibold break-words ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800 border border-slate-200'}`}>
+                    {caseDetails.DATE_FILED || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Criminal Case No.
+                  </p>
+                  <div className={`px-3 py-2 rounded-lg text-sm font-semibold break-words ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800 border border-slate-200'}`}>
+                    {formatDisplayValue(caseDetails.CRIM_CASE_NO)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+              {renderRespondentCourtSection()}
+
             {/* Fields Grid */}
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -595,7 +724,9 @@ const Details = () => {
                         <p
                           className={`${isDark ? 'text-slate-200' : 'text-slate-800'} font-medium break-words`}
                         >
-                          {caseDetails[field.key] || (
+                          {['CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT'].includes(field.key)
+                            ? formatDisplayValue(caseDetails[field.key])
+                            : caseDetails[field.key] || (
                             <span
                               className={`${isDark ? 'text-slate-500' : 'text-slate-400'} italic`}
                             >

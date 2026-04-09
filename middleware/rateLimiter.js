@@ -17,9 +17,11 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   validate: { trustProxy: true },
   skip: (req) => {
+    if (req.method === 'OPTIONS') return true;
     // Don't rate limit health checks and high-frequency read/polling routes.
     if (req.path === '/health' || req.path === '/api/health') return true;
     if (req.path === '/cases') return true;
+    if (req.path === '/api/excel/upload' || req.path === '/api/excel/download') return true;
     if (/^\/api\/user\/\d+\/status$/.test(req.path)) return true;
     return false;
   }

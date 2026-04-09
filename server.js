@@ -30,6 +30,9 @@ const PORT = Number(process.env.PORT || 5000);
 
 // Create HTTP server and attach Socket.io
 const server = http.createServer(app);
+// Large Excel imports can take several minutes; keep the HTTP request alive.
+server.requestTimeout = 30 * 60 * 1000;
+server.headersTimeout = 31 * 60 * 1000;
 const io = new Server(server, {
   cors: {
     origin: function(origin, callback) {
@@ -85,6 +88,9 @@ const exportCasesToExcel = () => {
       DATE_OF_COMMISSION,
       DATE_RESOLVED,
       RESOLVING_PROSECUTOR,
+      DATE_MR_FILING,
+      DATE_MR_RESOLVED,
+      MR_FINDING,
       CRIM_CASE_NO,
       BRANCH,
       DATEFILED_IN_COURT,
@@ -101,18 +107,41 @@ const exportCasesToExcel = () => {
         return reject(err);
       }
 
+      // Helper function to normalize fields
+      const normalizeText = (value) => (value || '').toString().trim();
+
+      // Treat array-like empty placeholders as blank values during export
+      const isEmptyPlaceholder = (value) => {
+        const text = normalizeText(value);
+        if (!text) return true;
+        return (
+          /^\[\s*\]$/.test(text) ||
+          /^\[\s*"\s*"\s*\]$/.test(text) ||
+          /^\[\s*'\s*'\s*\]$/.test(text) ||
+          /^"\s*"$/.test(text) ||
+          /^'\s*'$/.test(text)
+        );
+      };
+
       // Helper function to parse JSON or return array with fallback
       const parseArrayField = (value) => {
         if (!value || value === 'N/A') return [];
+
         try {
           const parsed = JSON.parse(value);
-          if (Array.isArray(parsed)) return parsed.filter(Boolean);
-        } catch {}
-        return value ? [value] : [];
-      };
+          if (Array.isArray(parsed)) {
+            return parsed
+              .map((item) => normalizeText(item))
+              .filter((item) => !isEmptyPlaceholder(item));
+          }
+        } catch {
+          const normalized = normalizeText(value);
+          return isEmptyPlaceholder(normalized) ? [] : [normalized];
+        }
 
-      // Helper function to normalize fields
-      const normalizeText = (value) => (value || '').toString().trim();
+        const normalized = normalizeText(value);
+        return isEmptyPlaceholder(normalized) ? [] : [normalized];
+      };
 
       // Helper function to ensure exported dates are user-friendly (Month Day, Year)
       const formatExcelDate = (value) => {
@@ -149,36 +178,51 @@ const exportCasesToExcel = () => {
       // Flatten cases: each respondent becomes a row
       const flattenedRows = [];
       results.forEach((caseRow) => {
+        const complainants = parseArrayField(caseRow.COMPLAINANT);
         const respondents = parseArrayField(caseRow.RESPONDENT);
         const addresses = parseArrayField(caseRow.ADDRESS_OF_RESPONDENT);
         const decisions = parseArrayField(caseRow.REMARKS_DECISION);
         const crimCaseNos = parseArrayField(caseRow.CRIM_CASE_NO);
         const branches = parseArrayField(caseRow.BRANCH);
         const courtDates = parseArrayField(caseRow.DATEFILED_IN_COURT);
+        const mrDateFilings = parseArrayField(caseRow.DATE_MR_FILING);
+        const mrDateResolveds = parseArrayField(caseRow.DATE_MR_RESOLVED);
+        const mrStatuses = parseArrayField(caseRow.MR_FINDING);
         const finalOffenses = parseArrayField(caseRow.FINAL_OFFENSE);
 
         const respondentCount = Math.max(
+          complainants.length,
           respondents.length,
           addresses.length,
           decisions.length,
           crimCaseNos.length,
           branches.length,
           courtDates.length,
+          mrDateFilings.length,
+          mrDateResolveds.length,
+          mrStatuses.length,
           finalOffenses.length,
           1
         );
 
         for (let idx = 0; idx < respondentCount; idx++) {
+          const complainantValue = normalizeText(
+            complainants[idx] || complainants[0] || ''
+          );
+
           const formattedRow = {
             'Docket No': normalizeText(caseRow.DOCKET_NO),
             'Date Filed': formatExcelDate(caseRow.DATE_FILED),
-            'Complainant': normalizeText(caseRow.COMPLAINANT),
+            'Complainant': complainantValue,
             'Respondent': normalizeText(respondents[idx] || respondents[0] || (respondents.length === 0 && idx === 0 ? '' : '')),
             'Address of Respondent': normalizeText(addresses[idx] || addresses[0] || ''),
             'Offense': normalizeText(caseRow.OFFENSE),
             'Date of Commission': formatExcelDate(caseRow.DATE_OF_COMMISSION),
             'Date Resolved': formatExcelDate(caseRow.DATE_RESOLVED),
             'Resolving Prosecutor': normalizeText(caseRow.RESOLVING_PROSECUTOR),
+            'MR DATE FILED(mm/dd/yyyy)': formatExcelDate(mrDateFilings[idx] || mrDateFilings[0]),
+            'MR DATE RESOLVED (mm/dd/yyyy)': formatExcelDate(mrDateResolveds[idx] || mrDateResolveds[0]),
+            'MR STATUS': normalizeText(mrStatuses[idx] || mrStatuses[0] || ''),
             'Criminal Case No': normalizeText(crimCaseNos[idx] || crimCaseNos[0] || ''),
             'Branch': normalizeText(branches[idx] || branches[0] || ''),
             'Date Filed in Court': formatExcelDate(courtDates[idx] || courtDates[0]),
@@ -198,24 +242,31 @@ const exportCasesToExcel = () => {
       
       // Set column widths for better readability
       worksheet['!cols'] = [
-        { wch: 15 },  // Docket No
-        { wch: 12 },  // Date Filed
-        { wch: 20 },  // Complainant
-        { wch: 20 },  // Respondent
-        { wch: 30 },  // Address of Respondent
-        { wch: 20 },  // Offense
-        { wch: 15 },  // Date of Commission
-        { wch: 12 },  // Date Resolved
-        { wch: 20 },  // Resolving Prosecutor
-        { wch: 15 },  // Criminal Case No
-        { wch: 12 },  // Branch
-        { wch: 15 },  // Date Filed in Court
-        { wch: 20 },  // Final Offense
-        { wch: 15 },  // Remarks Decision
-        { wch: 12 },  // Penalty
-        { wch: 12 },  // Decision Date
-        { wch: 50 },  // Index Cards
+        { wch: 18 },  // Docket No
+        { wch: 18 },  // Date Filed
+        { wch: 32 },  // Complainant
+        { wch: 36 },  // Respondent
+        { wch: 36 },  // Address of Respondent
+        { wch: 36 },  // Offense
+        { wch: 20 },  // Date of Commission
+        { wch: 20 },  // Date Resolved
+        { wch: 28 },  // Resolving Prosecutor
+        { wch: 24 },  // MR DATE FILED(mm/dd/yyyy)
+        { wch: 28 },  // MR DATE RESOLVED (mm/dd/yyyy)
+        { wch: 18 },  // MR STATUS
+        { wch: 18 },  // Criminal Case No
+        { wch: 20 },  // Branch
+        { wch: 20 },  // Date Filed in Court
+        { wch: 30 },  // Final Offense
+        { wch: 22 },  // Remarks Decision
+        { wch: 18 },  // Penalty
+        { wch: 20 },  // Decision Date
+        { wch: 42 },  // Index Cards
       ];
+
+      // Make header row sticky and enable filtering for easier navigation in Excel.
+      worksheet['!autofilter'] = { ref: 'A1:T1' };
+      worksheet['!freeze'] = { xSplit: 0, ySplit: 1 };
       
       XLSX.utils.book_append_sheet(workbook, worksheet, "Cases");
       
@@ -269,7 +320,7 @@ app.use(ipWhitelist({
 // Security middleware - apply before parsing
 app.use(sanitizeInput({ strict: true }));
 app.use(apiLimiter);
-app.use(['/delete-case', '/delete-all-cases', '/permanent-delete-case', '/restore-case', '/configure-auto-delete'], sensitiveOpLimiter);
+app.use(['/delete-case', '/permanent-delete-case', '/restore-case', '/configure-auto-delete'], sensitiveOpLimiter);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -414,6 +465,77 @@ function handleDisconnect() {
 
   // Add new columns to cases table if they don't exist
   const addNewColumns = () => {
+    const migrateCaseColumnToMediumText = (columnName, options = {}) => {
+      const { notNull = false, defaultValue = null } = options;
+
+      if (!/^[A-Z_]+$/.test(columnName)) {
+        console.error(`Invalid column name for migration: ${columnName}`);
+        return;
+      }
+
+      db.query(`SHOW COLUMNS FROM cases LIKE '${columnName}'`, (showErr, showResults) => {
+        if (showErr || showResults.length === 0) return;
+
+        const currentType = String(showResults[0].Type || '').toLowerCase();
+        if (currentType.includes('mediumtext') || currentType.includes('longtext')) return;
+
+        const alterColumn = () => {
+          const nullSql = notNull ? 'NOT NULL' : 'NULL';
+          const defaultSql = defaultValue === null ? 'DEFAULT NULL' : `DEFAULT '${String(defaultValue).replace(/'/g, "''")}'`;
+          db.query(
+            `ALTER TABLE cases MODIFY COLUMN ${columnName} MEDIUMTEXT ${nullSql} ${defaultSql}`,
+            (alterErr) => {
+              if (alterErr) {
+                console.error(`Error migrating ${columnName} to MEDIUMTEXT:`, alterErr);
+              } else {
+                console.log(`✅ Migrated ${columnName} column to MEDIUMTEXT.`);
+              }
+            }
+          );
+        };
+
+        // If there are indexes on the column, drop them first to avoid MySQL text-index key length errors.
+        db.query(
+          'SHOW INDEX FROM cases WHERE Column_name = ?',
+          [columnName],
+          (indexErr, indexResults) => {
+            if (indexErr) {
+              console.error(`Error checking indexes for ${columnName}:`, indexErr);
+              return;
+            }
+
+            const indexesToDrop = (indexResults || [])
+              .map((row) => row.Key_name)
+              .filter((keyName) => keyName && keyName !== 'PRIMARY' && !String(keyName).toLowerCase().includes('docket'));
+
+            if (indexesToDrop.length === 0) {
+              alterColumn();
+              return;
+            }
+
+            const uniqueIndexNames = Array.from(new Set(indexesToDrop));
+            let droppedCount = 0;
+
+            uniqueIndexNames.forEach((indexName) => {
+              const safeIndexName = String(indexName).replace(/`/g, '');
+              db.query(`ALTER TABLE cases DROP INDEX \`${safeIndexName}\``, (dropErr) => {
+                if (dropErr) {
+                  console.error(`Error dropping index ${indexName} before migrating ${columnName}:`, dropErr);
+                } else {
+                  console.log(`ℹ️ Dropped index ${indexName} before migrating ${columnName}.`);
+                }
+
+                droppedCount++;
+                if (droppedCount === uniqueIndexNames.length) {
+                  alterColumn();
+                }
+              });
+            });
+          }
+        );
+      });
+    };
+
     // Add ADDRESS_OF_RESPONDENT column
     db.query("SHOW COLUMNS FROM cases LIKE 'ADDRESS_OF_RESPONDENT'", (err, results) => {
       if (!err && results.length === 0) {
@@ -423,6 +545,17 @@ function handleDisconnect() {
         });
       }
     });
+
+    // Array-backed fields used by Excel imports can exceed VARCHAR(255).
+    // Migrate them to MEDIUMTEXT for reliable large imports.
+    migrateCaseColumnToMediumText('COMPLAINANT', { notNull: true, defaultValue: '' });
+    migrateCaseColumnToMediumText('RESPONDENT', { notNull: true, defaultValue: '' });
+    migrateCaseColumnToMediumText('ADDRESS_OF_RESPONDENT', { notNull: false, defaultValue: '' });
+    migrateCaseColumnToMediumText('CRIM_CASE_NO', { notNull: false, defaultValue: null });
+    migrateCaseColumnToMediumText('BRANCH', { notNull: false, defaultValue: null });
+    migrateCaseColumnToMediumText('DATEFILED_IN_COURT', { notNull: false, defaultValue: null });
+    migrateCaseColumnToMediumText('FINAL_OFFENSE', { notNull: false, defaultValue: null });
+    migrateCaseColumnToMediumText('REMARKS_DECISION', { notNull: false, defaultValue: null });
 
     // Add DATE_OF_COMMISSION column
     db.query("SHOW COLUMNS FROM cases LIKE 'DATE_OF_COMMISSION'", (err, results) => {
@@ -930,13 +1063,6 @@ app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req
       return res.status(403).json(ApiResponse.error("Your account has been deactivated. Please contact the administrator.", 403));
     }
 
-    // Enforce single active session per account.
-    // If account is already online, block another login from a second device/browser.
-    if (user.is_online === 1) {
-      console.log(`⛔ Login blocked: User ${email} is already signed in on another session`);
-      return res.status(409).json(ApiResponse.error("This account is already active on another device. Please log out from the first session before signing in again.", 409));
-    }
-    
     // Compare passwords
     const isValidPassword = await bcrypt.compare(password, user.password);
     
@@ -945,8 +1071,15 @@ app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req
       securityLogger.loginFailed(user.id, user.email, req.ip);
       return res.status(401).json(ApiResponse.error("Invalid credentials", 401));
     }
+
+    // If an old session was left marked online (browser crash, network drop, missed logout),
+    // treat this successful login as a session takeover and continue.
+    const hadActiveSession = user.is_online === 1;
+    if (hadActiveSession) {
+      console.log(`♻️ Replacing previous active session for ${email}`);
+    }
     
-    console.log(`✅ Login successful: ${email} (is_active = ${user.is_active}, is_online -> 1)`);
+    console.log(`✅ Login successful: ${email} (is_active = ${user.is_active}, is_online -> 1, replaced_session = ${hadActiveSession})`);
     
     // Log successful login
     securityLogger.loginSuccess(user.id, user.email, req.ip);
@@ -971,7 +1104,7 @@ app.post("/api/auth/login", loginLimiter, validateRequest(UserLoginSchema), (req
       { expiresIn: '8h' }
     );
     
-    res.json(ApiResponse.success("Login successful", { ...userData, token }));
+    res.json(ApiResponse.success("Login successful", { ...userData, token, replacedSession: hadActiveSession }));
   });
 });
 
@@ -1363,6 +1496,13 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
 
       const sql = `INSERT INTO cases (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT, OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, FINAL_OFFENSE, REMARKS_DECISION, PENALTY, DECISION_DATE, STATUS, INDEX_CARDS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
+      // Keep STATUS compatible with DB enum values only.
+      // "Filed in Court" is tracked via REMARKS_DECISION and court fields.
+      const allowedStatusValues = new Set(['Pending', 'Dismissed', 'Convicted', 'Archived', 'Filed in Court']);
+      const normalizedStatus = allowedStatusValues.has(validatedData.STATUS)
+        ? validatedData.STATUS
+        : null;
+
       db.query(sql, [
       validatedData.DOCKET_NO, 
       validatedData.DATE_FILED, 
@@ -1380,7 +1520,7 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
       normalizedDecision, 
       validatedData.PENALTY || null, 
       validatedData.DECISION_DATE || null,
-      validatedData.STATUS || null,
+      normalizedStatus,
       INDEX_CARDS
     ], (err, result) => {
       if (err) {
@@ -1558,7 +1698,7 @@ app.post("/update-case", async (req, res) => {
     // Whitelist of allowed fields to prevent SQL injection
     const ALLOWED_FIELDS = [
       'DOCKET_NO', 'DATE_FILED', 'COMPLAINANT', 'RESPONDENT', 'ADDRESS_OF_RESPONDENT',
-      'OFFENSE', 'FINAL_OFFENSE', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'status',
+      'OFFENSE', 'FINAL_OFFENSE', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'STATUS', 'status',
       'RESOLVING_PROSECUTOR', 'CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT',
       'REMARKS_DECISION', 'PENALTY', 'DECISION_DATE', 'INDEX_CARDS',
       'MR_FILED_BY', 'DATE_MR_FILING', 'DATE_MR_RESOLVED', 'MR_FINDING'
@@ -1647,7 +1787,7 @@ app.post("/update-case-with-image", indexCardUpload.single('indexCardImage'), (r
   // Whitelist of allowed fields
   const ALLOWED_FIELDS = [
     'DOCKET_NO', 'DATE_FILED', 'COMPLAINANT', 'RESPONDENT', 'ADDRESS_OF_RESPONDENT',
-    'OFFENSE', 'FINAL_OFFENSE', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'status',
+    'OFFENSE', 'FINAL_OFFENSE', 'DATE_OF_COMMISSION', 'DATE_RESOLVED', 'STATUS', 'status',
     'RESOLVING_PROSECUTOR', 'CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT',
     'REMARKS_DECISION', 'PENALTY', 'DECISION_DATE', 'INDEX_CARDS',
     'MR_FILED_BY', 'DATE_MR_FILING', 'DATE_MR_RESOLVED', 'MR_FINDING'
@@ -1794,6 +1934,16 @@ const dbQuery = (query, params = []) => new Promise((resolve, reject) => {
 });
 
 const normalizeCaseText = (value) => String(value ?? '').trim().toLowerCase();
+
+const moveAllCasesControl = {
+  isRunning: false,
+  cancelRequested: false,
+  totalCases: 0,
+  movedCases: 0,
+  movedRespondents: 0,
+  startedAt: null,
+  updatedAt: null,
+};
 
 const findCaseValueIndex = (values, respondent, fallbackIndex = 0) => {
   const normalizedRespondent = normalizeCaseText(respondent);
@@ -2051,11 +2201,60 @@ app.delete("/delete-case", (req, res) => {
 });
 
 // Bulk move all active cases to terminated_cases
+app.get('/delete-all-cases/status', (req, res) => {
+  return res.json({
+    isRunning: moveAllCasesControl.isRunning,
+    cancelRequested: moveAllCasesControl.cancelRequested,
+    totalCases: moveAllCasesControl.totalCases,
+    movedCases: moveAllCasesControl.movedCases,
+    movedRespondents: moveAllCasesControl.movedRespondents,
+    startedAt: moveAllCasesControl.startedAt,
+    updatedAt: moveAllCasesControl.updatedAt,
+  });
+});
+
+app.post('/delete-all-cases/cancel', (req, res) => {
+  if (!moveAllCasesControl.isRunning) {
+    return res.json({
+      cancelled: false,
+      message: 'No active Move All process to stop.',
+    });
+  }
+
+  moveAllCasesControl.cancelRequested = true;
+  moveAllCasesControl.updatedAt = new Date().toISOString();
+
+  return res.json({
+    cancelled: true,
+    message: 'Stop requested. The Move All process will pause after the current case finishes.',
+  });
+});
+
 app.post('/delete-all-cases', async (req, res) => {
+  if (moveAllCasesControl.isRunning) {
+    return res.status(409).json({
+      message: 'Move All is already in progress.',
+      inProgress: true,
+      movedCases: moveAllCasesControl.movedCases,
+      totalCases: moveAllCasesControl.totalCases,
+    });
+  }
+
+  moveAllCasesControl.isRunning = true;
+  moveAllCasesControl.cancelRequested = false;
+  moveAllCasesControl.totalCases = 0;
+  moveAllCasesControl.movedCases = 0;
+  moveAllCasesControl.movedRespondents = 0;
+  moveAllCasesControl.startedAt = new Date().toISOString();
+  moveAllCasesControl.updatedAt = moveAllCasesControl.startedAt;
+
   try {
     const allCases = await dbQuery('SELECT * FROM cases');
+    moveAllCasesControl.totalCases = allCases.length;
+    moveAllCasesControl.updatedAt = new Date().toISOString();
 
     if (allCases.length === 0) {
+      moveAllCasesControl.isRunning = false;
       return res.json({
         message: 'No active cases to move.',
         movedCases: 0,
@@ -2066,7 +2265,14 @@ app.post('/delete-all-cases', async (req, res) => {
     let movedCases = 0;
     let movedRespondents = 0;
 
+    let cancelled = false;
+
     for (const caseData of allCases) {
+      if (moveAllCasesControl.cancelRequested) {
+        cancelled = true;
+        break;
+      }
+
       const normalizedDocket = String(caseData.DOCKET_NO || '').trim().toLowerCase();
       if (!normalizedDocket) {
         continue;
@@ -2192,6 +2398,9 @@ app.post('/delete-all-cases', async (req, res) => {
 
       movedCases += 1;
       movedRespondents += Math.max(respondents.length, 1);
+      moveAllCasesControl.movedCases = movedCases;
+      moveAllCasesControl.movedRespondents = movedRespondents;
+      moveAllCasesControl.updatedAt = new Date().toISOString();
       emitRealtimeEvent('case_deleted', { docketNo: caseData.DOCKET_NO, bulkMove: true });
     }
 
@@ -2203,12 +2412,30 @@ app.post('/delete-all-cases', async (req, res) => {
         console.error('Error syncing Excel file:', excelErr);
       });
 
+    moveAllCasesControl.isRunning = false;
+    moveAllCasesControl.cancelRequested = false;
+    moveAllCasesControl.updatedAt = new Date().toISOString();
+
+    if (cancelled) {
+      return res.json({
+        message: 'Move All paused by user request.',
+        cancelled: true,
+        movedCases,
+        movedRespondents,
+        remainingCases: Math.max(allCases.length - movedCases, 0),
+      });
+    }
+
     return res.json({
       message: 'All active cases were moved to terminated cases successfully.',
+      cancelled: false,
       movedCases,
       movedRespondents,
     });
   } catch (err) {
+    moveAllCasesControl.isRunning = false;
+    moveAllCasesControl.cancelRequested = false;
+    moveAllCasesControl.updatedAt = new Date().toISOString();
     console.error('Error moving all cases:', err);
     return res.status(500).json({
       message: 'Error moving all cases to terminated cases.',
@@ -2710,7 +2937,34 @@ if (process.env.NODE_ENV === 'production' && !process.env.DOCKER_ENV) {
   
   // Catch all handler: send back React's index.html file for all non-API routes
   // Express 5 uses '{*path}' instead of '*' for wildcard routes
-  app.get('/{*path}', (req, res) => {
+  app.get('/{*path}', (req, res, next) => {
+    // Do not swallow backend/API routes; let explicit route handlers process them.
+    if (
+      req.path.startsWith('/api/') ||
+      req.path.startsWith('/socket.io/') ||
+      req.path.startsWith('/uploads/') ||
+      req.path.startsWith('/download/') ||
+      req.path === '/download-excel' ||
+      req.path === '/sync-excel' ||
+      req.path === '/excel-info' ||
+      req.path === '/cases' ||
+      req.path === '/add-case' ||
+      req.path === '/get-case' ||
+      req.path === '/update-case' ||
+      req.path === '/update-case-with-image' ||
+      req.path === '/delete-case' ||
+      req.path === '/delete-all-cases' ||
+      req.path === '/deleted-cases' ||
+      req.path === '/restore-case' ||
+      req.path === '/permanent-delete-case' ||
+      req.path === '/permanent-delete-all-cases' ||
+      req.path === '/configure-auto-delete' ||
+      req.path === '/bulk-update-cases' ||
+      req.path === '/cases-csv'
+    ) {
+      return next();
+    }
+
     res.sendFile(path.join(__dirname, 'build/index.html'));
   });
 } else {
@@ -3758,8 +4012,13 @@ app.post("/bulk-update-cases", express.json(), (req, res) => {
       
       const docketNo = mappedData.DOCKET_NO;
       
+      const normalizedDocketNo = String(docketNo).trim().toLowerCase();
+
       // First, check if a case with this DOCKET_NO already exists (and is not deleted)
-      db.query('SELECT id FROM cases WHERE DOCKET_NO = ?', [docketNo], (err, existingRows) => {
+      db.query(
+        'SELECT id FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))',
+        [normalizedDocketNo],
+        (err, existingRows) => {
         if (err) {
           console.error(`Error checking existing case:`, err);
           errors.push(`Row ${index + 1}: Database error`);
@@ -3806,6 +4065,31 @@ app.post("/bulk-update-cases", express.json(), (req, res) => {
           
           db.query(insertQuery, values, (err, result) => {
             if (err) {
+              if (err.code === 'ER_DUP_ENTRY') {
+                const duplicateUpdateFields = Object.keys(mappedData);
+                const duplicateUpdateValues = duplicateUpdateFields.map((col) => mappedData[col]);
+
+                if (duplicateUpdateFields.length === 0) {
+                  updatedCount++;
+                  return resolve();
+                }
+
+                const duplicateUpdateQuery = `UPDATE cases SET ${duplicateUpdateFields.map((col) => `${col} = ?`).join(', ')} WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))`;
+                duplicateUpdateValues.push(normalizedDocketNo);
+
+                db.query(duplicateUpdateQuery, duplicateUpdateValues, (updateErr) => {
+                  if (updateErr) {
+                    console.error(`Error updating duplicate case (Docket: ${docketNo}):`, updateErr);
+                    errors.push(`Row ${index + 1} (Docket ${docketNo}): ${updateErr.message}`);
+                    errorCount++;
+                  } else {
+                    updatedCount++;
+                  }
+                  resolve();
+                });
+                return;
+              }
+
               console.error(`Error inserting new case:`, err);
               errors.push(`Row ${index + 1}: ${err.message}`);
               errorCount++;
@@ -3939,7 +4223,7 @@ app.get("/api/excel/download", async (req, res) => {
 // Upload Excel file to import/update cases
 const excelUpload = multer({
   dest: path.join(__dirname, 'uploads', 'temp'),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit for very large Excel imports
   fileFilter: (req, file, cb) => {
     const allowedTypes = /xlsx|xls/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -3958,11 +4242,17 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
   try {
     // Read the uploaded Excel file
     const workbook = XLSX.readFile(req.file.path);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    
-    // Convert to JSON
-    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    // Read every worksheet so multi-sheet Excel files are fully imported.
+    const data = workbook.SheetNames.flatMap((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
+      if (!worksheet) return [];
+
+      return XLSX.utils.sheet_to_json(worksheet, {
+        defval: '',
+        blankrows: false,
+      });
+    });
     
     if (data.length === 0) {
       fs.unlinkSync(req.file.path); // Clean up
@@ -4004,13 +4294,42 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       return null;
     };
 
+    const normalizeHeaderKey = (value) =>
+      String(value || '')
+        .toLowerCase()
+        .replace(/\u00A0/g, ' ')
+        .replace(/[^a-z0-9]/g, '');
+
+    const replaceExisting = String(req.query?.replace ?? 'false').toLowerCase() === 'true';
+
     // Helper function to find column value with flexible matching
-    const getColumnValue = (row, possibleNames) => {
-      for (let name of possibleNames) {
+    const getColumnValue = (row, possibleNames, options = {}) => {
+      const { fallbackFirstColumn = false } = options;
+
+      // 1) Exact key lookup
+      for (const name of possibleNames) {
         if (row[name] !== undefined && row[name] !== null && row[name] !== '') {
           return row[name];
         }
       }
+
+      // 2) Normalized key lookup (handles trailing spaces, punctuation differences, etc.)
+      const normalizedTargetNames = new Set(possibleNames.map((name) => normalizeHeaderKey(name)));
+      for (const [key, value] of Object.entries(row)) {
+        if (value === undefined || value === null || value === '') continue;
+        if (normalizedTargetNames.has(normalizeHeaderKey(key))) {
+          return value;
+        }
+      }
+
+      // 3) Optional fallback: first non-empty column value in row
+      if (fallbackFirstColumn) {
+        const firstNonEmpty = Object.values(row).find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+        if (firstNonEmpty !== undefined) {
+          return firstNonEmpty;
+        }
+      }
+
       return null;
     };
 
@@ -4046,8 +4365,39 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       return split.length > 0 ? split : [raw];
     };
 
+    const parseDocketNumbers = (value) => {
+      if (value === null || value === undefined) return [];
+      const raw = String(value).replace(/\r/g, '\n').trim();
+      if (!raw) return [];
+
+      const cleaned = raw
+        .replace(/[\t]+/g, ' ')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return cleaned ? [cleaned] : [];
+    };
+
     const normalizeText = (value) => (value || '').toString().trim();
     const normalizeCaseInsensitive = (value) => normalizeText(value).toLowerCase();
+    const normalizeDateValue = (value) => {
+      if (value === null || value === undefined || value === '') return '';
+      const converted = excelDateToMySQLDate(value);
+      if (converted) return converted;
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        return value.toISOString().split('T')[0];
+      }
+      return normalizeText(value);
+    };
+    const serializeArrayField = (arr) => JSON.stringify((arr || []).map((item) => normalizeText(item)));
+    const normalizeDbStatus = (value) => {
+      const normalized = normalizeCaseInsensitive(value);
+      if (normalized === 'pending') return 'Pending';
+      if (normalized === 'dismissed') return 'Dismissed';
+      if (normalized === 'convicted') return 'Convicted';
+      return null;
+    };
     const respondentKey = (name, address, index = 0) => {
       const normalizedName = normalizeCaseInsensitive(name);
       if (normalizedName) return normalizedName;
@@ -4065,6 +4415,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       crimNos,
       branches,
       courtDates,
+      mrDateFilings,
+      mrDateResolveds,
+      mrStatuses,
       finalOffenses
     }) => {
       const nextRespondents = [];
@@ -4073,6 +4426,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       const nextCrimNos = [];
       const nextBranches = [];
       const nextCourtDates = [];
+      const nextMrDateFilings = [];
+      const nextMrDateResolveds = [];
+      const nextMrStatuses = [];
       const nextFinalOffenses = [];
       const keyToIndex = new Map();
 
@@ -4086,6 +4442,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           nextCrimNos.push(crimNos[idx] || '');
           nextBranches.push(branches[idx] || '');
           nextCourtDates.push(courtDates[idx] || '');
+          nextMrDateFilings.push(mrDateFilings[idx] || '');
+          nextMrDateResolveds.push(mrDateResolveds[idx] || '');
+          nextMrStatuses.push(mrStatuses[idx] || '');
           nextFinalOffenses.push(finalOffenses[idx] || '');
           continue;
         }
@@ -4097,6 +4456,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         if (normalizeText(crimNos[idx])) nextCrimNos[targetIndex] = crimNos[idx];
         if (normalizeText(branches[idx])) nextBranches[targetIndex] = branches[idx];
         if (normalizeText(courtDates[idx])) nextCourtDates[targetIndex] = courtDates[idx];
+        if (normalizeText(mrDateFilings[idx])) nextMrDateFilings[targetIndex] = mrDateFilings[idx];
+        if (normalizeText(mrDateResolveds[idx])) nextMrDateResolveds[targetIndex] = mrDateResolveds[idx];
+        if (normalizeText(mrStatuses[idx])) nextMrStatuses[targetIndex] = mrStatuses[idx];
         if (normalizeText(finalOffenses[idx])) nextFinalOffenses[targetIndex] = finalOffenses[idx];
       }
 
@@ -4107,6 +4469,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         crimNos: nextCrimNos,
         branches: nextBranches,
         courtDates: nextCourtDates,
+        mrDateFilings: nextMrDateFilings,
+        mrDateResolveds: nextMrDateResolveds,
+        mrStatuses: nextMrStatuses,
         finalOffenses: nextFinalOffenses
       };
     };
@@ -4136,14 +4501,20 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
     // Build grouped payloads by docket number so multiple rows with the same docket
     // become one case containing per-respondent arrays.
     const groupedByDocket = new Map();
-    let lastSeenDocketNo = '';
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
 
       try {
+        const rawDocketValue = getColumnValue(
+          row,
+          ['Docket No', 'DOCKET_NO', 'Docket Number', 'DocketNo'],
+          { fallbackFirstColumn: false }
+        ) || '';
+        const docketNumbers = parseDocketNumbers(rawDocketValue);
+
         const rowData = {
-          DOCKET_NO: normalizeText(getColumnValue(row, ['Docket No', 'DOCKET_NO', 'Docket Number', 'DocketNo']) || ''),
+          DOCKET_NO: docketNumbers[0] || '',
           DATE_FILED: getDateColumnValue(row, ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled']),
           COMPLAINANT: getColumnValue(row, ['Complainant', 'COMPLAINANT', 'Complainants']) || '',
           RESPONDENT: getColumnValue(row, ['Respondent', 'RESPONDENT', 'Respondents']) || '',
@@ -4152,6 +4523,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           DATE_OF_COMMISSION: getDateColumnValue(row, ['Date of Commission', 'DATE_OF_COMMISSION', 'Commission Date']),
           DATE_RESOLVED: getDateColumnValue(row, ['Date Resolved', 'DATE_RESOLVED', 'Resolution Date']),
           RESOLVING_PROSECUTOR: getColumnValue(row, ['Resolving Prosecutor', 'RESOLVING_PROSECUTOR', 'Prosecutor']) || '',
+          DATE_MR_FILING: getDateColumnValue(row, ['MR DATE FILED(mm/dd/yyyy)', 'MR DATE FILED (mm/dd/yyyy)', 'MR Date Filed', 'DATE_MR_FILING']),
+          DATE_MR_RESOLVED: getDateColumnValue(row, ['MR DATE RESOLVED (mm/dd/yyyy)', 'MR Date Resolved', 'DATE_MR_RESOLVED']),
+          MR_FINDING: getColumnValue(row, ['MR STATUS', 'MR Status', 'MR Finding', 'MR_FINDING']) || '',
           CRIM_CASE_NO: getColumnValue(row, ['Criminal Case No', 'CRIM_CASE_NO', 'Case Number', 'Case No']) || '',
           BRANCH: getColumnValue(row, ['Branch', 'BRANCH']) || '',
           DATEFILED_IN_COURT: getDateColumnValue(row, ['Date Filed in Court', 'DATEFILED_IN_COURT', 'Court Filing Date']),
@@ -4162,23 +4536,44 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           INDEX_CARDS: getColumnValue(row, ['Index Cards', 'INDEX_CARDS', 'IndexCards']) || 'N/A'
         };
 
-        // Excel files often leave repeated docket cells blank for subsequent respondent rows.
-        if (!rowData.DOCKET_NO && lastSeenDocketNo) {
-          rowData.DOCKET_NO = lastSeenDocketNo;
-        }
-
         if (!rowData.DOCKET_NO) {
-          errors.push(`Row ${i + 2}: Missing Docket Number`);
+          errors.push(`Row ${i + 2}: Missing Docket Number. Each row must include a Docket No.`);
           continue;
         }
 
-        lastSeenDocketNo = rowData.DOCKET_NO;
+        const respondents = parseArrayField(rowData.RESPONDENT);
+        const addresses = parseArrayField(rowData.ADDRESS_OF_RESPONDENT);
+        const recs = parseArrayField(rowData.REMARKS_DECISION);
+        const crimNos = parseArrayField(rowData.CRIM_CASE_NO);
+        const branches = parseArrayField(rowData.BRANCH);
+        const courtDates = parseArrayField(rowData.DATEFILED_IN_COURT);
+        const mrDateFilings = parseArrayField(rowData.DATE_MR_FILING);
+        const mrDateResolveds = parseArrayField(rowData.DATE_MR_RESOLVED);
+        const mrStatuses = parseArrayField(rowData.MR_FINDING);
+        const finalOffenses = parseArrayField(rowData.FINAL_OFFENSE);
 
-        if (!groupedByDocket.has(rowData.DOCKET_NO)) {
-          groupedByDocket.set(rowData.DOCKET_NO, {
-            DOCKET_NO: rowData.DOCKET_NO,
+        const respondentCount = Math.max(
+          respondents.length,
+          addresses.length,
+          recs.length,
+          crimNos.length,
+          branches.length,
+          courtDates.length,
+          mrDateFilings.length,
+          mrDateResolveds.length,
+          mrStatuses.length,
+          finalOffenses.length,
+          1
+        );
+
+        const docketNo = rowData.DOCKET_NO;
+        const docketKey = normalizeCaseInsensitive(docketNo);
+
+        if (!groupedByDocket.has(docketKey)) {
+          groupedByDocket.set(docketKey, {
+            DOCKET_NO: docketNo,
             DATE_FILED: rowData.DATE_FILED || null,
-            COMPLAINANT: [],
+            COMPLAINANT: parseArrayField(rowData.COMPLAINANT),
             OFFENSE: normalizeText(rowData.OFFENSE),
             DATE_OF_COMMISSION: rowData.DATE_OF_COMMISSION,
             DATE_RESOLVED: rowData.DATE_RESOLVED,
@@ -4190,32 +4585,22 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           });
         }
 
-        const bucket = groupedByDocket.get(rowData.DOCKET_NO);
+        const bucket = groupedByDocket.get(docketKey);
+        if (rowData.DATE_FILED && !bucket.DATE_FILED) bucket.DATE_FILED = rowData.DATE_FILED;
+        if (rowData.DATE_OF_COMMISSION && !bucket.DATE_OF_COMMISSION) bucket.DATE_OF_COMMISSION = rowData.DATE_OF_COMMISSION;
+        if (rowData.DATE_RESOLVED && !bucket.DATE_RESOLVED) bucket.DATE_RESOLVED = rowData.DATE_RESOLVED;
+        if (rowData.DECISION_DATE && !bucket.DECISION_DATE) bucket.DECISION_DATE = rowData.DECISION_DATE;
+        if (normalizeText(rowData.OFFENSE) && !normalizeText(bucket.OFFENSE)) bucket.OFFENSE = normalizeText(rowData.OFFENSE);
+        if (normalizeText(rowData.RESOLVING_PROSECUTOR) && !normalizeText(bucket.RESOLVING_PROSECUTOR)) bucket.RESOLVING_PROSECUTOR = normalizeText(rowData.RESOLVING_PROSECUTOR);
+        if (normalizeText(rowData.PENALTY) && !normalizeText(bucket.PENALTY)) bucket.PENALTY = normalizeText(rowData.PENALTY);
+        if (normalizeText(rowData.INDEX_CARDS) && (!bucket.INDEX_CARDS || bucket.INDEX_CARDS === 'N/A')) bucket.INDEX_CARDS = normalizeText(rowData.INDEX_CARDS);
 
-        parseArrayField(rowData.COMPLAINANT).forEach((name) => {
-          if (!bucket.COMPLAINANT.some((c) => normalizeCaseInsensitive(c) === normalizeCaseInsensitive(name))) {
+        const rowComplainants = parseArrayField(rowData.COMPLAINANT);
+        rowComplainants.forEach((name) => {
+          if (!bucket.COMPLAINANT.some((existingName) => normalizeCaseInsensitive(existingName) === normalizeCaseInsensitive(name))) {
             bucket.COMPLAINANT.push(name);
           }
         });
-
-        if (rowData.DATE_FILED) bucket.DATE_FILED = rowData.DATE_FILED;
-        if (normalizeText(rowData.OFFENSE)) bucket.OFFENSE = normalizeText(rowData.OFFENSE);
-        if (rowData.DATE_OF_COMMISSION) bucket.DATE_OF_COMMISSION = rowData.DATE_OF_COMMISSION;
-        if (rowData.DATE_RESOLVED) bucket.DATE_RESOLVED = rowData.DATE_RESOLVED;
-        if (normalizeText(rowData.RESOLVING_PROSECUTOR)) bucket.RESOLVING_PROSECUTOR = normalizeText(rowData.RESOLVING_PROSECUTOR);
-        if (normalizeText(rowData.PENALTY)) bucket.PENALTY = normalizeText(rowData.PENALTY);
-        if (rowData.DECISION_DATE) bucket.DECISION_DATE = rowData.DECISION_DATE;
-        if (normalizeText(rowData.INDEX_CARDS)) bucket.INDEX_CARDS = normalizeText(rowData.INDEX_CARDS);
-
-        const respondents = parseArrayField(rowData.RESPONDENT);
-        const addresses = parseArrayField(rowData.ADDRESS_OF_RESPONDENT);
-        const recs = parseArrayField(rowData.REMARKS_DECISION);
-        const crimNos = parseArrayField(rowData.CRIM_CASE_NO);
-        const branches = parseArrayField(rowData.BRANCH);
-        const courtDates = parseArrayField(rowData.DATEFILED_IN_COURT);
-        const finalOffenses = parseArrayField(rowData.FINAL_OFFENSE);
-
-        const respondentCount = Math.max(respondents.length, addresses.length, recs.length, crimNos.length, branches.length, courtDates.length, finalOffenses.length, 1);
 
         for (let idx = 0; idx < respondentCount; idx++) {
           const respondentName = normalizeText(respondents[idx] || respondents[0] || rowData.RESPONDENT || '');
@@ -4228,30 +4613,57 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             crimCaseNo: normalizeText(crimNos[idx] || crimNos[0] || rowData.CRIM_CASE_NO || ''),
             branch: normalizeText(branches[idx] || branches[0] || rowData.BRANCH || ''),
             dateFiledInCourt: normalizeText(courtDates[idx] || courtDates[0] || rowData.DATEFILED_IN_COURT || ''),
+            mrDateFiling: normalizeText(mrDateFilings[idx] || mrDateFilings[0] || rowData.DATE_MR_FILING || ''),
+            mrDateResolved: normalizeText(mrDateResolveds[idx] || mrDateResolveds[0] || rowData.DATE_MR_RESOLVED || ''),
+            mrStatus: normalizeText(mrStatuses[idx] || mrStatuses[0] || rowData.MR_FINDING || ''),
             finalOffense: normalizeText(finalOffenses[idx] || finalOffenses[0] || rowData.FINAL_OFFENSE || '')
           });
         }
 
-        console.log(`Row ${i + 2} prepared for docket ${rowData.DOCKET_NO}`);
+        console.log(`Row ${i + 2} prepared for docket ${docketNo}`);
       } catch (rowError) {
         console.error(`Row ${i + 2} error:`, rowError.message);
         errors.push(`Row ${i + 2}: ${rowError.message}`);
       }
     }
 
-    for (const docketPayload of groupedByDocket.values()) {
-      const checkQuery = "SELECT * FROM cases WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))";
+    const normalizedDockets = Array.from(groupedByDocket.values())
+      .map((payload) => normalizeCaseInsensitive(payload.DOCKET_NO))
+      .filter(Boolean);
 
-      const existingRows = await new Promise((resolve, reject) => {
-        db.query(checkQuery, [docketPayload.DOCKET_NO], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
+    let existingByDocket = new Map();
+    if (replaceExisting) {
+      await new Promise((resolve, reject) => {
+        db.query('DELETE FROM cases', (deleteErr) => {
+          if (deleteErr) reject(deleteErr);
+          else resolve();
         });
       });
+    } else if (normalizedDockets.length > 0) {
+      const placeholders = normalizedDockets.map(() => '?').join(', ');
+      const existingRows = await new Promise((resolve, reject) => {
+        db.query(
+          `SELECT * FROM cases WHERE TRIM(LOWER(DOCKET_NO)) IN (${placeholders})`,
+          normalizedDockets,
+          (selectErr, selectResults) => {
+            if (selectErr) reject(selectErr);
+            else resolve(selectResults || []);
+          }
+        );
+      });
 
-      if (!docketPayload.DATE_FILED && (!existingRows || existingRows.length === 0)) {
-        errors.push(`Docket ${docketPayload.DOCKET_NO}: Missing or invalid Date Filed`);
-        continue;
+      existingByDocket = new Map(
+        existingRows.map((row) => [normalizeCaseInsensitive(row.DOCKET_NO), row])
+      );
+    }
+
+    for (const docketPayload of groupedByDocket.values()) {
+      try {
+      const existingCase = existingByDocket.get(normalizeCaseInsensitive(docketPayload.DOCKET_NO)) || null;
+
+      if (!docketPayload.DATE_FILED) {
+        docketPayload.DATE_FILED = new Date().toISOString().split('T')[0];
+        warnings.push(`Docket ${docketPayload.DOCKET_NO}: Missing Date Filed; defaulted to today.`);
       }
 
       const importedRespondents = [];
@@ -4260,6 +4672,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       const importedCrimNos = [];
       const importedBranches = [];
       const importedCourtDates = [];
+      const importedMRDateFilings = [];
+      const importedMRDateResolveds = [];
+      const importedMRStatuses = [];
       const importedFinalOffenses = [];
 
       const importedKeyToIndex = new Map();
@@ -4273,6 +4688,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           importedCrimNos.push(entry.crimCaseNo || '');
           importedBranches.push(entry.branch || '');
           importedCourtDates.push(entry.dateFiledInCourt || '');
+          importedMRDateFilings.push(entry.mrDateFiling || '');
+          importedMRDateResolveds.push(entry.mrDateResolved || '');
+          importedMRStatuses.push(entry.mrStatus || '');
           importedFinalOffenses.push(entry.finalOffense || '');
         } else {
           const existingIndex = importedKeyToIndex.get(key);
@@ -4282,12 +4700,14 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           if (entry.crimCaseNo) importedCrimNos[existingIndex] = entry.crimCaseNo;
           if (entry.branch) importedBranches[existingIndex] = entry.branch;
           if (entry.dateFiledInCourt) importedCourtDates[existingIndex] = entry.dateFiledInCourt;
+          if (entry.mrDateFiling) importedMRDateFilings[existingIndex] = entry.mrDateFiling;
+          if (entry.mrDateResolved) importedMRDateResolveds[existingIndex] = entry.mrDateResolved;
+          if (entry.mrStatus) importedMRStatuses[existingIndex] = entry.mrStatus;
           if (entry.finalOffense) importedFinalOffenses[existingIndex] = entry.finalOffense;
         }
       });
 
-      if (existingRows.length > 0) {
-        const existingCase = existingRows[0];
+      if (existingCase) {
 
         const mergedComplainants = parseArrayField(existingCase.COMPLAINANT);
         docketPayload.COMPLAINANT.forEach((name) => {
@@ -4302,6 +4722,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         let mergedCrimNos = parseArrayField(existingCase.CRIM_CASE_NO);
         let mergedBranches = parseArrayField(existingCase.BRANCH);
         let mergedCourtDates = parseArrayField(existingCase.DATEFILED_IN_COURT);
+        let mergedMRDateFilings = parseArrayField(existingCase.DATE_MR_FILING);
+        let mergedMRDateResolveds = parseArrayField(existingCase.DATE_MR_RESOLVED);
+        let mergedMRStatuses = parseArrayField(existingCase.MR_FINDING);
         let mergedFinalOffenses = parseArrayField(existingCase.FINAL_OFFENSE);
 
         while (mergedAddresses.length < mergedRespondents.length) mergedAddresses.push('');
@@ -4309,6 +4732,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         while (mergedCrimNos.length < mergedRespondents.length) mergedCrimNos.push('');
         while (mergedBranches.length < mergedRespondents.length) mergedBranches.push('');
         while (mergedCourtDates.length < mergedRespondents.length) mergedCourtDates.push('');
+        while (mergedMRDateFilings.length < mergedRespondents.length) mergedMRDateFilings.push('');
+        while (mergedMRDateResolveds.length < mergedRespondents.length) mergedMRDateResolveds.push('');
+        while (mergedMRStatuses.length < mergedRespondents.length) mergedMRStatuses.push('');
         while (mergedFinalOffenses.length < mergedRespondents.length) mergedFinalOffenses.push('');
 
         const collapsed = collapseRespondentRows({
@@ -4318,6 +4744,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           crimNos: mergedCrimNos,
           branches: mergedBranches,
           courtDates: mergedCourtDates,
+          mrDateFilings: mergedMRDateFilings,
+          mrDateResolveds: mergedMRDateResolveds,
+          mrStatuses: mergedMRStatuses,
           finalOffenses: mergedFinalOffenses
         });
 
@@ -4327,6 +4756,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         mergedCrimNos = collapsed.crimNos;
         mergedBranches = collapsed.branches;
         mergedCourtDates = collapsed.courtDates;
+        mergedMRDateFilings = collapsed.mrDateFilings;
+        mergedMRDateResolveds = collapsed.mrDateResolveds;
+        mergedMRStatuses = collapsed.mrStatuses;
         mergedFinalOffenses = collapsed.finalOffenses;
 
         const mergedKeyToIndex = new Map();
@@ -4344,6 +4776,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             mergedCrimNos[target] = importedCrimNos[idx] || mergedCrimNos[target] || '';
             mergedBranches[target] = importedBranches[idx] || mergedBranches[target] || '';
             mergedCourtDates[target] = importedCourtDates[idx] || mergedCourtDates[target] || '';
+            mergedMRDateFilings[target] = importedMRDateFilings[idx] || mergedMRDateFilings[target] || '';
+            mergedMRDateResolveds[target] = importedMRDateResolveds[idx] || mergedMRDateResolveds[target] || '';
+            mergedMRStatuses[target] = importedMRStatuses[idx] || mergedMRStatuses[target] || '';
             mergedFinalOffenses[target] = importedFinalOffenses[idx] || mergedFinalOffenses[target] || '';
           } else {
             mergedKeyToIndex.set(key, mergedRespondents.length);
@@ -4353,40 +4788,92 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             mergedCrimNos.push(importedCrimNos[idx] || '');
             mergedBranches.push(importedBranches[idx] || '');
             mergedCourtDates.push(importedCourtDates[idx] || '');
+            mergedMRDateFilings.push(importedMRDateFilings[idx] || '');
+            mergedMRDateResolveds.push(importedMRDateResolveds[idx] || '');
+            mergedMRStatuses.push(importedMRStatuses[idx] || '');
             mergedFinalOffenses.push(importedFinalOffenses[idx] || '');
           }
         }
 
-        const computedStatus = mergedRecommendations.some((decision) => normalizeCaseInsensitive(decision) === 'filed in court')
-          ? 'Filed in Court'
-          : (existingCase.STATUS || null);
+        const computedStatus = normalizeDbStatus(existingCase.STATUS);
+
+        const nextDateFiled = docketPayload.DATE_FILED || existingCase.DATE_FILED;
+        const nextComplainants = serializeArrayField(mergedComplainants);
+        const nextRespondents = serializeArrayField(mergedRespondents);
+        const nextAddresses = serializeArrayField(mergedAddresses);
+        const nextOffense = docketPayload.OFFENSE || existingCase.OFFENSE || '';
+        const nextDateOfCommission = docketPayload.DATE_OF_COMMISSION || existingCase.DATE_OF_COMMISSION || null;
+        const nextDateResolved = docketPayload.DATE_RESOLVED || existingCase.DATE_RESOLVED || null;
+        const nextResolvingProsecutor = docketPayload.RESOLVING_PROSECUTOR || existingCase.RESOLVING_PROSECUTOR || '';
+        const nextMrDateFilings = serializeArrayField(mergedMRDateFilings);
+        const nextMrDateResolveds = serializeArrayField(mergedMRDateResolveds);
+        const nextMrStatuses = serializeArrayField(mergedMRStatuses);
+        const nextCrimNos = serializeArrayField(mergedCrimNos);
+        const nextBranches = serializeArrayField(mergedBranches);
+        const nextCourtDates = serializeArrayField(mergedCourtDates);
+        const nextFinalOffenses = serializeArrayField(mergedFinalOffenses);
+        const nextRecommendations = serializeArrayField(mergedRecommendations);
+        const nextPenalty = docketPayload.PENALTY || existingCase.PENALTY || '';
+        const nextDecisionDate = docketPayload.DECISION_DATE || existingCase.DECISION_DATE || null;
+        const nextIndexCards = docketPayload.INDEX_CARDS || existingCase.INDEX_CARDS || 'N/A';
+
+        const hasChanges = (
+          normalizeDateValue(nextDateFiled) !== normalizeDateValue(existingCase.DATE_FILED) ||
+          nextComplainants !== serializeArrayField(parseArrayField(existingCase.COMPLAINANT)) ||
+          nextRespondents !== serializeArrayField(parseArrayField(existingCase.RESPONDENT)) ||
+          nextAddresses !== serializeArrayField(parseArrayField(existingCase.ADDRESS_OF_RESPONDENT)) ||
+          normalizeText(nextOffense) !== normalizeText(existingCase.OFFENSE) ||
+          normalizeDateValue(nextDateOfCommission) !== normalizeDateValue(existingCase.DATE_OF_COMMISSION) ||
+          normalizeDateValue(nextDateResolved) !== normalizeDateValue(existingCase.DATE_RESOLVED) ||
+          normalizeText(nextResolvingProsecutor) !== normalizeText(existingCase.RESOLVING_PROSECUTOR) ||
+          nextMrDateFilings !== serializeArrayField(parseArrayField(existingCase.DATE_MR_FILING)) ||
+          nextMrDateResolveds !== serializeArrayField(parseArrayField(existingCase.DATE_MR_RESOLVED)) ||
+          nextMrStatuses !== serializeArrayField(parseArrayField(existingCase.MR_FINDING)) ||
+          nextCrimNos !== serializeArrayField(parseArrayField(existingCase.CRIM_CASE_NO)) ||
+          nextBranches !== serializeArrayField(parseArrayField(existingCase.BRANCH)) ||
+          nextCourtDates !== serializeArrayField(parseArrayField(existingCase.DATEFILED_IN_COURT)) ||
+          nextFinalOffenses !== serializeArrayField(parseArrayField(existingCase.FINAL_OFFENSE)) ||
+          nextRecommendations !== serializeArrayField(parseArrayField(existingCase.REMARKS_DECISION)) ||
+          normalizeText(nextPenalty) !== normalizeText(existingCase.PENALTY) ||
+          normalizeDateValue(nextDecisionDate) !== normalizeDateValue(existingCase.DECISION_DATE) ||
+          normalizeText(nextIndexCards) !== normalizeText(existingCase.INDEX_CARDS) ||
+          normalizeText(computedStatus) !== normalizeText(existingCase.STATUS)
+        );
+
+        if (!hasChanges) {
+          continue;
+        }
 
         const updateQuery = `UPDATE cases SET 
           DATE_FILED = ?, COMPLAINANT = ?, RESPONDENT = ?, 
           ADDRESS_OF_RESPONDENT = ?, OFFENSE = ?, DATE_OF_COMMISSION = ?,
           DATE_RESOLVED = ?, RESOLVING_PROSECUTOR = ?, 
+          DATE_MR_FILING = ?, DATE_MR_RESOLVED = ?, MR_FINDING = ?,
           CRIM_CASE_NO = ?, BRANCH = ?, DATEFILED_IN_COURT = ?, 
           FINAL_OFFENSE = ?, REMARKS_DECISION = ?, PENALTY = ?, DECISION_DATE = ?, INDEX_CARDS = ?, STATUS = ?
           WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))`;
 
         await new Promise((resolve, reject) => {
           db.query(updateQuery, [
-            docketPayload.DATE_FILED || existingCase.DATE_FILED,
-            JSON.stringify(mergedComplainants),
-            JSON.stringify(mergedRespondents),
-            JSON.stringify(mergedAddresses),
-            docketPayload.OFFENSE || existingCase.OFFENSE || '',
-            docketPayload.DATE_OF_COMMISSION || existingCase.DATE_OF_COMMISSION || null,
-            docketPayload.DATE_RESOLVED || existingCase.DATE_RESOLVED || null,
-            docketPayload.RESOLVING_PROSECUTOR || existingCase.RESOLVING_PROSECUTOR || '',
-            JSON.stringify(mergedCrimNos),
-            JSON.stringify(mergedBranches),
-            JSON.stringify(mergedCourtDates),
-            JSON.stringify(mergedFinalOffenses),
-            JSON.stringify(mergedRecommendations),
-            docketPayload.PENALTY || existingCase.PENALTY || '',
-            docketPayload.DECISION_DATE || existingCase.DECISION_DATE || null,
-            docketPayload.INDEX_CARDS || existingCase.INDEX_CARDS || 'N/A',
+            nextDateFiled,
+            nextComplainants,
+            nextRespondents,
+            nextAddresses,
+            nextOffense,
+            nextDateOfCommission,
+            nextDateResolved,
+            nextResolvingProsecutor,
+            nextMrDateFilings,
+            nextMrDateResolveds,
+            nextMrStatuses,
+            nextCrimNos,
+            nextBranches,
+            nextCourtDates,
+            nextFinalOffenses,
+            nextRecommendations,
+            nextPenalty,
+            nextDecisionDate,
+            nextIndexCards,
             computedStatus,
             docketPayload.DOCKET_NO
           ], (updateErr) => {
@@ -4395,21 +4882,44 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
           });
         });
 
+        existingByDocket.set(normalizeCaseInsensitive(docketPayload.DOCKET_NO), {
+          ...existingCase,
+          DATE_FILED: nextDateFiled,
+          COMPLAINANT: nextComplainants,
+          RESPONDENT: nextRespondents,
+          ADDRESS_OF_RESPONDENT: nextAddresses,
+          OFFENSE: nextOffense,
+          DATE_OF_COMMISSION: nextDateOfCommission,
+          DATE_RESOLVED: nextDateResolved,
+          RESOLVING_PROSECUTOR: nextResolvingProsecutor,
+          DATE_MR_FILING: nextMrDateFilings,
+          DATE_MR_RESOLVED: nextMrDateResolveds,
+          MR_FINDING: nextMrStatuses,
+          CRIM_CASE_NO: nextCrimNos,
+          BRANCH: nextBranches,
+          DATEFILED_IN_COURT: nextCourtDates,
+          FINAL_OFFENSE: nextFinalOffenses,
+          REMARKS_DECISION: nextRecommendations,
+          PENALTY: nextPenalty,
+          DECISION_DATE: nextDecisionDate,
+          INDEX_CARDS: nextIndexCards,
+          STATUS: computedStatus,
+        });
+
         updated++;
       } else {
         const insertedComplainants = docketPayload.COMPLAINANT;
-        const computedStatus = importedRecommendations.some((decision) => normalizeCaseInsensitive(decision) === 'filed in court')
-          ? 'Filed in Court'
-          : null;
+        const computedStatus = null;
 
         const insertQuery = `INSERT INTO cases 
           (DOCKET_NO, DATE_FILED, COMPLAINANT, RESPONDENT, ADDRESS_OF_RESPONDENT,
           OFFENSE, DATE_OF_COMMISSION, DATE_RESOLVED, RESOLVING_PROSECUTOR, 
+          DATE_MR_FILING, DATE_MR_RESOLVED, MR_FINDING,
           CRIM_CASE_NO, BRANCH, DATEFILED_IN_COURT, FINAL_OFFENSE, REMARKS_DECISION, PENALTY, DECISION_DATE, INDEX_CARDS, STATUS) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
         await new Promise((resolve, reject) => {
-          db.query(insertQuery, [
+          const insertValues = [
             docketPayload.DOCKET_NO,
             docketPayload.DATE_FILED,
             JSON.stringify(insertedComplainants),
@@ -4419,6 +4929,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             docketPayload.DATE_OF_COMMISSION || null,
             docketPayload.DATE_RESOLVED || null,
             docketPayload.RESOLVING_PROSECUTOR || '',
+            JSON.stringify(importedMRDateFilings),
+            JSON.stringify(importedMRDateResolveds),
+            JSON.stringify(importedMRStatuses),
             JSON.stringify(importedCrimNos),
             JSON.stringify(importedBranches),
             JSON.stringify(importedCourtDates),
@@ -4428,13 +4941,83 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
             docketPayload.DECISION_DATE || null,
             docketPayload.INDEX_CARDS || 'N/A',
             computedStatus
-          ], (insertErr) => {
+          ];
+
+          db.query(insertQuery, insertValues, (insertErr) => {
+            if (insertErr && insertErr.code === 'ER_DUP_ENTRY') {
+              const duplicateUpdateQuery = `UPDATE cases SET 
+                DATE_FILED = ?, COMPLAINANT = ?, RESPONDENT = ?, 
+                ADDRESS_OF_RESPONDENT = ?, OFFENSE = ?, DATE_OF_COMMISSION = ?,
+                DATE_RESOLVED = ?, RESOLVING_PROSECUTOR = ?, 
+                DATE_MR_FILING = ?, DATE_MR_RESOLVED = ?, MR_FINDING = ?,
+                CRIM_CASE_NO = ?, BRANCH = ?, DATEFILED_IN_COURT = ?, 
+                FINAL_OFFENSE = ?, REMARKS_DECISION = ?, PENALTY = ?, DECISION_DATE = ?, INDEX_CARDS = ?, STATUS = ?
+                WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))`;
+
+              db.query(duplicateUpdateQuery, [
+                docketPayload.DATE_FILED,
+                JSON.stringify(insertedComplainants),
+                JSON.stringify(importedRespondents),
+                JSON.stringify(importedAddresses),
+                docketPayload.OFFENSE || '',
+                docketPayload.DATE_OF_COMMISSION || null,
+                docketPayload.DATE_RESOLVED || null,
+                docketPayload.RESOLVING_PROSECUTOR || '',
+                JSON.stringify(importedMRDateFilings),
+                JSON.stringify(importedMRDateResolveds),
+                JSON.stringify(importedMRStatuses),
+                JSON.stringify(importedCrimNos),
+                JSON.stringify(importedBranches),
+                JSON.stringify(importedCourtDates),
+                JSON.stringify(importedFinalOffenses),
+                JSON.stringify(importedRecommendations),
+                docketPayload.PENALTY || '',
+                docketPayload.DECISION_DATE || null,
+                docketPayload.INDEX_CARDS || 'N/A',
+                computedStatus,
+                docketPayload.DOCKET_NO
+              ], (updateErr) => {
+                if (updateErr) reject(updateErr);
+                else resolve();
+              });
+              return;
+            }
+
             if (insertErr) reject(insertErr);
             else resolve();
           });
         });
 
+        existingByDocket.set(normalizeCaseInsensitive(docketPayload.DOCKET_NO), {
+          DOCKET_NO: docketPayload.DOCKET_NO,
+          DATE_FILED: docketPayload.DATE_FILED,
+          COMPLAINANT: JSON.stringify(insertedComplainants),
+          RESPONDENT: JSON.stringify(importedRespondents),
+          ADDRESS_OF_RESPONDENT: JSON.stringify(importedAddresses),
+          OFFENSE: docketPayload.OFFENSE || '',
+          DATE_OF_COMMISSION: docketPayload.DATE_OF_COMMISSION || null,
+          DATE_RESOLVED: docketPayload.DATE_RESOLVED || null,
+          RESOLVING_PROSECUTOR: docketPayload.RESOLVING_PROSECUTOR || '',
+          DATE_MR_FILING: JSON.stringify(importedMRDateFilings),
+          DATE_MR_RESOLVED: JSON.stringify(importedMRDateResolveds),
+          MR_FINDING: JSON.stringify(importedMRStatuses),
+          CRIM_CASE_NO: JSON.stringify(importedCrimNos),
+          BRANCH: JSON.stringify(importedBranches),
+          DATEFILED_IN_COURT: JSON.stringify(importedCourtDates),
+          FINAL_OFFENSE: JSON.stringify(importedFinalOffenses),
+          REMARKS_DECISION: JSON.stringify(importedRecommendations),
+          PENALTY: docketPayload.PENALTY || '',
+          DECISION_DATE: docketPayload.DECISION_DATE || null,
+          INDEX_CARDS: docketPayload.INDEX_CARDS || 'N/A',
+          STATUS: computedStatus,
+        });
+
         added++;
+      }
+      } catch (docketError) {
+        console.error(`Import error for docket ${docketPayload.DOCKET_NO}:`, docketError.message);
+        errors.push(`Docket ${docketPayload.DOCKET_NO}: ${docketError.message}`);
+        continue;
       }
     }
 
@@ -4446,7 +5029,11 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
 
     res.json({
       success: true,
-      message: `Import completed: ${added} added, ${updated} updated${warnings.length > 0 ? ' (with warnings)' : ''}`,
+      message: `Import completed: ${added} rows inserted, ${updated} updated from ${data.length} rows (${errors.length} skipped)${warnings.length > 0 ? ' (with warnings)' : ''}`,
+      mode: replaceExisting ? 'replace' : 'merge',
+      totalRows: data.length,
+      rowsInserted: added,
+      skippedRows: errors.length,
       added,
       updated,
       errors: errors.length > 0 ? errors : undefined,
