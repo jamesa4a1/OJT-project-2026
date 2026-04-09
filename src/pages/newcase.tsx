@@ -110,21 +110,6 @@ const Newcase: React.FC = () => {
     const updated = [...recommendations];
     updated[index] = value;
     setRecommendations(updated);
-
-    if (value.toLowerCase() !== 'filed in court') {
-      const cc = [...crimCaseNos];
-      const br = [...branches];
-      const df = [...datesFiledInCourt];
-      const fo = [...finalOffenses];
-      cc[index] = '';
-      br[index] = '';
-      df[index] = '';
-      fo[index] = '';
-      setCrimCaseNos(cc);
-      setBranches(br);
-      setDatesFiledInCourt(df);
-      setFinalOffenses(fo);
-    }
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -162,21 +147,16 @@ const Newcase: React.FC = () => {
         (i) => recommendations[i] || 'Pending'
       );
 
-      const perRespondentCrimCaseNos = activeRespondentIndexes.map((i) =>
-        (recommendations[i] || '').toLowerCase() === 'filed in court' ? (crimCaseNos[i] || '').trim() : ''
-      );
-      const perRespondentBranches = activeRespondentIndexes.map((i) =>
-        (recommendations[i] || '').toLowerCase() === 'filed in court' ? (branches[i] || '').trim() : ''
-      );
-      const perRespondentDatesFiledInCourt = activeRespondentIndexes.map((i) =>
-        (recommendations[i] || '').toLowerCase() === 'filed in court' ? (datesFiledInCourt[i] || '').trim() : ''
-      );
-      const perRespondentFinalOffenses = activeRespondentIndexes.map((i) =>
-        (recommendations[i] || '').toLowerCase() === 'filed in court' ? (finalOffenses[i] || '').trim() : ''
-      );
+      const perRespondentCrimCaseNos = activeRespondentIndexes.map((i) => (crimCaseNos[i] || '').trim());
+      const perRespondentBranches = activeRespondentIndexes.map((i) => (branches[i] || '').trim());
+      const perRespondentDatesFiledInCourt = activeRespondentIndexes.map((i) => (datesFiledInCourt[i] || '').trim());
+      const perRespondentFinalOffenses = activeRespondentIndexes.map((i) => (finalOffenses[i] || '').trim());
 
       const hasFiledInCourt = perRespondentRecommendations.some(
         (rec) => (rec || '').toLowerCase() === 'filed in court'
+      );
+      const hasArchived = perRespondentRecommendations.some(
+        (rec) => (rec || '').toLowerCase() === 'archived'
       );
 
       // Send data with UPPER_CASE field names that match server schema
@@ -198,7 +178,7 @@ const Newcase: React.FC = () => {
         REMARKS_DECISION: JSON.stringify(perRespondentRecommendations),
         PENALTY: formData.PENALTY || null,
         DECISION_DATE: formData.DECISION_DATE || null,
-        STATUS: hasFiledInCourt ? 'Filed in Court' : (formData.STATUS || null),
+        STATUS: hasFiledInCourt ? 'Filed in Court' : hasArchived ? 'Archived' : (formData.STATUS || null),
       };
 
       const formDataToSend = new FormData();
@@ -599,78 +579,78 @@ const Newcase: React.FC = () => {
                             >
                               <option value="Pending">Pending</option>
                               <option value="Dismissed">Dismissed</option>
+                              <option value="Provisional dismissal">Provisional dismissal</option>
                               <option value="Convicted">Convicted</option>
                               <option value="For Resolution">For Resolution</option>
+                              <option value="Archived">Archived</option>
                               <option value="Filed in Court">Filed in Court</option>
                             </select>
                           </div>
                         </div>
 
-                        {(recommendations[index] || '').toLowerCase() === 'filed in court' && (
-                          <div className="mt-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50/50">
-                            <div className="flex items-center gap-2 mb-2">
-                              <i className="fas fa-landmark text-blue-500"></i>
-                              <span className="text-xs font-semibold text-blue-700">Court Information</span>
+                        <div className="mt-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <i className="fas fa-landmark text-blue-500"></i>
+                            <span className="text-xs font-semibold text-blue-700">Court Information</span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className={labelClass}>Criminal Case No.</label>
+                              <input
+                                type="text"
+                                value={crimCaseNos[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...crimCaseNos];
+                                  updated[index] = e.target.value;
+                                  setCrimCaseNos(updated);
+                                }}
+                                className={inputClass}
+                                placeholder="Case number"
+                              />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              <div>
-                                <label className={labelClass}>Criminal Case No.</label>
-                                <input
-                                  type="text"
-                                  value={crimCaseNos[index] || ''}
-                                  onChange={(e) => {
-                                    const updated = [...crimCaseNos];
-                                    updated[index] = e.target.value;
-                                    setCrimCaseNos(updated);
-                                  }}
-                                  className={inputClass}
-                                  placeholder="Case number"
-                                />
-                              </div>
-                              <div>
-                                <label className={labelClass}>Branch</label>
-                                <input
-                                  type="text"
-                                  value={branches[index] || ''}
-                                  onChange={(e) => {
-                                    const updated = [...branches];
-                                    updated[index] = e.target.value;
-                                    setBranches(updated);
-                                  }}
-                                  className={inputClass}
-                                  placeholder="Court branch"
-                                />
-                              </div>
-                              <div>
-                                <label className={labelClass}>Date Filed in Court</label>
-                                <input
-                                  type="date"
-                                  value={datesFiledInCourt[index] || ''}
-                                  onChange={(e) => {
-                                    const updated = [...datesFiledInCourt];
-                                    updated[index] = e.target.value;
-                                    setDatesFiledInCourt(updated);
-                                  }}
-                                  className={inputClass}
-                                />
-                              </div>
-                              <div>
-                                <label className={labelClass}>Final Offense</label>
-                                <input
-                                  type="text"
-                                  value={finalOffenses[index] || ''}
-                                  onChange={(e) => {
-                                    const updated = [...finalOffenses];
-                                    updated[index] = e.target.value;
-                                    setFinalOffenses(updated);
-                                  }}
-                                  className={inputClass}
-                                  placeholder="Final offense"
-                                />
-                              </div>
+                            <div>
+                              <label className={labelClass}>Branch</label>
+                              <input
+                                type="text"
+                                value={branches[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...branches];
+                                  updated[index] = e.target.value;
+                                  setBranches(updated);
+                                }}
+                                className={inputClass}
+                                placeholder="Court branch"
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Date Filed in Court</label>
+                              <input
+                                type="date"
+                                value={datesFiledInCourt[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...datesFiledInCourt];
+                                  updated[index] = e.target.value;
+                                  setDatesFiledInCourt(updated);
+                                }}
+                                className={inputClass}
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Final Offense</label>
+                              <input
+                                type="text"
+                                value={finalOffenses[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...finalOffenses];
+                                  updated[index] = e.target.value;
+                                  setFinalOffenses(updated);
+                                }}
+                                className={inputClass}
+                                placeholder="Final offense"
+                              />
                             </div>
                           </div>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>

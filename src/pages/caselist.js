@@ -32,12 +32,21 @@ const Caselist = () => {
     try {
       const response = await axios.delete(`${API_BASE}/permanent-delete-all-cases`);
 
-      if (response.data) {
+      const deletedCount = Number(response?.data?.deletedCount);
+      if (!Number.isFinite(deletedCount)) {
+        throw new Error('Unexpected response from delete-all endpoint');
+      }
+
+      if (deletedCount >= 0) {
+
+        // Clear the table immediately to avoid stale rows in the UI.
+        setCases([]);
+
         // Show success notification
         setNotification({
           type: 'success',
           title: 'All Cases Permanently Deleted!',
-          message: `${response.data.deletedCount || 'All'} terminated cases have been permanently deleted from the database.`,
+          message: `${deletedCount} terminated cases have been permanently deleted from the database.`,
           icon: 'fa-trash-alt',
         });
 
@@ -316,13 +325,20 @@ const Caselist = () => {
 
   const fetchDeletedCases = useCallback(() => {
     axios
-      .get(`${API_BASE}/deleted-cases`)
+      .get(`${API_BASE}/deleted-cases`, {
+        params: { t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      })
       .then((response) => {
         setCases(response.data);
         setIsLoading(false);
       })
       .catch((error) => {
         console.error('There was an error fetching the deleted cases!', error);
+        setCases([]);
         setIsLoading(false);
       });
   }, []);
@@ -524,28 +540,28 @@ const Caselist = () => {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden"
             >
-              <table className="w-full">
+              <table className="w-full table-fixed">
                 <thead className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white">
                   <tr>
-                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                    <th className="w-[12%] px-2 py-3 text-left font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
                       <i className="fas fa-hashtag mr-1.5 text-xs"></i>Docket
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide">
+                    <th className="w-[15%] px-2 py-3 text-left font-bold text-[11px] uppercase tracking-wide">
                       <i className="fas fa-user mr-1.5 text-xs"></i>Complainant
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide">
+                    <th className="w-[15%] px-2 py-3 text-left font-bold text-[11px] uppercase tracking-wide">
                       <i className="fas fa-user-tag mr-1.5 text-xs"></i>Respondent
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                    <th className="w-[23%] px-2 py-3 text-left font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
                       <i className="fas fa-gavel mr-1.5 text-xs"></i>Offense
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                    <th className="w-[10%] px-2 py-3 text-left font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
                       <i className="fas fa-calendar mr-1.5 text-xs"></i>Filed
                     </th>
-                    <th className="px-3 py-3 text-left font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                    <th className="w-[13%] px-2 py-3 text-left font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
                       <i className="fas fa-user-tie mr-1.5 text-xs"></i>Prosecutor
                     </th>
-                    <th className="px-3 py-3 text-center font-bold text-xs uppercase tracking-wide whitespace-nowrap">
+                    <th className="w-[22%] px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
@@ -559,45 +575,45 @@ const Caselist = () => {
                       transition={{ delay: index * 0.05 }}
                       className="border-b border-slate-100 hover:bg-red-50/30 transition-colors"
                     >
-                      <td className="px-3 py-3 align-middle whitespace-nowrap">
-                        <span className="font-mono font-bold text-red-700 text-xs">
+                      <td className="px-2 py-3 align-middle whitespace-nowrap">
+                        <span className="block truncate font-mono font-bold text-red-700 text-[11px]">
                           {caseItem.DOCKET_NO || caseItem.IS_CASE_NO}
                         </span>
                       </td>
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex flex-col gap-0.5">
+                      <td className="px-2 py-3 align-middle">
+                        <div className="flex flex-col gap-0.5 min-w-0">
                           {(() => {
                             try {
                               const arr = JSON.parse(caseItem.COMPLAINANT);
                               if (Array.isArray(arr)) return arr.filter(Boolean).map((name, i) => (
-                                <span key={i} className="font-medium text-slate-800 text-xs">{name}</span>
+                                <span key={i} className="block truncate font-medium text-slate-800 text-[11px]" key={i}>{name}</span>
                               ));
                             } catch {}
-                            return <span className="font-medium text-slate-800 text-xs">{caseItem.COMPLAINANT}</span>;
+                            return <span className="block truncate font-medium text-slate-800 text-[11px]">{caseItem.COMPLAINANT}</span>;
                           })()}
                         </div>
                       </td>
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex flex-col gap-0.5">
+                      <td className="px-2 py-3 align-middle">
+                        <div className="flex flex-col gap-0.5 min-w-0">
                           {(() => {
                             try {
                               const arr = JSON.parse(caseItem.RESPONDENT);
                               if (Array.isArray(arr)) return arr.filter(Boolean).map((name, i) => (
-                                <span key={i} className="font-medium text-slate-800 text-xs">{name}</span>
+                                <span key={i} className="block truncate font-medium text-slate-800 text-[11px]">{name}</span>
                               ));
                             } catch {}
-                            return <span className="font-medium text-slate-800 text-xs">{caseItem.RESPONDENT}</span>;
+                            return <span className="block truncate font-medium text-slate-800 text-[11px]">{caseItem.RESPONDENT}</span>;
                           })()}
                         </div>
                       </td>
-                      <td className="px-3 py-3 align-middle">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-100 text-orange-800 text-xs font-semibold whitespace-nowrap">
-                          <i className="fas fa-exclamation-triangle text-xs flex-shrink-0"></i>
-                          <span className="truncate max-w-xs">{caseItem.OFFENSE || 'N/A'}</span>
+                      <td className="px-2 py-3 align-middle min-w-0">
+                        <span className="inline-flex w-full items-center gap-1 px-2 py-1 rounded-lg bg-orange-100 text-orange-800 text-[11px] font-semibold whitespace-nowrap overflow-hidden">
+                          <i className="fas fa-exclamation-triangle text-[10px] flex-shrink-0"></i>
+                          <span className="truncate min-w-0">{caseItem.OFFENSE || 'N/A'}</span>
                         </span>
                       </td>
-                      <td className="px-3 py-3 align-middle whitespace-nowrap">
-                        <span className="font-medium text-slate-700 text-xs">
+                      <td className="px-2 py-3 align-middle whitespace-nowrap">
+                        <span className="font-medium text-slate-700 text-[11px]">
                           {caseItem.DATE_FILED
                             ? new Date(caseItem.DATE_FILED).toLocaleDateString('en-US', {
                                 month: 'short',
@@ -607,33 +623,33 @@ const Caselist = () => {
                             : 'N/A'}
                         </span>
                       </td>
-                      <td className="px-3 py-3 align-middle whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
-                          <i className="fas fa-user-tie text-xs flex-shrink-0"></i>
-                          {caseItem.RESOLVING_PROSECUTOR || 'N/A'}
+                      <td className="px-2 py-3 align-middle whitespace-nowrap">
+                        <span className="inline-flex max-w-full items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold overflow-hidden">
+                          <i className="fas fa-user-tie text-[10px] flex-shrink-0"></i>
+                          <span className="truncate min-w-0">{caseItem.RESOLVING_PROSECUTOR || 'N/A'}</span>
                         </span>
                       </td>
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex items-center justify-center gap-1">
+                      <td className="px-2 py-3 align-middle">
+                        <div className="grid grid-cols-1 gap-1.5 justify-items-stretch">
                           <motion.button
                             whileHover={{ scale: 1.08 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleRestoreCase(caseItem.DOCKET_NO)}
                             disabled={isRestoring === caseItem.DOCKET_NO}
-                            className="inline-flex items-center justify-center gap-1 w-20 h-8 rounded-lg
+                            className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg
                                          bg-gradient-to-r from-green-600 to-green-700 text-white
-                                         font-semibold text-xs shadow-md shadow-green-500/30
+                                         font-semibold text-[11px] shadow-md shadow-green-500/30
                                          hover:shadow-green-500/40 transition-all duration-300 border-none cursor-pointer
                                          disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                             title="Restore this case"
                           >
                             {isRestoring === caseItem.DOCKET_NO ? (
                               <>
-                                <i className="fas fa-spinner fa-spin text-xs"></i>
+                                <i className="fas fa-spinner fa-spin text-[11px]"></i>
                               </>
                             ) : (
                               <>
-                                <i className="fas fa-undo text-xs"></i>
+                                <i className="fas fa-undo text-[11px]"></i>
                                 <span>Restore</span>
                               </>
                             )}
@@ -642,13 +658,13 @@ const Caselist = () => {
                             whileHover={{ scale: 1.08 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedCase(caseItem)}
-                            className="inline-flex items-center justify-center gap-1 w-16 h-8 rounded-lg
+                            className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg
                                          bg-gradient-to-r from-blue-600 to-blue-700 text-white
-                                         font-semibold text-xs shadow-md shadow-blue-500/30
+                                         font-semibold text-[11px] shadow-md shadow-blue-500/30
                                          hover:shadow-blue-500/40 transition-all duration-300 border-none cursor-pointer whitespace-nowrap"
                             title="View case details"
                           >
-                            <i className="fas fa-eye text-xs"></i>
+                            <i className="fas fa-eye text-[11px]"></i>
                             <span>View</span>
                           </motion.button>
                           <motion.button
@@ -656,20 +672,20 @@ const Caselist = () => {
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setDeleteConfirmModal(caseItem)}
                             disabled={isDeleting === caseItem.DOCKET_NO}
-                            className="inline-flex items-center justify-center gap-1 w-20 h-8 rounded-lg
+                            className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg
                                          bg-gradient-to-r from-orange-600 to-orange-700 text-white
-                                         font-semibold text-xs shadow-md shadow-orange-500/30
+                                         font-semibold text-[11px] shadow-md shadow-orange-500/30
                                          hover:shadow-orange-500/40 transition-all duration-300 border-none cursor-pointer
                                          disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                             title="Permanently delete this case"
                           >
                             {isDeleting === caseItem.DOCKET_NO ? (
                               <>
-                                <i className="fas fa-spinner fa-spin text-xs"></i>
+                                <i className="fas fa-spinner fa-spin text-[11px]"></i>
                               </>
                             ) : (
                               <>
-                                <i className="fas fa-trash text-xs"></i>
+                                <i className="fas fa-trash text-[11px]"></i>
                                 <span>Delete</span>
                               </>
                             )}

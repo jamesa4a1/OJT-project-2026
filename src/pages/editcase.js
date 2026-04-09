@@ -32,8 +32,39 @@ const Editcase = () => {
   const [editMRDateFiling, setEditMRDateFiling] = useState(['']);
   const [editMRDateResolved, setEditMRDateResolved] = useState(['']);
   const [editMRFinding, setEditMRFinding] = useState(['']);
+  const [editCrimCaseNos, setEditCrimCaseNos] = useState(['']);
+  const [editBranches, setEditBranches] = useState(['']);
+  const [editDatesFiledInCourt, setEditDatesFiledInCourt] = useState(['']);
+  const [editFinalOffenses, setEditFinalOffenses] = useState(['']);
   const navigate = useNavigate();
   const { validate, errors: validationErrors } = useValidation(CaseUpdateSchema);
+
+  const requiresCourtInfo = (value) => {
+    const normalized = String(value || '').toLowerCase().trim();
+    return normalized === 'filed in court' || normalized === 'archived';
+  };
+
+  const parseList = (value) => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+      }
+    } catch {}
+    const text = String(value).trim();
+    return text ? [text] : [];
+  };
+
+  const parseJsonOrFill = (raw, length, fallback) => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return Array.from({ length }, (_, i) => parsed[i] || fallback);
+      }
+    } catch {}
+    return Array.from({ length }, () => raw || fallback);
+  };
 
   // Helper function to get proper image URL
   const getImageUrl = (indexCardPath) => {
@@ -110,7 +141,9 @@ const Editcase = () => {
     // Initialise Status toggle from existing case data
     const hasStatus = selectedCase.STATUS && selectedCase.STATUS !== '';
     setShowStatusField(hasStatus);
-    setIsStatusFiledInCourt(selectedCase.STATUS === 'Filed in Court');
+    setIsStatusFiledInCourt(
+      requiresCourtInfo(selectedCase.STATUS) || requiresCourtInfo(selectedCase.REMARKS_DECISION)
+    );
     
     // Parse MR Filed arrays
     const parseMRArray = (raw, fallback) => {
@@ -137,12 +170,20 @@ const Editcase = () => {
     setEditMRDateFiling(parseMRArray(selectedCase.DATE_MR_FILING, '').map(d => d?.split('T')[0] || ''));
     setEditMRDateResolved(parseMRArray(selectedCase.DATE_MR_RESOLVED, '').map(d => d?.split('T')[0] || ''));
     setEditMRFinding(parseMRArray(selectedCase.MR_FINDING, ''));
+    const respondentList = parseList(selectedCase.RESPONDENT);
+    const respondentCount = Math.max(1, respondentList.length);
+    setEditCrimCaseNos(parseJsonOrFill(selectedCase.CRIM_CASE_NO, respondentCount, '').map((value) => value || ''));
+    setEditBranches(parseJsonOrFill(selectedCase.BRANCH, respondentCount, '').map((value) => value || ''));
+    setEditDatesFiledInCourt(
+      parseJsonOrFill(selectedCase.DATEFILED_IN_COURT, respondentCount, '').map((value) => value?.split('T')[0] || '')
+    );
+    setEditFinalOffenses(parseJsonOrFill(selectedCase.FINAL_OFFENSE, respondentCount, '').map((value) => value || ''));
     
     // Auto-expand MR Filed section if any MR data exists
     const hasMRData = selectedCase.MR_FILED_BY || selectedCase.DATE_MR_FILING || selectedCase.DATE_MR_RESOLVED || selectedCase.MR_FINDING;
     setIsEditMRFiled(!!hasMRData);
     // Initialise Remarks Other from existing case data
-    const isRemarks = selectedCase.REMARKS_DECISION && !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].includes(selectedCase.REMARKS_DECISION);
+    const isRemarks = selectedCase.REMARKS_DECISION && !['Pending', 'Dismissed', 'Provisional dismissal', 'Convicted', 'For Resolution', 'Archived'].includes(selectedCase.REMARKS_DECISION);
     setIsRemarksOther(isRemarks);
     // Scroll to the edit form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -155,13 +196,18 @@ const Editcase = () => {
     
     // Handle special logic for REMARKS_DECISION field
     if (field === 'REMARKS_DECISION') {
-      const isOther = !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].includes(value);
+      const isOther = !['Pending', 'Dismissed', 'Provisional dismissal', 'Convicted', 'For Resolution', 'Archived'].includes(value);
       setIsRemarksOther(isOther);
+      setIsStatusFiledInCourt(requiresCourtInfo(value));
+      if (String(value).toLowerCase() === 'archived') {
+        setShowStatusField(true);
+        setEditedCase((prev) => ({ ...prev, STATUS: 'Archived' }));
+      }
     }
     
     // Handle special logic for STATUS field
     if (field === 'STATUS') {
-      setIsStatusFiledInCourt(value === 'Filed in Court');
+      setIsStatusFiledInCourt(requiresCourtInfo(value));
     }
   };
 
@@ -243,6 +289,10 @@ const Editcase = () => {
       formData.append('DATE_MR_FILING', JSON.stringify(editMRDateFiling));
       formData.append('DATE_MR_RESOLVED', JSON.stringify(editMRDateResolved));
       formData.append('MR_FINDING', JSON.stringify(editMRFinding.filter(v => v.trim() !== '')));
+      formData.append('CRIM_CASE_NO', JSON.stringify(editCrimCaseNos.map((value) => value || '')));
+      formData.append('BRANCH', JSON.stringify(editBranches.map((value) => value || '')));
+      formData.append('DATEFILED_IN_COURT', JSON.stringify(editDatesFiledInCourt.map((value) => value || '')));
+      formData.append('FINAL_OFFENSE', JSON.stringify(editFinalOffenses.map((value) => value || '')));
 
       console.log('Sending update with id:', validatedData.id);
       console.log('Changed fields:', validatedData.updated_fields);
@@ -409,6 +459,36 @@ const Editcase = () => {
               }}
               className="p-6"
             >
+              {/* Case Identification Strip */}
+              <div className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-amber-50/40 p-4 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">
+                      Docket Number
+                    </p>
+                    <p className="text-sm font-semibold text-slate-800 break-words">
+                      {caseData[0].DOCKET_NO || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700 mb-1">
+                      Criminal Case No.
+                    </p>
+                    <p className="text-sm font-semibold text-emerald-900 break-words">
+                      {caseData[0].CRIM_CASE_NO || 'Not provided'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">
+                      Current Status
+                    </p>
+                    <p className="text-sm font-semibold text-slate-800 break-words">
+                      {caseData[0].STATUS || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Success Alert */}
               {success && (
                 <motion.div
@@ -643,8 +723,10 @@ const Editcase = () => {
                     >
                       <option value="Pending">Pending</option>
                       <option value="Dismissed">Dismissed</option>
+                      <option value="Provisional dismissal">Provisional dismissal</option>
                       <option value="Convicted">Convicted</option>
                       <option value="For Resolution">For Resolution</option>
+                      <option value="Archived">Archived</option>
                       <option value="Other">Other (Custom)</option>
                     </select>
                     {isRemarksOther && (
@@ -686,14 +768,16 @@ const Editcase = () => {
                           }
                           onChange={(e) => {
                             handleFieldChange('STATUS', e.target.value);
-                            setIsStatusFiledInCourt(e.target.value === 'Filed in Court');
+                            setIsStatusFiledInCourt(requiresCourtInfo(e.target.value));
                           }}
                           className="w-full px-4 py-3 rounded-xl border-2 border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all font-semibold"
                         >
                           <option value="Pending">Pending</option>
                           <option value="Dismissed">Dismissed</option>
+                          <option value="Provisional dismissal">Provisional dismissal</option>
                           <option value="Convicted">Convicted</option>
                           <option value="For Resolution">For Resolution</option>
+                          <option value="Archived">Archived</option>
                           <option value="Filed in Court">Filed in Court</option>
                           <option value="Other">Other (Custom)</option>
                         </select>
@@ -736,101 +820,113 @@ const Editcase = () => {
                 </div>
               </div>
 
-              {/* Court Information Section — shown when New Status = Filed in Court */}
-              {isStatusFiledInCourt && (
-              <div className="mb-3">
+              {/* Court Information Section — shown for every respondent */}
+              <div className={`mb-3 ${isStatusFiledInCourt ? 'opacity-100' : 'opacity-100'}`}>
                 <div className="bg-emerald-50/40 rounded-lg border border-emerald-100 p-2">
-                  <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
-                    <i className="fas fa-landmark text-emerald-600"></i>
-                    Court Information
-                  </h4>
-                  
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                    {/* Criminal Case Number */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
-                        Crim Case No
-                      </label>
-                      <div className="relative">
-                        <i className="fas fa-gavel absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-                        <input
-                          type="text"
-                          value={
-                            editedCase.CRIM_CASE_NO !== undefined
-                              ? editedCase.CRIM_CASE_NO
-                              : caseData[0].CRIM_CASE_NO || ''
-                          }
-                          onChange={(e) => handleFieldChange('CRIM_CASE_NO', e.target.value)}
-                          className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
-                          placeholder="Ex. CRIM-2024-001"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Branch */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
-                        Branch
-                      </label>
-                      <div className="relative">
-                        <i className="fas fa-building absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-                        <input
-                          type="text"
-                          value={
-                            editedCase.BRANCH !== undefined
-                              ? editedCase.BRANCH
-                              : caseData[0].BRANCH || ''
-                          }
-                          onChange={(e) => handleFieldChange('BRANCH', e.target.value)}
-                          className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
-                          placeholder="Ex. Branch 1"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Date Filed in Court */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
-                        Date Filed
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={
-                            editedCase.DATEFILED_IN_COURT !== undefined
-                              ? editedCase.DATEFILED_IN_COURT
-                              : caseData[0].DATEFILED_IN_COURT?.split('T')[0] || ''
-                          }
-                          onChange={(e) => handleFieldChange('DATEFILED_IN_COURT', e.target.value)}
-                          className="w-full px-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Final Offense */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
-                        Final Offense
-                      </label>
-                      <div className="relative">
-                        <i className="fas fa-exclamation-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-                        <input
-                          type="text"
-                          value={
-                            editedCase.FINAL_OFFENSE !== undefined
-                              ? editedCase.FINAL_OFFENSE
-                              : caseData[0].FINAL_OFFENSE || ''
-                          }
-                          onChange={(e) => handleFieldChange('FINAL_OFFENSE', e.target.value)}
-                          className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
-                          placeholder="Final offense"
-                        />
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <h4 className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 uppercase tracking-wide">
+                      <i className="fas fa-landmark text-emerald-600"></i>
+                      Court Information
+                    </h4>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                      {isStatusFiledInCourt ? 'Status-linked' : 'Always visible'}
+                    </span>
                   </div>
+
+                  {(() => {
+                    const respondentList = parseList(editedCase.RESPONDENT !== undefined ? editedCase.RESPONDENT : (caseData?.[0]?.RESPONDENT || ''));
+                    const rowCount = Math.max(respondentList.length, editCrimCaseNos.length, editBranches.length, editDatesFiledInCourt.length, editFinalOffenses.length, 1);
+                    return Array.from({ length: rowCount }).map((_, index) => (
+                      <div key={index} className={`rounded-md border border-emerald-100 bg-white/80 p-2 ${index > 0 ? 'mt-2' : ''}`}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                            {respondentList[index] ? `${index + 1}. ${respondentList[index]}` : `Respondent ${index + 1}`}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                              Criminal Case No.
+                            </label>
+                            <div className="relative">
+                              <i className="fas fa-gavel absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                              <input
+                                type="text"
+                                value={editCrimCaseNos[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...editCrimCaseNos];
+                                  updated[index] = e.target.value;
+                                  setEditCrimCaseNos(updated);
+                                }}
+                                className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                                placeholder="Ex. CRIM-2024-001"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                              Branch
+                            </label>
+                            <div className="relative">
+                              <i className="fas fa-building absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                              <input
+                                type="text"
+                                value={editBranches[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...editBranches];
+                                  updated[index] = e.target.value;
+                                  setEditBranches(updated);
+                                }}
+                                className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                                placeholder="Ex. Branch 1"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                              Date Filed
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="date"
+                                value={editDatesFiledInCourt[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...editDatesFiledInCourt];
+                                  updated[index] = e.target.value;
+                                  setEditDatesFiledInCourt(updated);
+                                }}
+                                className="w-full px-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                              Final Offense
+                            </label>
+                            <div className="relative">
+                              <i className="fas fa-exclamation-circle absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                              <input
+                                type="text"
+                                value={editFinalOffenses[index] || ''}
+                                onChange={(e) => {
+                                  const updated = [...editFinalOffenses];
+                                  updated[index] = e.target.value;
+                                  setEditFinalOffenses(updated);
+                                }}
+                                className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-200 text-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 transition-all font-medium bg-white"
+                                placeholder="Final offense"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
-              )}
 
               {/* MR Filed Section */}
               <div className="mb-6">

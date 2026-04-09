@@ -57,17 +57,20 @@ const MarqueeText = ({ children, className = '' }) => {
 const Deletecase = () => {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const { user } = useAuth();
+  const CASES_PER_PAGE = 10;
   const [cases, setCases] = useState([]);
   const [filteredCases, setFilteredCases] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('default'); // 'default', 'complainant-asc', 'date-asc', 'date-desc'
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'terminated'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'dismissed', 'provisional dismissal', 'convicted', 'archived'
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
+  const [selectedDeleteRow, setSelectedDeleteRow] = useState(null);
   const [editedCase, setEditedCase] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [isCustomDecision, setIsCustomDecision] = useState(false);
@@ -90,10 +93,28 @@ const Deletecase = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showMoveAllConfirm, setShowMoveAllConfirm] = useState(false);
+  const [isMovingAll, setIsMovingAll] = useState(false);
+  const [isStoppingAll, setIsStoppingAll] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
   const [printDropdownCase, setPrintDropdownCase] = useState(null);
   const [printDropdownPos, setPrintDropdownPos] = useState({ top: 0, left: 0 });
+
+  const requiresCourtInfo = (value) => {
+    const normalized = String(value || '').toLowerCase().trim();
+    return normalized === 'filed in court' || normalized === 'archived';
+  };
   const navigate = useNavigate();
+  const lastImportTotalRows = (() => {
+    const raw = localStorage.getItem('excelLastImportTotalRows');
+    const parsed = Number(raw || 0);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  })();
+  const isUnfilteredCaseView = searchTerm.trim() === '' && statusFilter === 'all';
+  const displayedCaseCount = isUnfilteredCaseView && lastImportTotalRows > 0
+    ? Math.max(lastImportTotalRows, filteredCases.length)
+    : filteredCases.length;
+
 
   // Helper function to construct proper image URL
   const getImageUrl = (imagePath) => {
@@ -136,6 +157,15 @@ const Deletecase = () => {
       .map((part) => part.replace(/^\d+[.)]\s*/, '').trim())
       .filter(Boolean);
     if (lines.length > 1) return lines;
+
+    // Handle comma/semicolon/pipe separated values from legacy imports.
+    const delimited = raw
+      .split(/\s*[;,|]\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => part.replace(/^\d+[.)]\s*/, '').trim())
+      .filter(Boolean);
+    if (delimited.length > 1) return delimited;
 
     // Handle single-line numbered lists like "1. Name 2. Name 3. Name".
     const numberedMatches = [...raw.matchAll(/(?:^|\s)\d+[.)]\s*([^\d].*?)(?=(?:\s+\d+[.)]\s*)|$)/g)]
@@ -192,7 +222,7 @@ const Deletecase = () => {
   // Auto-refresh every 5 seconds for real-time updates across PCs
   useAutoRefresh(fetchAllCases, 5000);
 
-  // Filter cases when search term changes
+  // Filter cases when data or filters change
   useEffect(() => {
     let filtered = cases;
 
@@ -207,10 +237,20 @@ const Deletecase = () => {
         const status = (c.REMARKS_DECISION || '').toLowerCase();
         return status === 'dismissed';
       });
+    } else if (statusFilter === 'provisional dismissal') {
+      filtered = filtered.filter((c) => {
+        const status = (c.REMARKS_DECISION || '').toLowerCase();
+        return status === 'provisional dismissal';
+      });
     } else if (statusFilter === 'convicted') {
       filtered = filtered.filter((c) => {
         const status = (c.REMARKS_DECISION || '').toLowerCase();
         return status === 'convicted';
+      });
+    } else if (statusFilter === 'archived') {
+      filtered = filtered.filter((c) => {
+        const status = (c.REMARKS_DECISION || '').toLowerCase();
+        return status === 'archived';
       });
     }
 
@@ -250,11 +290,17 @@ const Deletecase = () => {
     setFilteredCases(sorted);
   }, [searchTerm, cases, sortOption, statusFilter]);
 
+  // Reset pagination only when the user changes filter inputs.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortOption, statusFilter]);
+
   // Real-time updates: auto-refresh when cases change on any PC
   useSocket(CASE_EVENTS, fetchAllCases);
 
-  const handleDeleteClick = (caseItem) => {
-    setSelectedCase(caseItem);
+  const handleDeleteClick = (row) => {
+    setSelectedCase(row.caseItem);
+    setSelectedDeleteRow(row);
     setShowConfirm(true);
   };
 
@@ -266,7 +312,7 @@ const Deletecase = () => {
 
   const handleEditClick = (caseItem) => {
     setSelectedCase(caseItem);
-    const isFiledInCourt = (caseItem.REMARKS_DECISION || '').toLowerCase() === 'filed in court' || (caseItem.STATUS || '').toLowerCase() === 'filed in court';
+    const isFiledInCourt = requiresCourtInfo(caseItem.REMARKS_DECISION) || requiresCourtInfo(caseItem.STATUS);
     setEditedCase({
       ...caseItem,
       REMARKS_DECISION: isFiledInCourt ? 'Filed in Court' : (caseItem.REMARKS_DECISION || 'Pending'),
@@ -283,7 +329,15 @@ const Deletecase = () => {
     const baseRec = isFiledInCourt ? 'Filed in Court' : (caseItem.REMARKS_DECISION || 'Pending');
     const normalizeRec = (val) => {
       const v = (val || '').toLowerCase().trim();
-      const map = { 'pending': 'Pending', 'dismissed': 'Dismissed', 'convicted': 'Convicted', 'for resolution': 'For Resolution', 'filed in court': 'Filed in Court' };
+      const map = {
+        'pending': 'Pending',
+        'dismissed': 'Dismissed',
+        'provisional dismissal': 'Provisional dismissal',
+        'convicted': 'Convicted',
+        'for resolution': 'For Resolution',
+        'archived': 'Archived',
+        'filed in court': 'Filed in Court'
+      };
       return map[v] || val || 'Pending';
     };
     let recsArray;
@@ -314,9 +368,9 @@ const Deletecase = () => {
     
     // Check if current decision is custom (not one of the predefined options)
     const currentDecision = caseItem.REMARKS_DECISION || 'Pending';
-    const predefinedOptions = ['Pending', 'Dismissed', 'Convicted', 'For Resolution', 'Filed in Court'];
+    const predefinedOptions = ['Pending', 'Dismissed', 'Provisional dismissal', 'Convicted', 'For Resolution', 'Archived', 'Filed in Court'];
     setIsCustomDecision(!predefinedOptions.some(opt => opt.toLowerCase() === currentDecision.toLowerCase()));
-    setIsEditFiledInCourt(recsArray.some(r => (r || '').toLowerCase() === 'filed in court') || (caseItem.STATUS || '').toLowerCase() === 'filed in court');
+    setIsEditFiledInCourt(recsArray.some((r) => requiresCourtInfo(r)) || requiresCourtInfo(caseItem.STATUS));
     
     // Parse MR Filed arrays
     const parseMRArray = (raw, fallback) => {
@@ -391,16 +445,19 @@ const Deletecase = () => {
         setEditedCase((prev) => ({ ...prev, REMARKS_DECISION: '' }));
         return;
       }
-      if (value === 'Filed in Court') {
+      if (requiresCourtInfo(value)) {
         setIsEditFiledInCourt(true);
         setIsCustomDecision(false);
+        if (String(value).toLowerCase() === 'archived') {
+          setEditedCase((prev) => ({ ...prev, STATUS: 'Archived' }));
+        }
       } else {
         setIsEditFiledInCourt(false);
-        const isOther = !['Pending', 'Dismissed', 'Convicted', 'For Resolution'].some(opt => opt.toLowerCase() === value.toLowerCase());
+        const isOther = !['Pending', 'Dismissed', 'Provisional dismissal', 'Convicted', 'For Resolution', 'Archived'].some(opt => opt.toLowerCase() === value.toLowerCase());
         setIsCustomDecision(isOther);
       }
     } else if (field === 'STATUS') {
-      setIsEditFiledInCourt(value === 'Filed in Court');
+      setIsEditFiledInCourt(requiresCourtInfo(value));
     }
     setEditedCase((prev) => ({ ...prev, [field]: value }));
   };
@@ -424,6 +481,15 @@ const Deletecase = () => {
     console.log('ðŸ“ Updating case with data:', editedCase);
     try {
       let response;
+      const normalizedStatus = editRecommendations.some(
+        (rec) => String(rec || '').toLowerCase().trim() === 'filed in court'
+      )
+        ? 'Filed in Court'
+        : editRecommendations.some(
+            (rec) => String(rec || '').toLowerCase().trim() === 'archived'
+          )
+          ? 'Archived'
+          : editedCase.STATUS;
 
       // If there's an image to upload, use the image upload endpoint
       if (selectedImage) {
@@ -441,6 +507,9 @@ const Deletecase = () => {
             formData.append(key, editedCase[key] || '');
           }
         });
+        if (normalizedStatus !== undefined && normalizedStatus !== null && String(normalizedStatus).trim() !== '') {
+          formData.set('STATUS', normalizedStatus);
+        }
         formData.append('RESPONDENT', serializedRespondents);
         formData.append('COMPLAINANT', serializedComplainants);
         formData.append('ADDRESS_OF_RESPONDENT', serializedAddresses);
@@ -478,7 +547,7 @@ const Deletecase = () => {
             DATE_RESOLVED: editedCase.DATE_RESOLVED,
             RESOLVING_PROSECUTOR: editedCase.RESOLVING_PROSECUTOR,
             REMARKS_DECISION: JSON.stringify(editRecommendations.map(r => r || 'Pending')),
-            STATUS: editedCase.STATUS,
+            STATUS: normalizedStatus,
             PENALTY: editedCase.PENALTY,
             DECISION_DATE: editedCase.DECISION_DATE,
             CRIM_CASE_NO: JSON.stringify(editCrimCaseNos),
@@ -552,12 +621,16 @@ const Deletecase = () => {
   };
 
   const handleDelete = async () => {
-    if (!selectedCase) return;
+    if (!selectedCase || !selectedDeleteRow) return;
     setIsLoading(true);
     setError('');
     try {
       await axios.delete(`${API_BASE}/delete-case`, {
-        data: { docket_no: selectedCase.DOCKET_NO },
+        data: {
+          docket_no: selectedCase.DOCKET_NO,
+          respondent_index: selectedDeleteRow.respondentIndex,
+          respondent: selectedDeleteRow.respondent,
+        },
       });
       
       // Refresh the entire cases list from server after successful deletion
@@ -565,6 +638,7 @@ const Deletecase = () => {
       
       setShowConfirm(false);
       setSelectedCase(null);
+      setSelectedDeleteRow(null);
       
       // Show success message
       setError(''); // Clear any previous errors
@@ -585,6 +659,7 @@ const Deletecase = () => {
         setError('Error deleting case. Please try again.');
       }
     }
+    setSelectedDeleteRow(null);
     setIsLoading(false);
   };
 
@@ -600,12 +675,12 @@ const Deletecase = () => {
   }, [printDropdownCase]);
 
   const PRINT_FORMAT_OPTIONS = [
-    { value: 'A', label: 'Format A', description: 'No Criminal Record -A' },
-    { value: 'B', label: 'Format B', description: 'Criminal Record - B' },
-    { value: 'C', label: 'Format C', description: 'No Criminal Record - C' },
-    { value: 'D', label: 'Format D', description: 'Criminal Record - D' },
-    { value: 'E', label: 'Format E', description: 'Bail Bond - E' },
-    { value: 'F', label: 'Format F', description: 'Bail Bond - F' },
+    { value: 'A', label: 'Format A', description: 'Certification for No Criminal Record  ' },
+    { value: 'B', label: 'Format B', description: 'Certification for Criminal Record' },
+    { value: 'C', label: 'Format C', description: 'Certification for No Criminal Record (With Signature and Thumbmark)' },
+    { value: 'D', label: 'Format D', description: 'Certification for Criminal Record (Certificate of Clearance, Table Format)' },
+    { value: 'E', label: 'Format E', description: 'Certification for Bail Bond / No Prior Conviction' },
+    { value: 'F', label: 'Format F', description: 'Certification for Criminal Record (Full Details, Habitual Delinquent Clause)' },
   ];
 
   const handleCasePrint = (caseItem, format) => {
@@ -613,6 +688,51 @@ const Deletecase = () => {
     navigate('/clearances/generate', {
       state: { fromCase: caseItem, format },
     });
+  };
+
+  const handleMoveAllCases = async () => {
+    setIsMovingAll(true);
+    setIsStoppingAll(false);
+    setError('');
+
+    try {
+      const response = await axios.post(`${API_BASE}/delete-all-cases`);
+      await fetchAllCases();
+
+      if (response?.data?.cancelled) {
+        setError(response.data?.message || 'Move All paused.');
+      } else {
+        setShowMoveAllConfirm(false);
+        navigate('/caselist');
+      }
+    } catch (err) {
+      console.error('Move all cases error:', err);
+      if (err.response) {
+        setError(err.response.data?.message || 'Error moving all cases to terminated cases.');
+      } else if (err.request) {
+        setError(`Cannot connect to server. Please ensure the server is running on ${API_BASE}`);
+      } else {
+        setError('Error moving all cases: ' + err.message);
+      }
+    } finally {
+      setIsMovingAll(false);
+      setIsStoppingAll(false);
+    }
+  };
+
+  const handleStopMoveAllCases = async () => {
+    if (!isMovingAll || isStoppingAll) return;
+
+    setIsStoppingAll(true);
+    try {
+      const response = await axios.post(`${API_BASE}/delete-all-cases/cancel`);
+      setError(response?.data?.message || 'Stop requested. Move All will pause shortly.');
+    } catch (err) {
+      console.error('Stop move all cases error:', err);
+      setError('Unable to request stop. Please try again.');
+    } finally {
+      setIsStoppingAll(false);
+    }
   };
 
 
@@ -630,13 +750,26 @@ const Deletecase = () => {
     const d = (val || 'Pending').toLowerCase();
     if (d === 'pending') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>Pending</span>;
     if (d === 'dismissed') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>Dismissed</span>;
+    if (d === 'provisional dismissal') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-violet-900/30 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>Provisional dismissal</span>;
     if (d === 'convicted') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'}`}>Convicted</span>;
+    if (d === 'archived') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>Archived</span>;
     if (d === 'filed in court') return <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block whitespace-nowrap ${isDark ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>Filed in Court</span>;
     return <div className={`px-2 py-1 rounded-md text-xs font-semibold max-w-full overflow-hidden ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'}`}><MarqueeText>{val || 'Pending'}</MarqueeText></div>;
   };
 
+  const totalPages = Math.max(1, Math.ceil(filteredCases.length / CASES_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const paginatedCases = useMemo(() => {
+    const startIndex = (currentPage - 1) * CASES_PER_PAGE;
+    return filteredCases.slice(startIndex, startIndex + CASES_PER_PAGE);
+  }, [filteredCases, currentPage]);
+
   const tableRows = useMemo(() => {
-    return filteredCases.flatMap((caseItem) => {
+    return paginatedCases.flatMap((caseItem) => {
       const respondents = parseRespondents(caseItem.RESPONDENT);
       const addresses = parseRespondents(caseItem.ADDRESS_OF_RESPONDENT);
 
@@ -671,7 +804,7 @@ const Deletecase = () => {
         };
       });
     });
-  }, [filteredCases]);
+  }, [paginatedCases]);
 
   return (
     <div
@@ -770,7 +903,9 @@ const Deletecase = () => {
                 <option value="all">All Cases</option>
                 <option value="pending">Pending</option>
                 <option value="dismissed">Dismissed</option>
+                <option value="provisional dismissal">Provisional dismissal</option>
                 <option value="convicted">Convicted</option>
+                <option value="archived">Archived</option>
               </select>
             </div>
 
@@ -787,6 +922,25 @@ const Deletecase = () => {
             >
               <i className={`fas fa-sync-alt ${isLoading ? 'animate-spin' : ''}`}></i>
               <span className="font-medium hidden sm:inline">Refresh</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: tableRows.length > 0 && !isMovingAll ? 1.05 : 1 }}
+              whileTap={{ scale: tableRows.length > 0 && !isMovingAll ? 0.95 : 1 }}
+              onClick={() => setShowMoveAllConfirm(true)}
+              disabled={tableRows.length === 0 || isMovingAll}
+              className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-all duration-300 shadow-sm min-w-fit font-medium whitespace-nowrap text-sm ${
+                tableRows.length === 0 || isMovingAll
+                  ? 'bg-slate-400 text-white cursor-not-allowed opacity-70'
+                  : isDark
+                    ? 'bg-red-700 text-white hover:bg-red-600 cursor-pointer'
+                    : 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+              }`}
+            >
+              <i className={`fas fa-box-archive ${isMovingAll ? 'animate-pulse' : ''}`}></i>
+              <span className="font-medium hidden sm:inline">
+                {isMovingAll ? 'Moving All...' : 'Move All'}
+              </span>
             </motion.button>
           </div>
         </div>
@@ -809,8 +963,8 @@ const Deletecase = () => {
 
         {/* Cases Count */}
         <div className={`mb-4 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-          <span className="font-semibold">{tableRows.length}</span> row
-          {tableRows.length !== 1 ? 's' : ''} found
+          <span className="font-semibold">{displayedCaseCount}</span> case
+          {displayedCaseCount !== 1 ? 's' : ''} found
         </div>
 
         {/* Cases Table */}
@@ -920,11 +1074,15 @@ const Deletecase = () => {
                         </div>
                       </td>
                       <td className="px-2 py-3 text-center">
-                        {(row.decision || '').toLowerCase() === 'filed in court' && row.finalOffense ? (
+                        {row.finalOffense ? (
                           <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block break-words ${isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'}`} title={row.finalOffense}>
                             {row.respondentIndex + 1}. {row.finalOffense}
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className={`text-xs italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            N/A
+                          </span>
+                        )}
                       </td>
                       <td className={`px-2 py-3 text-center text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {formatDate(caseItem.DECISION_DATE)}
@@ -982,7 +1140,7 @@ const Deletecase = () => {
                             <motion.button
                               whileHover={{ scale: 1.15 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => handleDeleteClick(caseItem)}
+                              onClick={() => handleDeleteClick(row)}
                               className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 
                                        transition-all duration-2 shadow-lg shadow-red-500/40 hover:shadow-xl hover:shadow-red-500/60
                                        flex items-center justify-center cursor-pointer border-none text-base font-semibold"
@@ -998,6 +1156,52 @@ const Deletecase = () => {
                 })}
                 </tbody>
               </table>
+
+              {filteredCases.length > CASES_PER_PAGE && (
+                <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 border-t ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-slate-50'}`}>
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Showing <span className="font-semibold">{(currentPage - 1) * CASES_PER_PAGE + 1}</span>
+                    {' '}to <span className="font-semibold">{Math.min(currentPage * CASES_PER_PAGE, filteredCases.length)}</span>
+                    {' '}of <span className="font-semibold">{filteredCases.length}</span> cases
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                        currentPage === 1
+                          ? 'opacity-50 cursor-not-allowed border-slate-300 text-slate-400 bg-transparent'
+                          : isDark
+                            ? 'border-slate-600 text-slate-200 hover:bg-slate-700'
+                            : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      Previous
+                    </button>
+
+                    <span className={`px-3 py-2 rounded-lg text-sm font-semibold ${isDark ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-700 border border-slate-200'}`}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage >= totalPages}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                        currentPage >= totalPages
+                          ? 'opacity-50 cursor-not-allowed border-slate-300 text-slate-400 bg-transparent'
+                          : isDark
+                            ? 'border-slate-600 text-slate-200 hover:bg-slate-700'
+                            : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </motion.div>
@@ -1226,37 +1430,31 @@ const Deletecase = () => {
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
                                     <span className="min-w-[2.75rem]"></span>
-                                    {(recommendations[i] || '').toLowerCase() === 'filed in court' && finalOffenses[i] ? (
-                                      <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
-                                        isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'
-                                      }`}>
-                                        {finalOffenses[i]}
-                                      </span>
-                                    ) : null}
+                                    <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
+                                      isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'
+                                    }`}>
+                                      {finalOffenses[i] || 'N/A'}
+                                    </span>
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
                                     <span className="min-w-[1.75rem]"></span>
-                                    {(recommendations[i] || '').toLowerCase() === 'filed in court' && crimCaseNos[i] ? (
-                                      <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                                        {crimCaseNos[i]}
-                                      </span>
-                                    ) : null}
+                                    <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
+                                      isDark ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                                    }`}>
+                                      {crimCaseNos[i] || 'N/A'}
+                                    </span>
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
                                     <span className="min-w-[2.10rem]"></span>
-                                    {(recommendations[i] || '').toLowerCase() === 'filed in court' && datesFiledInCourt[i] ? (
-                                      <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                                        {datesFiledInCourt[i]}
-                                      </span>
-                                    ) : null}
+                                    <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                                      {datesFiledInCourt[i] || 'N/A'}
+                                    </span>
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
                                     <span className="min-w-[3.25rem]"></span>
-                                    {(recommendations[i] || '').toLowerCase() === 'filed in court' && branches[i] ? (
-                                      <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                                        {branches[i]}
-                                      </span>
-                                    ) : null}
+                                    <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                                      {branches[i] || 'N/A'}
+                                    </span>
                                   </div>
                                 </div>
                               ))
@@ -1625,23 +1823,20 @@ const Deletecase = () => {
                                 const updated = [...editRecommendations];
                                 updated[index] = e.target.value;
                                 setEditRecommendations(updated);
-                                setIsEditFiledInCourt(updated.some(rec => (rec || '').toLowerCase() === 'filed in court'));
-                                if (e.target.value.toLowerCase() !== 'filed in court') {
-                                  const updatedOffenses = [...editFinalOffenses];
-                                  updatedOffenses[index] = '';
-                                  setEditFinalOffenses(updatedOffenses);
-                                }
+                                setIsEditFiledInCourt(updated.some((rec) => requiresCourtInfo(rec)));
                               }}
                               className={`w-36 flex-shrink-0 px-2 py-2.5 rounded-xl border-2 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${
-                                (editRecommendations[index] || '').toLowerCase() === 'filed in court'
+                                requiresCourtInfo(editRecommendations[index])
                                   ? (isDark ? 'border-emerald-500 bg-emerald-900/30 text-emerald-300 focus:ring-emerald-400/20' : 'border-emerald-500 bg-emerald-50 text-emerald-700 focus:ring-emerald-500/15')
                                   : (isDark ? 'border-slate-600 bg-slate-700/80 text-slate-100 focus:border-green-400 focus:ring-green-400/20' : 'border-slate-300 bg-white text-slate-800 focus:border-green-500 focus:ring-green-500/15')
                               }`}
                             >
                               <option value="Pending">Pending</option>
                               <option value="Dismissed">Dismissed</option>
+                              <option value="Provisional dismissal">Provisional dismissal</option>
                               <option value="Convicted">Convicted</option>
                               <option value="For Resolution">For Resolution</option>
+                              <option value="Archived">Archived</option>
                               <option value="Filed in Court">Filed in Court</option>
                             </select>
                             {editRespondents.length > 1 && (
@@ -1656,7 +1851,7 @@ const Deletecase = () => {
                                   setEditFinalOffenses(editFinalOffenses.filter((_, i) => i !== index));
                                   const updatedRecs = editRecommendations.filter((_, i) => i !== index);
                                   setEditRecommendations(updatedRecs);
-                                  setIsEditFiledInCourt(updatedRecs.some(rec => (rec || '').toLowerCase() === 'filed in court'));
+                                  setIsEditFiledInCourt(updatedRecs.some((rec) => requiresCourtInfo(rec)));
                                 }}
                                 className={`w-9 flex-shrink-0 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer ${isDark ? 'bg-red-900/30 border-red-700 text-red-400 hover:bg-red-900/50' : 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'}`}
                                 title="Remove respondent"
@@ -1665,41 +1860,39 @@ const Deletecase = () => {
                               </button>
                             )}
                           </div>
-                          {/* Court Info — shown per respondent when Filed in Court */}
-                          {(editRecommendations[index] || '').toLowerCase() === 'filed in court' && (
-                            <div className={`mt-2 p-4 rounded-xl border-2 ${isDark ? 'border-emerald-700/60 bg-emerald-900/20' : 'border-emerald-200 bg-emerald-50/30'}`}>
-                              <div className="flex items-center gap-2 mb-2.5">
-                                <i className="fas fa-landmark text-emerald-500 text-xs"></i>
-                                <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Court Information</span>
+                          {/* Court Info — shown per respondent when Filed in Court or Archived */}
+                          <div className={`mt-2 p-4 rounded-xl border-2 ${isDark ? 'border-emerald-700/60 bg-emerald-900/20' : 'border-emerald-200 bg-emerald-50/30'}`}>
+                            <div className="flex items-center gap-2 mb-2.5">
+                              <i className="fas fa-landmark text-emerald-500 text-xs"></i>
+                              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Court Information</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  <i className="fas fa-file-contract text-emerald-500"></i>Criminal Case No
+                                </label>
+                                <input type="text" value={editCrimCaseNos[index] || ''} onChange={(e) => { const u = [...editCrimCaseNos]; u[index] = e.target.value; setEditCrimCaseNos(u); }} placeholder="Enter case number" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
                               </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    <i className="fas fa-file-contract text-emerald-500"></i>Criminal Case No
-                                  </label>
-                                  <input type="text" value={editCrimCaseNos[index] || ''} onChange={(e) => { const u = [...editCrimCaseNos]; u[index] = e.target.value; setEditCrimCaseNos(u); }} placeholder="Enter case number" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
-                                </div>
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    <i className="fas fa-building text-emerald-500"></i>Branch
-                                  </label>
-                                  <input type="text" value={editBranches[index] || ''} onChange={(e) => { const u = [...editBranches]; u[index] = e.target.value; setEditBranches(u); }} placeholder="Enter branch" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
-                                </div>
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    <i className="fas fa-calendar-check text-emerald-500"></i>Date Filed in Court
-                                  </label>
-                                  <input type="date" value={editDatesFiledInCourt[index] || ''} onChange={(e) => { const u = [...editDatesFiledInCourt]; u[index] = e.target.value; setEditDatesFiledInCourt(u); }} className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
-                                </div>
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    <i className="fas fa-gavel text-emerald-500"></i>Final Offense
-                                  </label>
-                                  <input type="text" value={editFinalOffenses[index] || ''} onChange={(e) => { const u = [...editFinalOffenses]; u[index] = e.target.value; setEditFinalOffenses(u); }} placeholder="Enter final offense" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
-                                </div>
+                              <div>
+                                <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  <i className="fas fa-building text-emerald-500"></i>Branch
+                                </label>
+                                <input type="text" value={editBranches[index] || ''} onChange={(e) => { const u = [...editBranches]; u[index] = e.target.value; setEditBranches(u); }} placeholder="Enter branch" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
+                              </div>
+                              <div>
+                                <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  <i className="fas fa-calendar-check text-emerald-500"></i>Date Filed in Court
+                                </label>
+                                <input type="date" value={editDatesFiledInCourt[index] || ''} onChange={(e) => { const u = [...editDatesFiledInCourt]; u[index] = e.target.value; setEditDatesFiledInCourt(u); }} className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
+                              </div>
+                              <div>
+                                <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  <i className="fas fa-gavel text-emerald-500"></i>Final Offense
+                                </label>
+                                <input type="text" value={editFinalOffenses[index] || ''} onChange={(e) => { const u = [...editFinalOffenses]; u[index] = e.target.value; setEditFinalOffenses(u); }} placeholder="Enter final offense" className={`w-full px-3 py-2 rounded-lg border-2 text-sm font-medium placeholder:font-normal focus:outline-none focus:ring-1 transition-all ${isDark ? 'border-emerald-700/60 bg-slate-700/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/20' : 'border-emerald-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/15'}`} />
                               </div>
                             </div>
-                          )}
+                          </div>
                         </div>
                       ))}
                       <button
@@ -2031,7 +2224,7 @@ const Deletecase = () => {
 
         {/* Delete Confirmation Modal */}
         <AnimatePresence>
-          {showConfirm && selectedCase && (
+          {showConfirm && selectedCase && selectedDeleteRow && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -2106,7 +2299,7 @@ const Deletecase = () => {
                         <p className={`text-xs leading-relaxed ${
                           isDark ? 'text-slate-400' : 'text-slate-600'
                         }`}>
-                          {selectedCase.COMPLAINANT} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>vs</span> {parseRespondents(selectedCase.RESPONDENT)[0] || 'N/A'}{parseRespondents(selectedCase.RESPONDENT).length > 1 ? ` +${parseRespondents(selectedCase.RESPONDENT).length - 1} more` : ''}
+                          {selectedCase.COMPLAINANT} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>vs</span> {selectedDeleteRow.respondent || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -2128,7 +2321,7 @@ const Deletecase = () => {
                     <p className={`text-xs leading-relaxed font-medium ${
                       isDark ? 'text-blue-300/90' : 'text-blue-900/75'
                     }`}>
-                      This case will be stored in Terminated Cases where you can restore it or delete it permanently.
+                      This respondent will be moved to Terminated Cases where you can restore it or delete it permanently.
                     </p>
                   </motion.div>
                 </div>
@@ -2141,7 +2334,10 @@ const Deletecase = () => {
                     type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowConfirm(false)}
+                    onClick={() => {
+                      setShowConfirm(false);
+                      setSelectedDeleteRow(null);
+                    }}
                     className={`flex-1 py-2.5 rounded-lg font-semibold text-sm border-2 transition-all ${
                       isDark
                         ? 'bg-transparent border-slate-600/50 text-slate-300 hover:bg-slate-700/30 hover:border-slate-500'
@@ -2170,6 +2366,92 @@ const Deletecase = () => {
                       <>
                         <i className="fas fa-archive text-sm"></i>
                         <span>Move</span>
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Move All Confirmation Modal */}
+        <AnimatePresence>
+          {showMoveAllConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-lg"
+              onClick={() => !isMovingAll && setShowMoveAllConfirm(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.93, y: 24 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.93, y: 24 }}
+                transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+                className={`rounded-2xl shadow-2xl max-w-md w-full overflow-hidden ${
+                  isDark ? 'bg-gradient-to-br from-slate-800 to-slate-900' : 'bg-gradient-to-br from-white to-slate-50'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="h-1 bg-gradient-to-r from-red-500 via-red-600 to-red-500"></div>
+
+                <div className={`p-6 text-center border-b ${
+                  isDark ? 'border-slate-700/30' : 'border-slate-200/50'
+                }`}>
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-red-500 via-red-600 to-red-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-500/40">
+                    <i className="fas fa-box-archive text-2xl text-white"></i>
+                  </div>
+                  <h3 className={`text-xl font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                    Move All Cases
+                  </h3>
+                </div>
+
+                <div className="p-6">
+                  <p className={`text-sm leading-relaxed text-center ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    Are you sure you want to move all this cases to terminated cases?
+                  </p>
+                </div>
+
+                <div className={`flex gap-3 p-6 pt-4 border-t ${
+                  isDark ? 'border-slate-700/30' : 'border-slate-200/50'
+                }`}>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={isMovingAll ? handleStopMoveAllCases : () => setShowMoveAllConfirm(false)}
+                    disabled={isStoppingAll}
+                    className={`flex-1 py-2.5 rounded-lg font-semibold text-sm border-2 transition-all ${
+                      isDark
+                        ? 'bg-transparent border-slate-600/50 text-slate-300 hover:bg-slate-700/30 hover:border-slate-500'
+                        : 'bg-transparent border-slate-300/50 text-slate-700 hover:bg-slate-100/50 hover:border-slate-400'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {isMovingAll ? (isStoppingAll ? 'Stopping...' : 'Stop') : 'Cancel'}
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleMoveAllCases}
+                    disabled={isMovingAll}
+                    className="flex-1 py-2.5 rounded-lg font-semibold text-sm bg-gradient-to-r from-red-600 via-red-600 to-red-700
+                             text-white hover:from-red-700 hover:via-red-700 hover:to-red-800 transition-all
+                             flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed
+                             shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
+                  >
+                    {isMovingAll ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Moving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-check text-sm"></i>
+                        <span>Confirm</span>
                       </>
                     )}
                   </motion.button>
@@ -2252,10 +2534,13 @@ const Deletecase = () => {
             {PRINT_FORMAT_OPTIONS.map((fmt) => {
               const activeCase = filteredCases.find(c => c.id === printDropdownCase);
               return (
-                <button
+                <motion.button
                   key={fmt.value}
                   type="button"
                   onClick={() => activeCase && handleCasePrint(activeCase, fmt.value)}
+                  initial="rest"
+                  whileHover="hover"
+                  animate="rest"
                   className={`w-full text-left px-3 py-2 text-xs transition-colors cursor-pointer border-none flex items-center gap-2 ${
                     isDark
                       ? 'text-slate-200 hover:bg-slate-700 bg-transparent'
@@ -2265,8 +2550,20 @@ const Deletecase = () => {
                   <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
                     isDark ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-600'
                   }`}>{fmt.value}</span>
-                  <span className="truncate">{fmt.description}</span>
-                </button>
+                  <span className="relative flex-1 overflow-hidden whitespace-nowrap">
+                    <motion.span
+                      variants={{
+                        rest: { x: 0 },
+                        hover: { x: [0, -120, 0] },
+                      }}
+                      transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
+                      className="inline-block pr-8"
+                      title={fmt.description}
+                    >
+                      {fmt.description}
+                    </motion.span>
+                  </span>
+                </motion.button>
               );
             })}
           </motion.div>

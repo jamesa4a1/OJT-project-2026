@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeContext } from '../../App';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import { API_BASE } from '../../config/api';
 import { useSocket, ALL_EVENTS } from '../../hooks/useSocket';
 
@@ -80,10 +79,13 @@ const AdminDashboard = () => {
     }
     return headers;
   };
+  const normalizeDecision = (value) => (value || '').toLowerCase().trim();
   const [stats, setStats] = useState({
     total: 0,
     resolved: 0,
     pending: 0,
+    provisionalDismissal: 0,
+    archived: 0,
     thisMonth: 0,
     totalUsers: 0,
     totalClerks: 0,
@@ -140,15 +142,21 @@ const AdminDashboard = () => {
 
         const resolved = mappedCases.filter(
           (c) =>
-            c.status?.toLowerCase() === 'resolved' ||
-            c.status?.toLowerCase() === 'closed' ||
-            c.status?.toLowerCase() === 'terminated'
+            normalizeDecision(c.status) === 'resolved' ||
+            normalizeDecision(c.status) === 'closed' ||
+            normalizeDecision(c.status) === 'terminated'
         ).length;
         const pending = mappedCases.filter(
           (c) =>
-            c.status?.toLowerCase() === 'pending' ||
-            c.status?.toLowerCase() === 'open' ||
-            c.status?.toLowerCase() === 'ongoing'
+            normalizeDecision(c.status) === 'pending' ||
+            normalizeDecision(c.status) === 'open' ||
+            normalizeDecision(c.status) === 'ongoing'
+        ).length;
+        const provisionalDismissal = mappedCases.filter(
+          (c) => normalizeDecision(c.status) === 'provisional dismissal'
+        ).length;
+        const archived = mappedCases.filter(
+          (c) => normalizeDecision(c.status) === 'archived'
         ).length;
         const monthCases = mappedCases.filter((c) => {
           const caseDate = new Date(c.date_filed || c.DATE_FILED);
@@ -160,6 +168,8 @@ const AdminDashboard = () => {
           total: mappedCases.length,
           resolved: resolved,
           pending: pending,
+          provisionalDismissal,
+          archived,
           thisMonth: monthCases,
         }));
 
@@ -258,99 +268,6 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       console.error('Error deleting user:', error);
-    }
-  };
-
-  const handleExportCSV = async () => {
-    try {
-      console.log('📥 Starting Excel export...');
-      const response = await fetch(`${API_BASE}/cases`);
-      
-      if (!response.ok) {
-        console.error('❌ Failed to fetch cases:', response.status);
-        alert(`Failed to export: ${response.statusText}`);
-        return;
-      }
-      
-      const cases = await response.json();
-      console.log(`✅ Fetched ${cases.length} cases for export`);
-      
-      if (!cases || cases.length === 0) {
-        alert('No cases available to export');
-        return;
-      }
-
-      // Prepare headers (removed ID)
-      const headers = [
-        'Docket No',
-        'Date Filed',
-        'Complainant',
-        'Respondent',
-        'Address of Respondent',
-        'Offense',
-        'Date of Commission',
-        'Date Resolved',
-        'Resolving Prosecutor',
-        'Criminal Case No',
-        'Branch',
-        'Date Filed in Court',
-        'Remarks Decision',
-        'Penalty',
-        'Index Cards',
-      ];
-
-      // Prepare data rows (removed c.id)
-      const data = cases.map((c) => [
-        c.DOCKET_NO || c.docket_no || '',
-        c.DATE_FILED || c.date_filed || '',
-        c.COMPLAINANT || c.complainant || '',
-        c.RESPONDENT || c.respondent || '',
-        c.ADDRESS_OF_RESPONDENT || c.address_of_respondent || '',
-        c.OFFENSE || c.offense || '',
-        c.DATE_OF_COMMISSION || c.date_of_commission || '',
-        c.DATE_RESOLVED || c.date_resolved || '',
-        c.RESOLVING_PROSECUTOR || c.resolving_prosecutor || '',
-        c.CRIM_CASE_NO || c.crim_case_no || '',
-        c.BRANCH || c.branch || '',
-        c.DATEFILED_IN_COURT || c.datefiled_in_court || '',
-        c.REMARKS_DECISION || c.remarks_decision || '',
-        c.PENALTY || c.penalty || '',
-        c.INDEX_CARDS || c.index_cards || '',
-      ]);
-
-      // Create worksheet
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
-
-      // Auto-fit column widths based on content
-      const columnWidths = headers.map((header, idx) => {
-        let maxWidth = header.length;
-        
-        // Check content in each row
-        data.forEach((row) => {
-          const cellContent = String(row[idx] || '').length;
-          if (cellContent > maxWidth) {
-            maxWidth = cellContent;
-          }
-        });
-        
-        // Add padding and return width object
-        return { wch: Math.min(maxWidth + 2, 50) }; // Max width 50 to prevent extremely wide columns
-      });
-
-      worksheet['!cols'] = columnWidths;
-
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Cases');
-
-      // Write file
-      const filename = `cases_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(workbook, filename);
-      
-      console.log(`✅ Excel file exported successfully: ${filename}`);
-    } catch (error) {
-      console.error('❌ Error exporting Excel:', error);
-      alert('Error exporting Excel: ' + error.message);
     }
   };
 
@@ -482,19 +399,6 @@ const AdminDashboard = () => {
                 {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </motion.div>
-            
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl
-                       bg-white/90 backdrop-blur-xl text-blue-600 font-bold text-sm
-                       hover:bg-white transition-all duration-300 border border-white/50 cursor-pointer 
-                       shadow-xl shadow-blue-900/20"
-            >
-              <i className="fas fa-download"></i>
-              Export Cases
-            </motion.button>
           </div>
         </div>
         
@@ -503,12 +407,14 @@ const AdminDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="relative grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/10"
+          className="relative grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 gap-4 mt-8 pt-6 border-t border-white/10"
         >
           {[
             { label: 'Total Cases', value: stats.total, icon: 'fa-folder-open' },
             { label: 'Active Users', value: stats.totalUsers, icon: 'fa-users' },
             { label: 'Pending Review', value: stats.pending, icon: 'fa-hourglass-half' },
+            { label: 'Provisional dismissal', value: stats.provisionalDismissal, icon: 'fa-scale-balanced' },
+            { label: 'Archived', value: stats.archived, icon: 'fa-box-archive' },
           ].map((item, idx) => (
             <div key={idx} className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">

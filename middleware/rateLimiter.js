@@ -11,14 +11,19 @@ const rateLimit = require('express-rate-limit');
  */
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1500,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: true },
   skip: (req) => {
-    // Don't rate limit health checks or internal requests
-    return req.path === '/health' || req.path === '/api/health';
+    if (req.method === 'OPTIONS') return true;
+    // Don't rate limit health checks and high-frequency read/polling routes.
+    if (req.path === '/health' || req.path === '/api/health') return true;
+    if (req.path === '/cases') return true;
+    if (req.path === '/api/excel/upload' || req.path === '/api/excel/download') return true;
+    if (/^\/api\/user\/\d+\/status$/.test(req.path)) return true;
+    return false;
   }
 });
 
