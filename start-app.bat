@@ -1,10 +1,10 @@
 @echo off
-title OJT Application - Running
+title Docketing System - Running
 cd /d "C:\Users\HP User\Desktop\OJT PROJECT 2026(1)"
 
 echo.
 echo ========================================
-echo   OJT Application Starting...
+echo   Docketing System Starting...
 echo ========================================
 echo.
 
@@ -59,8 +59,8 @@ if %errorlevel% neq 0 (
     goto wait_http
 )
 
-REM Use the static IP (192.168.1.15 is the permanent main PC IP)
-set LOCAL_IP=192.168.1.15
+REM Use the static IP (192.168.1.200 is the permanent main PC IP)
+set LOCAL_IP=192.168.1.200
 
 echo.
 echo ✓ Application started!
@@ -69,7 +69,7 @@ echo ========================================
 echo   Access the application:
 echo ========================================
 echo.
-echo   Main PC:      http://localhost
+echo   Main PC:      http://%LOCAL_IP%
 echo   Other PCs:    http://%LOCAL_IP%
 echo.
 echo   (Nginx reverse proxy on port 80)

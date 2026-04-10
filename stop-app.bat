@@ -1,10 +1,10 @@
 @echo off
-title OJT Application - Stopping
+title Docketing System Stopping
 cd /d "C:\Users\galam\OneDrive\Desktop\deploymenttesting"
 
 echo.
 echo ========================================
-echo   OJT Application Stopping...
+echo   Docketing System Stopping...
 echo ========================================
 echo.
 

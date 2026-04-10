@@ -1539,11 +1539,20 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
       
       // Emit real-time event
       emitRealtimeEvent('case_added', { id: result.insertId, docketNo: validatedData.DOCKET_NO });
-      
-      res.status(200).json(ApiResponse.success("Case added successfully", { 
-        id: result.insertId,
-        indexCardPath: INDEX_CARDS 
-      }));
+
+      db.query("SELECT COUNT(*) AS totalCases FROM cases", (countErr, countResults) => {
+        if (countErr) {
+          console.error("Error counting cases after add:", countErr);
+        }
+
+        const totalCases = Number(countResults?.[0]?.totalCases || 0);
+
+        res.status(200).json(ApiResponse.success("Case added successfully", {
+          id: result.insertId,
+          indexCardPath: INDEX_CARDS,
+          totalCases: Number.isFinite(totalCases) && totalCases > 0 ? totalCases : null,
+        }));
+      });
       });
     });
   } catch (error) {

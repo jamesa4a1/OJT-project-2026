@@ -136,6 +136,12 @@ const AdminDashboard = () => {
           title: c.DOCKET_NO,
         }));
 
+        const importedTotalRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
+        const importedTotal = Number.isFinite(importedTotalRaw) && importedTotalRaw > 0
+          ? importedTotalRaw
+          : 0;
+        const totalCases = Math.max(mappedCases.length, importedTotal);
+
         const now = new Date();
         const thisMonth = now.getMonth();
         const thisYear = now.getFullYear();
@@ -165,7 +171,7 @@ const AdminDashboard = () => {
 
         setStats((prev) => ({
           ...prev,
-          total: mappedCases.length,
+          total: totalCases,
           resolved: resolved,
           pending: pending,
           provisionalDismissal,

@@ -100,6 +100,12 @@ const ClerkDashboard = () => {
           date_filed: c.DATE_FILED || c.date_filed,
         }));
 
+        const importedTotalRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
+        const importedTotal = Number.isFinite(importedTotalRaw) && importedTotalRaw > 0
+          ? importedTotalRaw
+          : 0;
+        const totalCases = Math.max(mappedCases.length, importedTotal);
+
         // Calculate stats
         const now = new Date();
         const thisMonth = now.getMonth();
@@ -131,7 +137,7 @@ const ClerkDashboard = () => {
         }).length;
 
         setStats({
-          total: mappedCases.length,
+          total: totalCases,
           resolved: resolved,
           pending: pending,
           provisionalDismissal,

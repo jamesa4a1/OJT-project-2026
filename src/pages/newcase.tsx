@@ -205,6 +205,31 @@ const Newcase: React.FC = () => {
         duration: 4000,
       });
 
+      // Keep Manage Cases and dashboards in sync with manual case adds.
+      const responseTotalRaw = Number(response?.data?.data?.totalCases || 0);
+      const responseTotal = Number.isFinite(responseTotalRaw) && responseTotalRaw > 0
+        ? responseTotalRaw
+        : 0;
+      const importedTotalRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
+      const importedTotal = Number.isFinite(importedTotalRaw) && importedTotalRaw > 0
+        ? importedTotalRaw
+        : 0;
+
+      let nextDisplayedTotal = 0;
+      if (importedTotal > 0 && importedTotal >= responseTotal) {
+        // Keep imported/display baseline monotonic when API count is lower due to dedupe/model differences.
+        nextDisplayedTotal = importedTotal + 1;
+      } else if (responseTotal > 0) {
+        nextDisplayedTotal = responseTotal;
+      } else if (importedTotal > 0) {
+        nextDisplayedTotal = importedTotal + 1;
+      }
+
+      if (nextDisplayedTotal > 0) {
+        localStorage.setItem('excelLastImportTotalRows', String(nextDisplayedTotal));
+        localStorage.setItem('excelLastImportUpdatedAt', new Date().toISOString());
+      }
+
       // Reset form
       setFormData({
         DOCKET_NO: '',
