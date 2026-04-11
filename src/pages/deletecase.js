@@ -111,9 +111,21 @@ const Deletecase = () => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   })();
   const isUnfilteredCaseView = searchTerm.trim() === '' && statusFilter === 'all';
-  const displayedCaseCount = isUnfilteredCaseView && lastImportTotalRows > 0
-    ? Math.max(lastImportTotalRows, filteredCases.length)
-    : filteredCases.length;
+  const displayedCaseCount = filteredCases.length === 0
+    ? 0
+    : isUnfilteredCaseView && lastImportTotalRows > 0
+      ? Math.max(lastImportTotalRows, filteredCases.length)
+      : filteredCases.length;
+
+  const adjustDisplayedCaseCount = (delta) => {
+    const currentRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
+    const current = Number.isFinite(currentRaw) && currentRaw > 0 ? currentRaw : 0;
+    if (!current || !Number.isFinite(delta) || delta === 0) return;
+
+    const next = Math.max(0, current + delta);
+    localStorage.setItem('excelLastImportTotalRows', String(next));
+    localStorage.setItem('excelLastImportUpdatedAt', new Date().toISOString());
+  };
 
 
   // Helper function to construct proper image URL
@@ -193,6 +205,7 @@ const Deletecase = () => {
     try {
       const response = await axios.get(`${API_BASE}/cases`);
       setCases(response.data);
+      return Array.isArray(response.data) ? response.data : [];
     } catch (err) {
       console.error('Error fetching cases:', err);
       if (err.response) {
@@ -209,6 +222,7 @@ const Deletecase = () => {
         // Something else happened
         setError('Error fetching cases: ' + err.message);
       }
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -635,6 +649,8 @@ const Deletecase = () => {
       
       // Refresh the entire cases list from server after successful deletion
       await fetchAllCases();
+      // Deleting from Manage Cases removes one respondent row at a time.
+      adjustDisplayedCaseCount(-1);
       
       setShowConfirm(false);
       setSelectedCase(null);
@@ -696,8 +712,24 @@ const Deletecase = () => {
     setError('');
 
     try {
+      const previousCasesCount = cases.length;
       const response = await axios.post(`${API_BASE}/delete-all-cases`);
-      await fetchAllCases();
+      const refreshedCases = await fetchAllCases();
+      const nextCasesCount = Array.isArray(refreshedCases) ? refreshedCases.length : previousCasesCount;
+      const removedByDelta = Math.max(previousCasesCount - nextCasesCount, 0);
+      const movedRespondentsRaw = Number(response?.data?.movedRespondents);
+      const movedCasesRaw = Number(response?.data?.movedCases);
+      const removedCases = Number.isFinite(movedRespondentsRaw) && movedRespondentsRaw >= 0
+        ? movedRespondentsRaw
+        : Number.isFinite(movedCasesRaw) && movedCasesRaw >= 0
+          ? movedCasesRaw
+        : removedByDelta;
+      adjustDisplayedCaseCount(-removedCases);
+
+      if (nextCasesCount === 0) {
+        localStorage.setItem('excelLastImportTotalRows', '0');
+        localStorage.setItem('excelLastImportUpdatedAt', new Date().toISOString());
+      }
 
       if (response?.data?.cancelled) {
         setError(response.data?.message || 'Move All paused.');
@@ -1157,12 +1189,12 @@ const Deletecase = () => {
                 </tbody>
               </table>
 
-              {filteredCases.length > CASES_PER_PAGE && (
+              {displayedCaseCount > CASES_PER_PAGE && (
                 <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 border-t ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-slate-50'}`}>
                   <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                     Showing <span className="font-semibold">{(currentPage - 1) * CASES_PER_PAGE + 1}</span>
-                    {' '}to <span className="font-semibold">{Math.min(currentPage * CASES_PER_PAGE, filteredCases.length)}</span>
-                    {' '}of <span className="font-semibold">{filteredCases.length}</span> cases
+                    {' '}to <span className="font-semibold">{Math.min(currentPage * CASES_PER_PAGE, displayedCaseCount)}</span>
+                    {' '}of <span className="font-semibold">{displayedCaseCount}</span> cases
                   </p>
 
                   <div className="flex items-center gap-2">

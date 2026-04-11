@@ -121,8 +121,22 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
     }
 
     const messageText = String(data.message || '');
+    const validRowsMatch = messageText.match(/(\d+)\s*valid\s*rows?/i);
+    const fromRowsMatch = messageText.match(/from\s+(\d+)\s+rows?\s*\((\d+)\s+skipped\)/i);
     const insertedMatch = messageText.match(/(\d+)\s*(?:rows?\s*)?inserted/i);
     const updatedMatch = messageText.match(/(\d+)\s*updated/i);
+    const parsedValidRows = Number(validRowsMatch?.[1] || 0);
+    if (parsedValidRows > 0) {
+      return parsedValidRows;
+    }
+
+    const parsedFromRows = Number(fromRowsMatch?.[1] || 0);
+    const parsedSkippedRows = Number(fromRowsMatch?.[2] || 0);
+    const parsedFromValidRows = Math.max(parsedFromRows - parsedSkippedRows, 0);
+    if (parsedFromValidRows > 0) {
+      return parsedFromValidRows;
+    }
+
     const parsedInserted = Number(insertedMatch?.[1] || 0);
     const parsedUpdated = Number(updatedMatch?.[1] || 0);
 
