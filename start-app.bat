@@ -2,6 +2,17 @@
 title Docketing System - Running
 cd /d "C:\Users\HP User\Desktop\OJT PROJECT 2026(1)"
 
+if not exist ".env" (
+    echo [!] .env not found. Creating it from .env.example...
+    if exist ".env.example" (
+        copy /Y ".env.example" ".env" >nul
+    ) else (
+        echo [!] .env.example not found. Cannot continue.
+        pause
+        exit /b 1
+    )
+)
+
 echo.
 echo ========================================
 echo   Docketing System Starting...
@@ -28,7 +39,7 @@ echo     Docker Desktop is ready!
 echo.
 
 echo [*] Building and starting containers...
-docker compose up -d --build
+docker compose --env-file .env up -d --build
 if %errorlevel% neq 0 (
     echo [!] Failed to start containers. Check Docker Desktop and run again.
     pause

@@ -456,7 +456,7 @@ const Caselist = () => {
           <motion.button
             whileHover={{ x: -5 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/admin-dashboard')}
+            onClick={() => navigate('/managecases')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium
                        transition-all duration-300 shadow-sm cursor-pointer border-none ${
                          isDark 
@@ -465,7 +465,7 @@ const Caselist = () => {
                        }`}
           >
             <i className="fas fa-arrow-left"></i>
-            <span>Back to Dashboard</span>
+            <span>Back to Manage Cases</span>
           </motion.button>
 
           <div className="flex flex-wrap gap-4 items-center">

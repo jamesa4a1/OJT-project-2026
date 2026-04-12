@@ -43,6 +43,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://localhost:5000/api/health',res=>process.exit(res.statusCode===200?0:1));req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>{req.destroy();process.exit(1);});"]
+      timeout: 10s
+      retries: 12
+      interval: 10s
+      start_period: 40s
     networks:
       - ocp_network
     restart: unless-stopped
@@ -58,7 +64,14 @@ services:
     expose:
       - "3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://localhost:3000/',res=>process.exit(res.statusCode<500?0:1));req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>{req.destroy();process.exit(1);});"]
+      timeout: 10s
+      retries: 18
+      interval: 10s
+      start_period: 45s
     networks:
       - ocp_network
     restart: unless-stopped
@@ -72,8 +85,10 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     networks:
       - ocp_network
     restart: unless-stopped
