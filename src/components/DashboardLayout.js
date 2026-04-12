@@ -41,7 +41,7 @@ const DashboardLayout = ({ children }) => {
     { id: 'newcase', label: 'Add New Case', icon: 'fa-plus-circle', path: '/newcase' },
     { id: 'managecases', label: 'Manage Cases', icon: 'fa-tasks', path: '/managecases' },
     { id: 'clearance', label: 'Issue Clearance', icon: 'fa-clipboard-check', path: '/clearances' },
-    { id: 'addaccount', label: 'Add Account', icon: 'fa-user-plus', path: '/add-account' },
+    { id: 'addaccount', label: 'Manage Account', icon: 'fa-user-plus', path: '/add-account' },
     { id: 'caselist', label: 'Terminated Cases', icon: 'fa-archive', path: '/caselist' },
     { id: 'generatereport', label: 'Generate Report', icon: 'fa-file-pdf', path: '/generate-report' },
     { id: 'settings', label: 'Account Settings', icon: 'fa-cog', path: '/settings' },

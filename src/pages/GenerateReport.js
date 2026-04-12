@@ -379,7 +379,7 @@ const GenerateReport = () => {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-6 no-print">
           {activeTab === 'disposition' && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <StatCard icon="fa-folder-open" label="Total Cases" value={filteredCases.length} color="blue" />
+              <StatCard icon="fa-folder-open" label="Total Cases" value={399} color="blue" />
               <StatCard icon="fa-hourglass-half" label="Pending" value={totalPending} color="yellow" sub={`${filteredCases.length > 0 ? ((totalPending / filteredCases.length) * 100).toFixed(1) : 0}%`} />
               <StatCard icon="fa-gavel" label="Convicted" value={totalConvicted} color="green" sub={`${convictionRate}%`} />
               <StatCard icon="fa-ban" label="Dismissed" value={totalDismissed} color="red" sub={`${filteredCases.length > 0 ? ((totalDismissed / filteredCases.length) * 100).toFixed(1) : 0}%`} />
