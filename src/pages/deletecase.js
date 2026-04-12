@@ -117,6 +117,13 @@ const Deletecase = () => {
       ? Math.max(lastImportTotalRows, filteredCases.length)
       : filteredCases.length;
 
+  const handleBackToManageCases = () => {
+    setSearchTerm('');
+    setSortOption('default');
+    setStatusFilter('all');
+    setCurrentPage(1);
+  };
+
   const adjustDisplayedCaseCount = (delta) => {
     const currentRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
     const current = Number.isFinite(currentRaw) && currentRaw > 0 ? currentRaw : 0;
@@ -875,7 +882,7 @@ const Deletecase = () => {
             <motion.button
               whileHover={{ x: -5 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/admin-dashboard')}
+              onClick={handleBackToManageCases}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-all duration-300 shadow-sm cursor-pointer text-sm ${
                 isDark
                   ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700'
