@@ -567,6 +567,16 @@ function handleDisconnect() {
       }
     });
 
+    // Keep DATE_FILED nullable so Excel imports can preserve blank dates.
+    db.query("SHOW COLUMNS FROM cases LIKE 'DATE_FILED'", (err, results) => {
+      if (!err && results.length > 0 && String(results[0].Null).toUpperCase() === 'NO') {
+        db.query("ALTER TABLE cases MODIFY COLUMN DATE_FILED DATE NULL", (alterErr) => {
+          if (alterErr) console.error("Error making DATE_FILED nullable:", alterErr);
+          else console.log("✅ Updated DATE_FILED column to allow NULL values.");
+        });
+      }
+    });
+
     // Migrate DATEFILED_IN_COURT from DATE to VARCHAR(500) to support JSON arrays (per-respondent dates)
     db.query("SHOW COLUMNS FROM cases LIKE 'DATEFILED_IN_COURT'", (err, results) => {
       if (!err && results.length > 0 && results[0].Type.toLowerCase() === 'date') {
