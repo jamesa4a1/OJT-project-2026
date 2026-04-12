@@ -4311,6 +4311,14 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
 
     const replaceExisting = String(req.query?.replace ?? 'false').toLowerCase() === 'true';
 
+    const hasAnyColumn = (row, possibleNames) => {
+      const rowKeys = Object.keys(row || {});
+      if (rowKeys.length === 0) return false;
+
+      const normalizedKeys = new Set(rowKeys.map((key) => normalizeHeaderKey(key)));
+      return possibleNames.some((name) => normalizedKeys.has(normalizeHeaderKey(name)));
+    };
+
     // Helper function to find column value with flexible matching
     const getColumnValue = (row, possibleNames, options = {}) => {
       const { fallbackFirstColumn = false } = options;
@@ -4493,6 +4501,8 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
     // Check for common column name issues
     const firstRow = data[0];
     const columnNames = Object.keys(firstRow);
+    const dateFiledColumns = ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled'];
+    const hasDateFiledColumnInFile = data.some((row) => hasAnyColumn(row, dateFiledColumns));
     const commonIssues = {
       'Date Filing': 'Date Filed',
       'Respondents': 'Respondent',
@@ -4524,7 +4534,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
 
         const rowData = {
           DOCKET_NO: docketNumbers[0] || '',
-          DATE_FILED: getDateColumnValue(row, ['Date Filed', 'DATE_FILED', 'Date Filing', 'DateFiled']),
+          DATE_FILED: getDateColumnValue(row, dateFiledColumns),
           COMPLAINANT: getColumnValue(row, ['Complainant', 'COMPLAINANT', 'Complainants']) || '',
           RESPONDENT: getColumnValue(row, ['Respondent', 'RESPONDENT', 'Respondents']) || '',
           ADDRESS_OF_RESPONDENT: getColumnValue(row, ['Address of Respondent', 'ADDRESS_OF_RESPONDENT', 'Address of Respondents', 'Respondent Address']) || '',
@@ -4670,11 +4680,6 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
       try {
       const existingCase = existingByDocket.get(normalizeCaseInsensitive(docketPayload.DOCKET_NO)) || null;
 
-      if (!docketPayload.DATE_FILED) {
-        docketPayload.DATE_FILED = new Date().toISOString().split('T')[0];
-        warnings.push(`Docket ${docketPayload.DOCKET_NO}: Missing Date Filed; defaulted to today.`);
-      }
-
       const importedRespondents = [];
       const importedAddresses = [];
       const importedRecommendations = [];
@@ -4806,7 +4811,9 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
 
         const computedStatus = normalizeDbStatus(existingCase.STATUS);
 
-        const nextDateFiled = docketPayload.DATE_FILED || existingCase.DATE_FILED;
+        const nextDateFiled = hasDateFiledColumnInFile
+          ? (docketPayload.DATE_FILED || null)
+          : (existingCase.DATE_FILED || null);
         const nextComplainants = serializeArrayField(mergedComplainants);
         const nextRespondents = serializeArrayField(mergedRespondents);
         const nextAddresses = serializeArrayField(mergedAddresses);
@@ -4930,7 +4937,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
         await new Promise((resolve, reject) => {
           const insertValues = [
             docketPayload.DOCKET_NO,
-            docketPayload.DATE_FILED,
+            docketPayload.DATE_FILED || null,
             JSON.stringify(insertedComplainants),
             JSON.stringify(importedRespondents),
             JSON.stringify(importedAddresses),
@@ -4964,7 +4971,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
                 WHERE TRIM(LOWER(DOCKET_NO)) = TRIM(LOWER(?))`;
 
               db.query(duplicateUpdateQuery, [
-                docketPayload.DATE_FILED,
+                docketPayload.DATE_FILED || null,
                 JSON.stringify(insertedComplainants),
                 JSON.stringify(importedRespondents),
                 JSON.stringify(importedAddresses),
@@ -4999,7 +5006,7 @@ app.post("/api/excel/upload", excelUpload.single('file'), async (req, res) => {
 
         existingByDocket.set(normalizeCaseInsensitive(docketPayload.DOCKET_NO), {
           DOCKET_NO: docketPayload.DOCKET_NO,
-          DATE_FILED: docketPayload.DATE_FILED,
+          DATE_FILED: docketPayload.DATE_FILED || null,
           COMPLAINANT: JSON.stringify(insertedComplainants),
           RESPONDENT: JSON.stringify(importedRespondents),
           ADDRESS_OF_RESPONDENT: JSON.stringify(importedAddresses),

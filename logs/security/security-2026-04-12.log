@@ -1,0 +1,5 @@
+{"timestamp":"2026-04-12T14:26:05.183Z","severity":"INFO","eventType":"LOGOUT","userId":1}
+{"timestamp":"2026-04-12T14:26:15.301Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-12T15:04:04.829Z","severity":"INFO","eventType":"LOGOUT","userId":1}
+{"timestamp":"2026-04-12T15:04:14.464Z","severity":"WARN","eventType":"LOGIN_FAILED","email":1,"ip":"james@gmail.com","reason":"::1"}
+{"timestamp":"2026-04-12T15:04:17.629Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}
