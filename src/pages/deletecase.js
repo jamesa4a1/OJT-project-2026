@@ -195,6 +195,16 @@ const Deletecase = () => {
     return [raw.replace(/^\d+[.)]\s*/, '').trim()].filter(Boolean);
   };
 
+  const isMeaningfulDisplayValue = (value) => {
+    if (value === null || value === undefined) return false;
+    const text = String(value).trim();
+    return text !== '' && text.toUpperCase() !== 'N/A';
+  };
+
+  const formatDetailValue = (value) => {
+    return isMeaningfulDisplayValue(value) ? value : '';
+  };
+
   const isValidImagePath = (imagePath) => {
     if (!imagePath || imagePath === 'N/A') return false;
     // New format paths start with /uploads/ or uploads/
@@ -836,8 +846,8 @@ const Deletecase = () => {
           rowKey: `${caseItem.id || caseItem.DOCKET_NO || 'case'}-${respondentIndex}`,
           caseItem,
           respondentIndex,
-          respondent: respondents[respondentIndex] || (respondents.length === 0 && respondentIndex === 0 ? 'N/A' : '—'),
-          address: addresses[respondentIndex] || '—',
+          respondent: respondents[respondentIndex] || (respondents.length === 0 && respondentIndex === 0 ? '' : '—'),
+          address: addresses[respondentIndex] || '',
           decision,
           finalOffense: finalOffenses[respondentIndex] || '',
         };
@@ -1064,16 +1074,16 @@ const Deletecase = () => {
                     >
                       <td className="px-2 py-3">
                         <MarqueeText className={`font-mono font-semibold text-xs ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                          {caseItem.DOCKET_NO || 'N/A'}
+                          {formatDetailValue(caseItem.DOCKET_NO)}
                         </MarqueeText>
                       </td>
                       <td className={`px-2 py-3 text-xs whitespace-nowrap ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        {formatDate(caseItem.DATE_FILED)}
+                        {formatDetailValue(formatDate(caseItem.DATE_FILED))}
                       </td>
                       <td className={`px-2 py-3 text-xs font-medium overflow-hidden ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                         {(() => {
                           const cList = parseRespondents(caseItem.COMPLAINANT);
-                          if (cList.length === 0) return <span>N/A</span>;
+                          if (cList.length === 0) return <span>{''}</span>;
                           return (
                             <div className="flex flex-col gap-0.5">
                               {cList.map((name, i) => (
@@ -1085,16 +1095,18 @@ const Deletecase = () => {
                       </td>
                       <td className={`px-2 py-3 text-xs overflow-hidden ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                         <MarqueeText className="block">
-                          {row.respondent === 'N/A' || row.respondent === '—'
+                          {row.respondent === '' || row.respondent === '—'
                             ? row.respondent
                             : `${row.respondentIndex + 1}. ${row.respondent}`}
                         </MarqueeText>
                       </td>
                       <td className={`px-2 py-3 text-xs overflow-hidden ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                         <MarqueeText className="block italic">
-                          {row.respondent === 'N/A' || row.respondent === '—'
-                            ? row.address
-                            : `${row.respondentIndex + 1}. ${row.address}`}
+                          {row.respondent === '' || row.respondent === '—'
+                            ? formatDetailValue(row.address)
+                            : (formatDetailValue(row.address)
+                              ? `${row.respondentIndex + 1}. ${formatDetailValue(row.address)}`
+                              : '')}
                         </MarqueeText>
                       </td>
                       <td className="px-0 py-3 text-left overflow-hidden">
@@ -1109,7 +1121,7 @@ const Deletecase = () => {
                             ? 'bg-slate-700 text-slate-200'
                             : 'bg-slate-100 text-slate-700'
                         }`}>
-                          <MarqueeText>{caseItem.OFFENSE || 'N/A'}</MarqueeText>
+                          <MarqueeText>{formatDetailValue(caseItem.OFFENSE)}</MarqueeText>
                         </div>
                       </td>
                       <td className="px-2 py-3 text-center">
@@ -1119,12 +1131,12 @@ const Deletecase = () => {
                           </span>
                         ) : (
                           <span className={`text-xs italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            N/A
+                            {''}
                           </span>
                         )}
                       </td>
                       <td className={`px-2 py-3 text-center text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        {formatDate(caseItem.DECISION_DATE)}
+                        {formatDetailValue(formatDate(caseItem.DECISION_DATE))}
                       </td>
                       <td className="px-2 py-3">
                         <div className="flex items-center justify-center gap-2 flex-nowrap">
@@ -1445,7 +1457,7 @@ const Deletecase = () => {
                               </p>
                             </div>
                             {respondentList.length === 0 ? (
-                              <p className={`text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>N/A</p>
+                              <p className={`text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{''}</p>
                             ) : (
                               respondentList.map((name, i) => (
                                 <div key={i} className={`flex gap-3 items-center ${i > 0 ? `mt-2 pt-2 border-t ${isDark ? 'border-slate-600' : 'border-slate-200'}` : ''}`}>
@@ -1472,7 +1484,7 @@ const Deletecase = () => {
                                     <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
                                       isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'
                                     }`}>
-                                      {finalOffenses[i] || 'N/A'}
+                                      {formatDetailValue(finalOffenses[i])}
                                     </span>
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
@@ -1480,19 +1492,19 @@ const Deletecase = () => {
                                     <span className={`px-2 py-1 rounded-md text-xs font-semibold inline-block ${
                                       isDark ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
                                     }`}>
-                                      {crimCaseNos[i] || 'N/A'}
+                                      {formatDetailValue(crimCaseNos[i])}
                                     </span>
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
                                     <span className="min-w-[2.10rem]"></span>
                                     <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                                      {datesFiledInCourt[i] || 'N/A'}
+                                      {formatDetailValue(datesFiledInCourt[i])}
                                     </span>
                                   </div>
                                   <div className="flex-1 flex items-center gap-1.5">
                                     <span className="min-w-[3.25rem]"></span>
                                     <span className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                                      {branches[i] || 'N/A'}
+                                      {formatDetailValue(branches[i])}
                                     </span>
                                   </div>
                                 </div>
@@ -1516,10 +1528,10 @@ const Deletecase = () => {
                             <i className={`fas ${item.icon} text-blue-500 text-xs`}></i>
                             {item.label}
                           </p>
-                          <p className={`font-semibold text-sm leading-snug break-words ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.values ? item.values.join(', ') : (item.value || (item.blankIfEmpty ? '' : 'N/A'))}>
+                          <p className={`font-semibold text-sm leading-snug break-words ${isDark ? 'text-slate-100' : 'text-slate-800'}`} title={item.values ? item.values.join(', ') : String(formatDetailValue(item.value) || '')}>
                             {item.values
                               ? item.values.length === 0
-                                ? (item.placeholder || 'N/A')
+                                ? (item.placeholder || '')
                                 : item.values.map((v, i) => (
                                     <span key={i} className={`block ${i > 0 ? 'mt-1 pt-1 border-t border-slate-200/40' : ''}`}>
                                       {item.values.length > 1 ? <span className="text-blue-500 mr-1 font-bold">{i + 1}.</span> : null}{v}
@@ -1530,13 +1542,13 @@ const Deletecase = () => {
                                 try {
                                   const parsed = JSON.parse(item.value);
                                   if (Array.isArray(parsed)) {
-                                    const filtered = parsed.filter(v => v && String(v).trim());
+                                    const filtered = parsed.filter((v) => isMeaningfulDisplayValue(v));
                                     displayValue = filtered.length > 0 ? filtered[0] : '';
                                   }
                                 } catch {}
-                                return displayValue && !item.noTruncate && displayValue.length > 25 
-                                  ? `${displayValue.substring(0, 25)}...` 
-                                  : (displayValue || (item.blankIfEmpty ? '' : 'N/A'));
+                                return displayValue && !item.noTruncate && displayValue.length > 25
+                                  ? `${displayValue.substring(0, 25)}...`
+                                  : formatDetailValue(displayValue);
                               })()
                             }
                           </p>
@@ -1616,7 +1628,7 @@ const Deletecase = () => {
                                     {item.label}
                                   </p>
                                   <p className={`font-semibold text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                                    {item.value || 'N/A'}
+                                    {formatDetailValue(item.value)}
                                   </p>
                                 </div>
                               ))}

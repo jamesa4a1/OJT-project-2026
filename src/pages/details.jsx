@@ -129,7 +129,12 @@ const Details = () => {
 
   const fetchCaseDetails = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/get-case?docket_no=${docketNo}`);
+      const response = await axios.get(`${API_BASE}/get-case`, {
+        params: {
+          docket_no: docketNo,
+          exact: true,
+        },
+      });
       if (response.data.length > 0) {
         setCaseDetails(response.data[0]);
       } else {
