@@ -29,6 +29,9 @@ interface ExcelUploadResponse {
   warnings?: string[];
 }
 
+// Keeps chosen upload file when navigating away and back within this SPA session.
+let cachedSelectedExcelFile: File | null = null;
+
 /**
  * ExcelSync Component
  * Handles downloading and uploading Excel files for case management
@@ -80,6 +83,14 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
     return () => {
       clearProgressTimers();
     };
+  }, []);
+
+  useEffect(() => {
+    if (cachedSelectedExcelFile) {
+      setSelectedFile(cachedSelectedExcelFile);
+      setMessage('Selected file restored. Ready to upload.');
+      setMessageType('info');
+    }
   }, []);
 
   const buildImportSuccessMessage = (data: ExcelUploadResponse): string => {
@@ -322,9 +333,11 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
         setMessage('❌ Column validation failed! Please fix the errors below.');
         setMessageType('error');
         setSelectedFile(null);
+        cachedSelectedExcelFile = null;
         event.target.value = '';
       } else {
         setSelectedFile(file);
+        cachedSelectedExcelFile = file;
         setMessage('✅ Column validation passed! Ready to upload.');
         setMessageType('success');
       }
@@ -334,6 +347,7 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
       setMessage(`Error reading Excel file: ${errorMessage}`);
       setMessageType('error');
       setSelectedFile(null);
+      cachedSelectedExcelFile = null;
       event.target.value = '';
     } finally {
       setValidatingColumns(false);
@@ -386,6 +400,7 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
       setMessageType('success');
 
       setSelectedFile(null);
+      cachedSelectedExcelFile = null;
       progressResetTimeoutRef.current = setTimeout(() => {
         setUploadPhase('idle');
         setUploadProgress(0);
@@ -412,6 +427,7 @@ const ExcelSync: React.FC<ExcelSyncProps> = () => {
    */
   const handleCancelFile = (): void => {
     setSelectedFile(null);
+    cachedSelectedExcelFile = null;
     setMessage('');
     setColumnErrors([]);
 
