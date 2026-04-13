@@ -587,6 +587,20 @@ function handleDisconnect() {
       }
     });
 
+    // Keep cases.status flexible so Docker and local environments accept workflow labels
+    // like "Filed in Court" without enum mismatches.
+    db.query("SHOW COLUMNS FROM cases LIKE 'status'", (err, results) => {
+      if (!err && results.length > 0) {
+        const currentType = String(results[0].Type || '').toLowerCase();
+        if (currentType.includes('enum(')) {
+          db.query("ALTER TABLE cases MODIFY COLUMN status VARCHAR(50) DEFAULT NULL", (alterErr) => {
+            if (alterErr) console.error("Error migrating status column:", alterErr);
+            else console.log("✅ Migrated status column to VARCHAR(50).");
+          });
+        }
+      }
+    });
+
     // Migrate MR_FILED_BY from VARCHAR(200) to VARCHAR(1000) to support JSON arrays
     db.query("SHOW COLUMNS FROM cases LIKE 'MR_FILED_BY'", (err, results) => {
       if (!err && results.length > 0 && results[0].Type.toLowerCase().includes('varchar(200)')) {
