@@ -5517,8 +5517,8 @@ app.put("/api/clearances/:id", (req, res) => {
     } = req.body;
     
     // Validate required fields
-    if (!first_name || !last_name || !date_issued || !validity_expiry) {
-      return res.status(400).json({ error: "Missing required fields: first_name, last_name, date_issued, validity_expiry are required" });
+    if (!first_name) {
+      return res.status(400).json({ error: "Missing required field: first_name is required" });
     }
     
     // First get old values for audit log

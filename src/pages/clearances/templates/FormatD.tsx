@@ -59,7 +59,7 @@ const FormatDHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
           <p style={{ color: colorValue, fontSize: '13pt', fontWeight: 'bold', lineHeight: '1.3', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
           <p style={{ color: colorValue, fontSize: '13pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>City of Tagbilaran</p>
           <p style={{ color: colorValue, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-          <p style={{ color: colorValue, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Tel. No. 411-3403/411-2306</p>
+          <p style={{ color: colorValue, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Tel. No. 411-3403</p>
           <p style={{ color: colorValue, fontSize: '10pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>
             Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style={{ color: '#0000FF', textDecoration: 'underline' }}>ocptagbilaran@doj.gov.ph</a>
           </p>
@@ -105,6 +105,10 @@ const FormatDBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
   const colorValue = getTextColorValue(textColor);
   const fullName = buildFullName(data);
   const issuedDateInfo = data.date_issued ? formatDate(data.date_issued) : null;
+  const validityDateInfo = data.validity_expiry ? formatDate(data.validity_expiry) : null;
+  const idLabel = data.id_presented?.trim() || 'National ID';
+  const rawValidityLabel = data.id_number?.trim();
+  const validityLabel = rawValidityLabel?.toLowerCase() === 'no entry' ? '' : rawValidityLabel || 'Valid Until';
   const hasCriminalRecord = checkCriminalRecord(data);
 
   // Get the first criminal case for display (if any)
@@ -115,8 +119,11 @@ const FormatDBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
       {/* Main certification text */}
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '12pt', fontSize: FORMAT_D_CONFIG.bodyFontSize, lineHeight: '1.4' }}>
         {'\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'}THIS IS TO CERTIFY that the records of this office show that one{' '}
-        <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>,{' '}
-        <strong>{data.age || '[AGE]'}</strong> years old, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}
+        <strong>{fullName || '[FULL NAME]'}</strong>,{' '}
+        {String(data.age || '').trim().toLowerCase() === 'of legal age'
+          ? <><strong>of legal age</strong>,{' '}</>
+          : <><strong>{data.age || '[AGE]'} years old,</strong>{' '}</>}
+        {data.civil_status === 'Blank' ? null : <><strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}</>}
         <strong>{data.nationality || 'Filipino'}</strong>, residing at{' '}
         <strong>{data.address || '[ADDRESS]'}</strong>,{' '}
         {hasCriminalRecord ? 'has been charged of:' : 'has no pending or resolved criminal case on file.'}
@@ -160,7 +167,7 @@ const FormatDBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
       {/* Issued Upon Request and Purpose */}
       <div style={{ margin: '12pt 0 12pt 0.5in', fontSize: FORMAT_D_CONFIG.bodyFontSize, lineHeight: '1.0', color: colorValue }}>
         <p style={{ margin: '0 0 4pt 0', color: colorValue }}>
-          {'\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'}Issued Upon Request: <span style={{ color: colorValue, textDecoration: 'underline', fontWeight: 'bold', textTransform: 'none' }}>
+          {'\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'}Issued upon the request of: <span style={{ color: colorValue, textDecoration: 'underline', fontWeight: 'bold', textTransform: 'none' }}>
             {data.issued_upon_request_by || ''}
           </span>
         </p>
@@ -176,20 +183,22 @@ const FormatDBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '20pt 0 12pt 0', lineHeight: '1.0', padding: '0 0.3in', color: colorValue }}>        {/* Left side - Signature */}
         <div style={{ flex: 1 }}>
           <p style={{ margin: '0', fontSize: '13pt', color: colorValue, lineHeight: '1.0', textAlign: 'center' }}>
-            <span style={{ margin: '8pt 0 12pt -0.5in', fontWeight: 'bold', borderBottom: `1pt solid ${colorValue}`, paddingBottom: '1pt' }}>{fullName?.toUpperCase() || 'APPLICANT NAME'}</span>
+            <span style={{ margin: '8pt 0 12pt -0.5in', fontWeight: 'bold', borderBottom: `1pt solid ${colorValue}`, paddingBottom: '1pt' }}>{data.issued_upon_request_by?.toUpperCase() || fullName || 'APPLICANT NAME'}</span>
           </p>
           <p style={{ margin: '8pt 0 12pt -0.5in', fontSize: '13pt', fontWeight: 'bold', fontStyle: 'normal', color: colorValue, lineHeight: '1.0', textAlign: 'center' }}>Signature</p>
           
           <div style={{ height: '35pt' }}></div>
           
           <p style={{ margin: '0 0 3pt 0', fontSize: '13pt', color: colorValue, lineHeight: '1.0' }}>
-            {'     '}National ID : <span style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold' }}>{data.id_number || '3853-0259-7193-4286'}</span>
+            {'     '}{idLabel} : <span style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold' }}>{data.ctc_number || data.id_number || '3853-0259-7193-4286'}</span>
           </p>
-          <p style={{ margin: '0', fontSize: '13pt', color: colorValue, lineHeight: '1.0' }}>
-            {'     '}Date Issued : <span style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold' }}>
-              {issuedDateInfo ? `${issuedDateInfo.monthYear.split(' ')[0]} ${issuedDateInfo.day}, ${issuedDateInfo.monthYear.split(' ')[1]}` : 'May 12, 2023'}
-            </span>
-          </p>
+          {validityLabel && (
+            <p style={{ margin: '0', fontSize: '13pt', color: colorValue, lineHeight: '1.0' }}>
+              {'     '}{validityLabel} : <span style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold' }}>
+                {validityDateInfo ? `${validityDateInfo.monthYear.split(' ')[0]} ${validityDateInfo.day}, ${validityDateInfo.monthYear.split(' ')[1]}` : 'May 12, 2023'}
+              </span>
+            </p>
+          )}
         </div>
 
         
@@ -319,6 +328,9 @@ export const FormatDPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
 // ============================================
 export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR?: string | null, textColor: 'navy' | 'black' = 'navy'): string => {
   const colorValue = getTextColorValue(textColor);
+  const idLabel = formData.id_presented?.trim() || 'National ID';
+  const rawValidityLabel = formData.id_number?.trim();
+  const validityLabel = rawValidityLabel?.toLowerCase() === 'no entry' ? '' : rawValidityLabel || 'Valid Until';
   const hasCriminalRecord = formData.criminal_cases && formData.criminal_cases.some(c => c.case_number && c.crime);
   const firstCase = formData.criminal_cases && formData.criminal_cases.length > 0 ? formData.criminal_cases[0] : null;
   
@@ -349,6 +361,8 @@ export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR
   const monthYear = issuedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const fullDate = issuedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const dateIssuedDisplay = issuedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const validityDate = formData.validity_expiry ? new Date(formData.validity_expiry) : new Date();
+  const validityDisplay = validityDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   // Case details HTML - show all cases
   const getCaseDetailsHtml = () => {
@@ -422,7 +436,7 @@ export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR
         <p style="font-size: 13pt; font-weight: bold; color: ${colorValue};">OFFICE OF THE CITY PROSECUTOR</p>
         <p style="font-size: 13pt; font-style: normal; color: ${colorValue};">City of Tagbilaran</p>
         <p style="font-size: 10pt; font-style: italic; color: ${colorValue}; white-space: nowrap;">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-        <p style="font-size: 10pt; font-style: italic; color: ${colorValue};">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 10pt; font-style: italic; color: ${colorValue};">Tel. No. 411-3403</p>
         <p style="font-size: 10pt; font-style: italic;">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF; text-decoration: underline;">ocptagbilaran@doj.gov.ph</a></p>
       </div>
       <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" class="right-logo" />
@@ -442,9 +456,9 @@ export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR
     <div style="color: ${colorValue};">
       <p style="text-indent: 0.5in; text-align: justify; margin-bottom: 6pt; font-size: 13pt; line-height: 1.3;">
         &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; THIS IS TO CERTIFY that the records of this office show that one 
-        <strong style="text-transform: uppercase;">${fullName}</strong>, 
-        <strong>${formData?.age || '[AGE]'} years old</strong>, 
-        <strong>${formData?.civil_status || '[CIVIL STATUS]'}</strong>, 
+        <strong>${fullName}</strong>, 
+        ${String(formData?.age || '').trim().toLowerCase() === 'of legal age' ? '<strong>of legal age</strong>, ' : `<strong>${formData?.age || '[AGE]'} years old,</strong> `}
+        ${formData?.civil_status === 'Blank' ? '' : `<strong>${formData?.civil_status || '[CIVIL STATUS]'}</strong>, `}
         <strong>${formData?.nationality || 'Filipino'}</strong>, 
         residing at <strong>${formData?.address || '[ADDRESS]'}</strong> 
         ${hasCriminalRecord ? 'has been charged of:' : 'has no pending or resolved criminal case on file.'}
@@ -458,7 +472,7 @@ export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR
       
       <!-- Issued Upon Request and Purpose -->
       <div style="margin: 8pt 0 8pt 0.5in; font-size: 13pt; line-height: 1.0; color: ${colorValue};">
-        <p style="margin: 0 0 2pt 0; color: ${colorValue};">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Issued Upon Request: <span style="color: ${colorValue}; text-decoration: underline; font-weight: bold; text-transform: none;">${formData?.issued_upon_request_by || ''}</span></p>
+        <p style="margin: 0 0 2pt 0; color: ${colorValue};">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Issued upon the request of: <span style="color: ${colorValue}; text-decoration: underline; font-weight: bold; text-transform: none;">${formData?.issued_upon_request_by || ''}</span></p>
         <p style="margin: 0; color: ${colorValue};">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Purpose: <strong style="text-decoration: underline; color: ${colorValue};">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose || 'FOR PROBATION'}</strong></p>
       </div>
 
@@ -468,13 +482,13 @@ export const getFormatDHtml = (formData: FormData, fullName: string, generatedOR
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin: 16pt 0 8pt 0; padding: 0 0.2in; color: ${colorValue};">
         <!-- Left side - Signature -->
         <div style="flex: 1; color: ${colorValue}; margin-left: -2.5in;">
-          <p style="margin: 0; font-size: 13pt; color: ${colorValue}; text-align: center; line-height: 1.0;"><span style="font-weight: bold; border-bottom: 1pt solid ${colorValue}; padding-bottom: 2pt;">${fullName?.toUpperCase() || 'APPLICANT NAME'}</span></p>
+          <p style="margin: 0; font-size: 13pt; color: ${colorValue}; text-align: center; line-height: 1.0;"><span style="font-weight: bold; border-bottom: 1pt solid ${colorValue}; padding-bottom: 2pt;">${formData.issued_upon_request_by || fullName || 'APPLICANT NAME'}</span></p>
           <p style="margin: 8pt 0 10pt 0.1in; font-size: 13pt; font-style: normal; font-weight: bold; color: ${colorValue}; text-align: center; line-height: 1.0;">Signature</p>
           
           <div style="height: 30pt;"></div>
           
-          <p style="margin: 0 0 2pt 0; font-size: 13pt; color: ${colorValue}; line-height: 1.0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;National ID : <span style="text-decoration: underline; color: ${colorValue}; font-weight: bold;">${formData?.id_number || '3853-0259-7193-4286'}</span></p>
-          <p style="margin: 0; font-size: 13pt; color: ${colorValue}; line-height: 1.0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Date Issued : <span style="text-decoration: underline; color: ${colorValue}; font-weight: bold;">${dateIssuedDisplay}</span></p>
+          <p style="margin: 0 0 2pt 0; font-size: 13pt; color: ${colorValue}; line-height: 1.0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${idLabel} : <span style="text-decoration: underline; color: ${colorValue}; font-weight: bold;">${formData?.ctc_number || formData?.id_number || '3853-0259-7193-4286'}</span></p>
+          ${validityLabel ? `<p style="margin: 0; font-size: 13pt; color: ${colorValue}; line-height: 1.0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${validityLabel} : <span style="text-decoration: underline; color: ${colorValue}; font-weight: bold;">${validityDisplay}</span></p>` : ''}
         </div>
 
         <!-- Right side - Thumbmark Box -->
