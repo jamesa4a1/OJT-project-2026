@@ -136,6 +136,10 @@ const ClearanceGenerate: React.FC = () => {
 
     return [single];
   };
+
+  const getArrayValue = (values: string[], index: number): string => {
+    return values[index] || '';
+  };
   
   const getDefaultDate = () => {
     return new Date().toISOString().split('T')[0];
@@ -292,6 +296,12 @@ const ClearanceGenerate: React.FC = () => {
     // Parse respondent and address values safely from either JSON arrays or plain strings.
     const allNames = parseCaseStringArray(c.RESPONDENT);
     const allAddresses = parseCaseStringArray(c.ADDRESS_OF_RESPONDENT);
+    const allCaseNumbers = parseCaseStringArray(c.CRIM_CASE_NO);
+    const allCrimes = parseCaseStringArray(c.FINAL_OFFENSE || c.OFFENSE);
+    const allStatuses = parseCaseStringArray(c.REMARKS_DECISION || c.STATUS);
+    const allBranches = parseCaseStringArray(c.BRANCH);
+    const allDateFiledInCourt = parseCaseStringArray(c.DATEFILED_IN_COURT || c.DATE_FILED);
+    const allDateOfCommission = parseCaseStringArray(c.DATE_OF_COMMISSION);
 
     // Helper to parse a name into first/middle/last
     const parseName = (rawName: string) => {
@@ -319,35 +329,48 @@ const ClearanceGenerate: React.FC = () => {
 
     const safeDate = (d: string) => (d && d !== '0000-00-00' ? d.split('T')[0] : '');
 
-    const normalizedCrime = normalizeCaseField(c.FINAL_OFFENSE || c.OFFENSE || '');
-    const normalizedCaseNo = normalizeCaseField(c.CRIM_CASE_NO || c.DOCKET_NO || '');
-    const normalizedStatus = normalizeCaseField(c.REMARKS_DECISION || '');
-    const normalizedBranch = normalizeCaseField(c.BRANCH || '');
+    const respondentCount = Math.max(
+      allNames.length,
+      allCaseNumbers.length,
+      allCrimes.length,
+      allStatuses.length,
+      allBranches.length,
+      allDateFiledInCourt.length,
+      1
+    );
 
     // Build a form data object for each respondent
-    const forms: FormData[] = allNames.map((name, i) => {
+    const forms: FormData[] = Array.from({ length: respondentCount }, (_, i) => {
+      const name = getArrayValue(allNames, i);
       const { firstName, middleName, lastName } = parseName(name);
+      const caseNumber = getArrayValue(allCaseNumbers, i);
+      const crime = getArrayValue(allCrimes, i);
+      const status = getArrayValue(allStatuses, i);
+      const branch = getArrayValue(allBranches, i);
+      const dateFiled = getArrayValue(allDateFiledInCourt, i);
+      const dateOfCommission = getArrayValue(allDateOfCommission, i);
+
       return {
         ...formData, // inherit defaults
         format_type: caseState.format || 'A',
         first_name: firstName,
         middle_name: middleName,
         last_name: lastName,
-        address: allAddresses[i] || '',
-        crime_description: normalizedCrime,
-        case_numbers: normalizedCaseNo,
-        case_status: normalizedStatus,
-        court_branch: normalizedBranch,
-        date_of_commission: safeDate(c.DATE_OF_COMMISSION),
-        date_information_filed: safeDate(c.DATE_FILED),
+        address: getArrayValue(allAddresses, i),
+        crime_description: crime,
+        case_numbers: caseNumber,
+        case_status: status,
+        court_branch: branch,
+        date_of_commission: dateOfCommission || safeDate(c.DATE_OF_COMMISSION),
+        date_information_filed: dateFiled || safeDate(c.DATE_FILED),
         criminal_cases: [{
-          case_number: normalizedCaseNo,
+          case_number: caseNumber,
           case_number_type: 'Criminal Case No.',
-          crime: normalizedCrime,
-          date_info_filed: safeDate(c.DATE_FILED),
+          crime,
+          date_info_filed: dateFiled || safeDate(c.DATE_FILED),
           date_type: 'Date Info Filed',
-          origin: 'Tagbilaran City',
-          status: normalizedStatus,
+          origin: branch || 'Tagbilaran City',
+          status,
         }],
       };
     });
@@ -363,7 +386,11 @@ const ClearanceGenerate: React.FC = () => {
       setActiveRespondentIndex(0);
     }
 
-    setHasCriminalRecord(!!(normalizedCaseNo || normalizedCrime));
+    setHasCriminalRecord(
+      allCaseNumbers.some(Boolean) ||
+      allCrimes.some(Boolean) ||
+      allStatuses.some(Boolean)
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

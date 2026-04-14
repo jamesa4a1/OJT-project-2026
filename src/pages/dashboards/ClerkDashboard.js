@@ -323,10 +323,7 @@ const ClerkDashboard = () => {
         >
           {[
             { label: 'Total Cases', value: stats.total, icon: 'fa-folder-open' },
-            { label: 'Pending Review', value: stats.pending, icon: 'fa-hourglass-half' },
             { label: 'This Month', value: stats.thisMonth, icon: 'fa-calendar-days' },
-              { label: 'Provisional dismissal', value: stats.provisionalDismissal, icon: 'fa-scale-balanced' },
-              { label: 'Archived', value: stats.archived, icon: 'fa-box-archive' },
           ].map((item, idx) => (
             <div key={idx} className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl backdrop-blur-sm flex items-center justify-center ${

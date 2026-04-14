@@ -116,6 +116,25 @@ interface Issuer {
   issued_by_name: string;
 }
 
+interface CaseRecord {
+  id: number;
+  DOCKET_NO?: string;
+  docket_no?: string;
+  COMPLAINANT?: string;
+  complainant?: string;
+  RESPONDENT?: string;
+  respondent?: string;
+  OFFENSE?: string;
+  FINAL_OFFENSE?: string;
+  DATE_FILED?: string;
+  DATE_OF_COMMISSION?: string;
+  ADDRESS_OF_RESPONDENT?: string;
+  CRIM_CASE_NO?: string;
+  REMARKS_DECISION?: string;
+  BRANCH?: string;
+  [key: string]: unknown;
+}
+
 const FORMAT_LABELS: Record<string, string> = {
   A: 'Individual - No CR',
   B: 'Individual - Has CR',
@@ -142,6 +161,8 @@ const ClearanceHistory: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [issuedByFilter, setIssuedByFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [caseSearchResults, setCaseSearchResults] = useState<CaseRecord[]>([]);
+  const [isCaseSearchLoading, setIsCaseSearchLoading] = useState(false);
 
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -221,7 +242,99 @@ const ClearanceHistory: React.FC = () => {
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchClearances();
+    searchManageCases();
   };
+
+  const normalizeText = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => normalizeText(item))
+        .filter(Boolean)
+        .join(', ')
+        .toLowerCase();
+    }
+
+    const raw = String(value).trim();
+    if (!raw) return '';
+
+    if (raw.startsWith('[') || raw.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(raw);
+        return normalizeText(parsed);
+      } catch {
+        // Fall through to raw string handling
+      }
+    }
+
+    return raw.toLowerCase();
+  };
+
+  const formatCaseField = (value: unknown): string => {
+    if (value === null || value === undefined) return '-';
+
+    if (Array.isArray(value)) {
+      const values = value.map((item) => formatCaseField(item)).filter((item) => item && item !== '-');
+      return values.length > 0 ? values.join(', ') : '-';
+    }
+
+    const raw = String(value).trim();
+    if (!raw) return '-';
+
+    if (raw.startsWith('[') || raw.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(raw);
+        return formatCaseField(parsed);
+      } catch {
+        // Fall through to string output
+      }
+    }
+
+    return raw;
+  };
+
+  const searchManageCases = async () => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      setCaseSearchResults([]);
+      return;
+    }
+
+    setIsCaseSearchLoading(true);
+    try {
+      const response = await axios.get(`${config.api.baseURL}/cases`);
+      const cases = Array.isArray(response.data) ? response.data as CaseRecord[] : [];
+
+      const matched = cases.filter((caseItem) => {
+        const docket = normalizeText(caseItem.DOCKET_NO || caseItem.docket_no || '');
+        const complainant = normalizeText(caseItem.COMPLAINANT || caseItem.complainant || '');
+        const respondent = normalizeText(caseItem.RESPONDENT || caseItem.respondent || '');
+
+        return docket.includes(query) || complainant.includes(query) || respondent.includes(query);
+      });
+
+      setCaseSearchResults(matched);
+    } catch (error) {
+      console.error('Error searching manage cases:', error);
+      setCaseSearchResults([]);
+    } finally {
+      setIsCaseSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setCaseSearchResults([]);
+      setIsCaseSearchLoading(false);
+      return;
+    }
+
+    searchManageCases();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   const handleClearFilters = () => {
     setSearchQuery('');
@@ -231,6 +344,7 @@ const ClearanceHistory: React.FC = () => {
     setDateTo('');
     setIssuedByFilter('');
     setStatusFilter('');
+    setCaseSearchResults([]);
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
@@ -450,6 +564,103 @@ const ClearanceHistory: React.FC = () => {
 
         </div>
       </motion.div>
+
+      {/* Matching Cases from Manage Cases */}
+      {searchQuery.trim() && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`rounded-2xl p-4 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200 shadow-lg'}`}
+        >
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div>
+              <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                Matching Cases (Manage Cases)
+              </h3>
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Search matches by docket number, complainant, or respondent
+              </p>
+            </div>
+            <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              {isCaseSearchLoading ? 'Searching...' : `${caseSearchResults.length} match${caseSearchResults.length === 1 ? '' : 'es'}`}
+            </span>
+          </div>
+
+          {isCaseSearchLoading ? (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`min-w-[320px] max-w-[360px] rounded-xl p-4 animate-pulse ${isDark ? 'bg-slate-700/50' : 'bg-slate-100'}`}
+                >
+                  <div className={`h-4 rounded mb-3 ${isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
+                  <div className={`h-3 rounded mb-2 ${isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
+                  <div className={`h-3 rounded mb-2 ${isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
+                  <div className={`h-9 rounded mt-4 ${isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
+                </div>
+              ))}
+            </div>
+          ) : caseSearchResults.length === 0 ? (
+            <div className={`rounded-xl p-4 text-sm ${isDark ? 'bg-slate-700/40 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
+              No matching case found. Try docket number, complainant, or respondent name.
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {caseSearchResults.map((caseItem) => {
+                const docketNo = formatCaseField(caseItem.DOCKET_NO || caseItem.docket_no);
+                const complainant = formatCaseField(caseItem.COMPLAINANT || caseItem.complainant);
+                const respondent = formatCaseField(caseItem.RESPONDENT || caseItem.respondent);
+                const offense = formatCaseField(caseItem.FINAL_OFFENSE || caseItem.OFFENSE);
+                const dateFiled = formatCaseField(caseItem.DATE_FILED);
+                const selectedFormat = ['A', 'B', 'C', 'D', 'E', 'F'].includes(formatFilter) ? formatFilter : 'A';
+
+                return (
+                  <div
+                    key={caseItem.id}
+                    className={`min-w-[320px] max-w-[360px] rounded-xl p-4 border ${
+                      isDark ? 'bg-slate-700/40 border-slate-600' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
+                        Docket
+                      </span>
+                      <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        {docketNo}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm">
+                      <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                        <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Complainant:</span> {complainant}
+                      </p>
+                      <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                        <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Respondent:</span> {respondent}
+                      </p>
+                      <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                        <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Offense:</span> {offense}
+                      </p>
+                      <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                        <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Date Filed:</span> {dateFiled}
+                      </p>
+                    </div>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => navigate('/clearances/generate', { state: { fromCase: caseItem, format: selectedFormat } })}
+                      className="w-full mt-4 px-4 py-2 rounded-lg font-semibold text-sm text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg transition-all"
+                    >
+                      <i className="fas fa-file-signature mr-2"></i>
+                      Create Clearance for Respondent
+                    </motion.button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Results Table */}
       <motion.div
