@@ -61,7 +61,7 @@ const FormatAHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
           <p style={{ color: colorValue, fontSize: '11pt', fontWeight: 'bold', marginBottom: '1pt', lineHeight: '1.0', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
           <p style={{ color: colorValue, fontSize: '11pt', marginBottom: '2pt', lineHeight: '1.0', fontWeight: 'normal', margin: '0' }}>City of Tagbilaran</p>
           <p style={{ color: colorValue, fontSize: '7pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.0', fontWeight: 'normal', margin: '0' }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-          <p style={{ color: colorValue, fontSize: '7pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.0', fontWeight: 'normal', margin: '0' }}>Tel. No. 411-3403/411-2306</p>
+          <p style={{ color: colorValue, fontSize: '7pt', fontStyle: 'italic', marginBottom: '1pt', lineHeight: '1.0', fontWeight: 'normal', margin: '0' }}>Tel. No. 411-3403</p>
           <p style={{ color: colorValue, fontSize: '8pt', fontStyle: 'italic', marginBottom: '0pt', lineHeight: '1.0', fontWeight: 'normal', margin: '0' }}>
             Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style={{ color: '#0000FF', textDecoration: 'underline' }}>ocptagbilaran@doj.gov.ph</a>
           </p>
@@ -136,9 +136,12 @@ const FormatABody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
   return (
     <div style={{ color: colorValue }}>
       <p style={{ textIndent: '0.3in', textAlign: 'justify', marginBottom: '8pt', fontSize: FORMAT_A_CONFIG.bodyFontSize, lineHeight: '1.15' }}>
-        THIS IS TO CERTIFY that the records of office show that one {' '}
-        <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>,{' '}
-        <strong>{data.age || '[AGE]'} years old</strong>, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}
+        THIS IS TO CERTIFY that the records of this office show that one {' '}
+        <strong>{fullName || '[FULL NAME]'}</strong>,{' '}
+        {String(data.age || '').trim().toLowerCase() === 'of legal age'
+          ? <><strong>of legal age</strong>,{' '}</>
+          : <><strong>{data.age || '[AGE]'} years old,</strong>{' '}</>}
+        {data.civil_status === 'Blank' ? null : <><strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}</>}
         <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at{' '}
         <strong>{data.address || '[ADDRESS]'}</strong> has
       </p>
@@ -149,7 +152,7 @@ const FormatABody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
 
       <div style={{ marginLeft: '0.3in', marginBottom: '6pt', lineHeight: '1.1' }}>
         <p style={{ marginBottom: '3pt', fontSize: '13pt' }}>
-          Issued upon request: <strong style={{ textDecoration: 'underline' }}>
+          Issued upon the request of: <strong style={{ textDecoration: 'underline' }}>
             {data.issued_upon_request_by || fullName || '[REQUESTER NAME]'}
           </strong>
         </p>
@@ -284,6 +287,7 @@ export const FormatAPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
 export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR?: string | null, textColor: 'navy' | 'black' = 'navy'): string => {
   const colorValue = getTextColorValue(textColor);
   const hasCriminalRecord = formData.criminal_cases && formData.criminal_cases.some(c => c.case_number && c.crime);
+  const issuedUponRequestName = formData?.issued_upon_request_by || fullName.replace(/\s+of legal age\b/i, '').trim();
   const issuedDate = formData.date_issued ? new Date(formData.date_issued) : new Date();
   const dayNum = issuedDate.getDate();
   const getOrdinalSuffix = (day: number): string => {
@@ -332,7 +336,7 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
         <p style="font-size: 11pt; font-weight: bold; color: ${colorValue}; line-height: 1.2; ">OFFICE OF THE CITY PROSECUTOR</p>
         <p style="font-size: 11pt; color: ${colorValue}; line-height: 1.2; ">City of Tagbilaran</p>
         <p style="font-size: 8pt; font-style: italic; color: ${colorValue}; line-height: 1.2; ">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-        <p style="font-size: 8pt; font-style: italic; color: ${colorValue}; line-height: 1.2; ">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 8pt; font-style: italic; color: ${colorValue}; line-height: 1.2; ">Tel. No. 411-3403</p>
         <p style="font-size: 8pt; font-style: italic; color: ${colorValue}; line-height: 1.2; ">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF;">ocptagbilaran@doj.gov.ph</a></p>
       </div>
       <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" class="right-logo" />
@@ -356,9 +360,9 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
     <div style="color: ${colorValue};">
       <p style="text-indent: 0.3in; text-align: justify; margin-bottom: 6pt; line-height: 1.3; font-size: 13pt;">
         &nbsp;&nbsp;&nbsp;THIS IS TO CERTIFY that the records of this office show that one 
-        <strong style="text-transform: uppercase;">${fullName}</strong>, 
-        <strong>${formData?.age} years old</strong>, 
-        <strong>${formData?.civil_status}</strong>, 
+        <strong>${fullName}</strong>, 
+        ${String(formData?.age || '').trim().toLowerCase() === 'of legal age' ? '<strong>of legal age</strong>, ' : `<strong>${formData?.age || '[AGE]'} years old,</strong> `}
+        ${formData?.civil_status === 'Blank' ? '' : `<strong>${formData?.civil_status || '[CIVIL STATUS]'}</strong>, `}
         <strong>${formData?.nationality}</strong>, 
         residing at <strong>${formData?.address}</strong> has
       </p>
@@ -366,7 +370,7 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
       ${getStatusHtml()}
       
       <div style="margin-left: 0.6in; margin-bottom: 6pt; line-height: 1.1;">
-        <p style="margin-bottom: 3pt; font-size: 13pt; line-height: 1.0;">Issued upon request: <strong style="text-decoration: underline;">${formData?.issued_upon_request_by || fullName}</strong></p>
+        <p style="margin-bottom: 3pt; font-size: 13pt; line-height: 1.0;">Issued upon the request of: <strong style="text-decoration: underline;">${issuedUponRequestName}</strong></p>
         <p style="line-height: 1.0; font-size: 13pt;">Purpose: <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose}</strong></p>
       </div>
       

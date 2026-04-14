@@ -20,6 +20,24 @@ import {
 
 import type { CriminalCase, FormData } from './templates';
 
+const FORMAT_C_ID_OPTIONS = [
+  'DOJ ID No',
+  'Drivers License',
+  'UMID CRN No.',
+  'PRC ID',
+  'National ID',
+  'Comelec ID',
+  'CTC No',
+  'Philpost ID No',
+] as const;
+
+const FORMAT_C_VALIDITY_LABEL_OPTIONS = [
+  'Valid Until',
+  'Date of Issuance',
+  'Expiration Date',
+  'No entry',
+] as const;
+
 const ClearanceGenerate: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -36,6 +54,12 @@ const ClearanceGenerate: React.FC = () => {
   const [formKey, setFormKey] = useState(0); // Key to force form re-render on reset
   const [textColor, setTextColor] = useState<'navy' | 'black'>('navy'); // Text color for certificate
   const [showColorDropdown, setShowColorDropdown] = useState(false); // Color dropdown visibility
+  const [showMiddleNameDropdown, setShowMiddleNameDropdown] = useState(false); // Middle name dropdown visibility
+  const [showAgeDropdown, setShowAgeDropdown] = useState(false); // Age dropdown visibility
+  const [formatCIdType, setFormatCIdType] = useState<string>('DOJ ID No');
+  const [formatCCustomIdType, setFormatCCustomIdType] = useState<string>('');
+  const [formatCValidityLabelType, setFormatCValidityLabelType] = useState<string>('Valid Until');
+  const [formatCCustomValidityLabel, setFormatCCustomValidityLabel] = useState<string>('');
   
   // Multi-respondent state (when printing from a case with multiple respondents)
   const [respondentForms, setRespondentForms] = useState<FormData[]>([]);
@@ -205,6 +229,75 @@ const ClearanceGenerate: React.FC = () => {
   const [showAddPurposeModal, setShowAddPurposeModal] = useState(false);
   const [newPurposeName, setNewPurposeName] = useState('');
   const [newPurposeFee, setNewPurposeFee] = useState<number>(115);
+  
+  // State for deleted purposes (persistent via localStorage)
+  const [deletedPurposes, setDeletedPurposes] = useState<Set<string>>(new Set());
+  const [showPurposeDropdown, setShowPurposeDropdown] = useState(false);
+
+  // Load deleted purposes from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('deletedPurposes');
+    if (stored) {
+      try {
+        const deleted = JSON.parse(stored);
+        setDeletedPurposes(new Set(deleted));
+      } catch (e) {
+        console.error('Error loading deleted purposes:', e);
+      }
+    }
+  }, []);
+
+  // Save deleted purposes to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('deletedPurposes', JSON.stringify(Array.from(deletedPurposes)));
+  }, [deletedPurposes]);
+
+  useEffect(() => {
+    if (formData.format_type !== 'C' && formData.format_type !== 'D') return;
+
+    const currentIdLabel = (formData.id_presented || '').trim();
+    const normalizedIdLabel = currentIdLabel === 'UMID CM No' ? 'UMID CRN No.' : currentIdLabel;
+
+    if (normalizedIdLabel !== currentIdLabel) {
+      setFormData((prev: FormData) => ({ ...prev, id_presented: normalizedIdLabel }));
+      return;
+    }
+
+    if (!currentIdLabel) {
+      setFormatCIdType('DOJ ID No');
+      setFormatCCustomIdType('');
+      return;
+    }
+
+    if (FORMAT_C_ID_OPTIONS.includes(currentIdLabel as (typeof FORMAT_C_ID_OPTIONS)[number])) {
+      setFormatCIdType(currentIdLabel);
+      setFormatCCustomIdType('');
+      return;
+    }
+
+    setFormatCIdType('custom');
+    setFormatCCustomIdType(currentIdLabel);
+  }, [formData.format_type, formData.id_presented]);
+
+  useEffect(() => {
+    if (formData.format_type !== 'C' && formData.format_type !== 'D') return;
+
+    const currentValidityLabel = (formData.id_number || '').trim();
+    if (!currentValidityLabel) {
+      setFormatCValidityLabelType('Valid Until');
+      setFormatCCustomValidityLabel('');
+      return;
+    }
+
+    if (FORMAT_C_VALIDITY_LABEL_OPTIONS.includes(currentValidityLabel as (typeof FORMAT_C_VALIDITY_LABEL_OPTIONS)[number])) {
+      setFormatCValidityLabelType(currentValidityLabel);
+      setFormatCCustomValidityLabel('');
+      return;
+    }
+
+    setFormatCValidityLabelType('custom');
+    setFormatCCustomValidityLabel(currentValidityLabel);
+  }, [formData.format_type, formData.id_number]);
 
   // Load clearance data if editing
   useEffect(() => {
@@ -260,6 +353,11 @@ const ClearanceGenerate: React.FC = () => {
             civil_status: data.civil_status || 'Single',
             nationality: data.nationality || 'Filipino',
             address: data.address || '',
+            id_presented: data.id_presented || '',
+            id_number: data.id_number || '',
+            ctc_number: data.ctc_number || '',
+            ctc_issued_at: data.ctc_issued_at || '',
+            ctc_issued_on: data.ctc_issued_on || '',
             purpose: data.purpose || 'Local Employment',
             purpose_fee: data.purpose_fee || 0,
             custom_purpose: '',
@@ -418,7 +516,7 @@ const ClearanceGenerate: React.FC = () => {
 
   // Update expiry date when issued date or validity period changes (except for Format C)
   useEffect(() => {
-    if (formData.date_issued && formData.validity_period && formData.format_type !== 'C') {
+    if (formData.date_issued && formData.validity_period && formData.format_type !== 'C' && formData.format_type !== 'D') {
       setFormData((prev: FormData) => ({
         ...prev,
         validity_expiry: getExpiryDate(prev.date_issued, prev.validity_period || '6 Months')
@@ -460,6 +558,24 @@ const ClearanceGenerate: React.FC = () => {
     }
   };
   
+  // Handler for removing a purpose from the dropdown
+  const handleRemovePurpose = (purposeName: string) => {
+    setDeletedPurposes(prev => {
+      const newDeleted = new Set(prev);
+      newDeleted.add(purposeName);
+      return newDeleted;
+    });
+    
+    // If the removed purpose was selected, clear it
+    if (formData.purpose === purposeName) {
+      setFormData(prev => ({
+        ...prev,
+        purpose: '',
+        purpose_fee: 0,
+      }));
+    }
+  };
+
   // Handler for adding a new purpose
   const handleAddPurpose = () => {
     if (!newPurposeName.trim()) {
@@ -553,139 +669,8 @@ const ClearanceGenerate: React.FC = () => {
   const validateForm = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
     
-    // Common required fields for all formats (suffix is optional per user request)
+    // Minimal save validation: only first name is required.
     if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
-    if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
-    if (!formData.age || parseInt(formData.age.toString()) < 18 || parseInt(formData.age.toString()) > 120) {
-      newErrors.age = 'Age must be between 18 and 120';
-    }
-    if (!formData.civil_status) newErrors.civil_status = 'Civil status is required';
-    if (!formData.nationality?.trim()) newErrors.nationality = 'Nationality is required';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
-    
-    // Format-specific required fields
-    const currentFormatFields = FORMAT_FIELDS[formData.format_type] || [];
-    
-    // Purpose validation (required for most formats except F)
-    if (currentFormatFields.includes('purpose')) {
-      if (!formData.purpose) newErrors.purpose = 'Purpose is required';
-      if (formData.purpose === 'Other' && !formData.custom_purpose?.trim()) {
-        newErrors.custom_purpose = 'Please specify the purpose';
-      }
-    }
-    
-    // Date issued validation (required for most formats)
-    if (currentFormatFields.includes('date_issued') && !formData.date_issued) {
-      newErrors.date_issued = 'Date of issuance is required';
-    }
-    
-    // O.R Number validation (required for most formats)
-    if (currentFormatFields.includes('prc_id_number') && !formData.prc_id_number?.trim()) {
-      newErrors.prc_id_number = 'O.R No is required';
-    }
-    
-    // Additional O.R Number for Format C
-    if (currentFormatFields.includes('or_number') && !formData.or_number?.trim()) {
-      newErrors.or_number = 'O.R Number is required';
-    }
-    
-    // Validity expiry for Format C
-    if (currentFormatFields.includes('validity_expiry') && !formData.validity_expiry) {
-      newErrors.validity_expiry = 'Valid until date is required';
-    }
-    
-    // Issued upon request by for Format D
-    if (currentFormatFields.includes('issued_upon_request_by') && !formData.issued_upon_request_by?.trim()) {
-      newErrors.issued_upon_request_by = 'Issued upon request by is required';
-    }
-    
-    // ID Number for Format D
-    if (currentFormatFields.includes('id_number') && !formData.id_number?.trim()) {
-      newErrors.id_number = 'ID number is required';
-    }
-    
-    // Criminal cases validation for Formats B and D
-    if (currentFormatFields.includes('criminal_cases') && formData.has_criminal_record) {
-      if (!formData.criminal_cases || formData.criminal_cases.length === 0) {
-        newErrors.criminal_cases = 'Criminal case information is required';
-      } else {
-        // Validate each criminal case
-        for (let i = 0; i < formData.criminal_cases.length; i++) {
-          const criminalCase = formData.criminal_cases[i];
-          if (!criminalCase.case_number?.trim()) {
-            newErrors.criminal_cases = 'Case number is required for all criminal cases';
-            break;
-          }
-          if (!criminalCase.crime?.trim()) {
-            newErrors.criminal_cases = 'Crime description is required for all criminal cases';
-            break;
-          }
-          if (!criminalCase.date_info_filed) {
-            newErrors.criminal_cases = 'Date filed is required for all criminal cases';
-            break;
-          }
-          if (!criminalCase.status?.trim()) {
-            newErrors.criminal_cases = 'Case status is required for all criminal cases';
-            break;
-          }
-        }
-      }
-    }
-    
-    // Photo validation for Format F
-    if (currentFormatFields.includes('photo') && !formData.photo?.trim()) {
-      newErrors.photo = 'Photo is required for Format F';
-    }
-    
-    // Right thumbmark validation for Format F
-    if (currentFormatFields.includes('right_thumbmark') && !formData.right_thumbmark?.trim()) {
-      newErrors.right_thumbmark = 'Right thumbmark is required for Format F';
-    }
-    
-    // Format-conditional field validation
-    if (FORMAT_FIELDS[formData.format_type]?.includes('sex') && !formData.sex) {
-      newErrors.sex = 'Sex is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('birth_date') && !formData.birth_date) {
-      newErrors.birth_date = 'Date of birth is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('birth_place') && !formData.birth_place?.trim()) {
-      newErrors.birth_place = 'Place of birth is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('height') && !formData.height?.trim()) {
-      newErrors.height = 'Height is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('weight') && !formData.weight?.trim()) {
-      newErrors.weight = 'Weight is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('blood_type') && !formData.blood_type) {
-      newErrors.blood_type = 'Blood type is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('distinguishing_marks') && !formData.distinguishing_marks?.trim()) {
-      newErrors.distinguishing_marks = 'Distinguishing marks is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('id_presented') && !formData.id_presented?.trim()) {
-      newErrors.id_presented = 'ID presented is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('ctc_number') && !formData.ctc_number?.trim()) {
-      newErrors.ctc_number = 'CTC number is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('ctc_issued_at') && !formData.ctc_issued_at?.trim()) {
-      newErrors.ctc_issued_at = 'CTC issued at is required';
-    }
-    
-    if (FORMAT_FIELDS[formData.format_type]?.includes('ctc_issued_on') && !formData.ctc_issued_on) {
-      newErrors.ctc_issued_on = 'CTC issued on is required';
-    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -702,7 +687,7 @@ const ClearanceGenerate: React.FC = () => {
       // Basic information errors
       if (errors.first_name) { errorMessages.push('First name'); errorFields.push('first_name'); }
       if (errors.last_name) { errorMessages.push('Last name'); errorFields.push('last_name'); }
-      if (errors.age) { errorMessages.push('Age (18-120)'); errorFields.push('age'); }
+      if (errors.age) { errorMessages.push('Age (18-120 or "of legal age")'); errorFields.push('age'); }
       if (errors.civil_status) { errorMessages.push('Civil status'); errorFields.push('civil_status'); }
       if (errors.nationality) { errorMessages.push('Nationality'); errorFields.push('nationality'); }
       if (errors.address) { errorMessages.push('Address'); errorFields.push('address'); }
@@ -745,11 +730,33 @@ const ClearanceGenerate: React.FC = () => {
     setSubmitStatus(null);
     
     try {
+      const today = getDefaultDate();
+      const ageValue = String(formData.age || '').trim();
+      const normalizedAge = ageValue.toLowerCase() === 'of legal age'
+        ? 18
+        : Number.parseInt(ageValue, 10);
+      const safeAge = Number.isNaN(normalizedAge) ? 18 : normalizedAge;
+      const defaultPurpose = formData.purpose || 'Local Employment';
+      const resolvedPurpose = formData.purpose === 'Other' ? (formData.custom_purpose || 'Other') : defaultPurpose;
+      const defaultDateIssued = formData.date_issued || today;
+      const defaultValidityPeriod = formData.validity_period || '6 Months';
+      const defaultValidityExpiry = formData.validity_expiry || getExpiryDate(defaultDateIssued, defaultValidityPeriod);
+
       const payload = {
         ...formData,
-        purpose: formData.purpose === 'Other' ? formData.custom_purpose : formData.purpose,
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name?.trim() || '',
+        age: safeAge,
+        civil_status: formData.civil_status || 'Single',
+        nationality: formData.nationality?.trim() || 'Filipino',
+        address: formData.address?.trim() || '',
+        purpose: resolvedPurpose,
+        purpose_fee: formData.purpose_fee || (defaultPurpose === 'Local Employment' ? 50 : 0),
+        date_issued: defaultDateIssued,
+        validity_period: defaultValidityPeriod,
+        validity_expiry: defaultValidityExpiry,
+        issued_upon_request_by: formData.issued_upon_request_by || user?.name || '',
         has_criminal_record: hasCriminalRecord,
-        age: parseInt(formData.age.toString()),
         issued_by_user_id: user?.id,
         issued_by_name: user?.name,
       };
@@ -862,10 +869,11 @@ const ClearanceGenerate: React.FC = () => {
     const html2pdf = (await import('html2pdf.js')).default;
     
     // Build full name for print template
+    const isMiddleNameOfLegalAge = formData.middle_name?.trim().toLowerCase() === 'of legal age';
     const printFullName = [
       formData.first_name.toUpperCase(),
-      formData.middle_name ? `${formData.middle_name.charAt(0).toUpperCase()}.` : '',
       formData.last_name.toUpperCase(),
+      formData.middle_name?.trim() ? (isMiddleNameOfLegalAge ? 'of legal age' : `y ${formData.middle_name.trim().toUpperCase()}`) : '',
       formData.suffix ? formData.suffix.toUpperCase() : ''
     ].filter(Boolean).join(' ');
 
@@ -933,10 +941,11 @@ const ClearanceGenerate: React.FC = () => {
 
   const handlePrint = () => {
     // Build full name for print template
+    const isMiddleNameOfLegalAge = formData.middle_name?.trim().toLowerCase() === 'of legal age';
     const printFullName = [
       formData.first_name.toUpperCase(),
-      formData.middle_name ? `${formData.middle_name.charAt(0).toUpperCase()}.` : '',
       formData.last_name.toUpperCase(),
+      formData.middle_name?.trim() ? (isMiddleNameOfLegalAge ? 'of legal age' : `y ${formData.middle_name.trim().toUpperCase()}`) : '',
       formData.suffix ? formData.suffix.toUpperCase() : ''
     ].filter(Boolean).join(' ');
 
@@ -1005,10 +1014,11 @@ const ClearanceGenerate: React.FC = () => {
     
     // Build combined HTML for all respondents
     const allPages = allForms.map((rf) => {
+      const isMiddleNameOfLegalAge = rf.middle_name?.trim().toLowerCase() === 'of legal age';
       const fullName = [
         rf.first_name.toUpperCase(),
-        rf.middle_name ? `${rf.middle_name.charAt(0).toUpperCase()}.` : '',
         rf.last_name.toUpperCase(),
+        rf.middle_name?.trim() ? (isMiddleNameOfLegalAge ? 'of legal age' : `y ${rf.middle_name.trim().toUpperCase()}`) : '',
         rf.suffix ? rf.suffix.toUpperCase() : ''
       ].filter(Boolean).join(' ');
       return getPrintTemplate({ formData: rf, fullName, generatedOR, textColor });
@@ -1552,22 +1562,6 @@ const ClearanceGenerate: React.FC = () => {
                       <div className="space-y-1.5">
                         <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                           <i className="fas fa-user text-xs"></i>
-                          <span>Middle Name</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="middle_name"
-                          value={formData.middle_name}
-                          onChange={handleInputChange}
-                          onKeyDown={handleKeyDown}
-                          className={inputClasses}
-                          placeholder="Enter middle name"
-                        />
-                      </div>
-                      
-                      <div className="space-y-1.5">
-                        <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                          <i className="fas fa-user text-xs"></i>
                           <span>Last Name *</span>
                         </label>
                         <input
@@ -1580,6 +1574,51 @@ const ClearanceGenerate: React.FC = () => {
                           placeholder="Enter last name"
                         />
                         {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>}
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className="fas fa-user text-xs"></i>
+                          <span>Middle Name</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-2 rounded-lg border text-xs font-semibold ${isDark ? 'bg-slate-700/60 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                            y
+                          </span>
+                          <div className="relative flex-1">
+                            <input
+                              type="text"
+                              name="middle_name"
+                              value={formData.middle_name}
+                              onChange={handleInputChange}
+                              onKeyDown={handleKeyDown}
+                              className={`${inputClasses} pr-10`}
+                              placeholder="Enter middle name"
+                            />
+                            <button
+                              type="button"
+                              title="Open middle name options"
+                              onClick={() => setShowMiddleNameDropdown(!showMiddleNameDropdown)}
+                              className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded border text-xs transition-colors ${isDark ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                              <i className="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            {showMiddleNameDropdown && (
+                              <div className={`absolute right-0 mt-1 w-44 rounded-lg border shadow-lg z-50 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev: FormData) => ({ ...prev, middle_name: '' }));
+                                    setShowMiddleNameDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-xs hover:rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
+                                >
+                                  No middle name
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       
                       <div className="space-y-1.5">
@@ -1623,17 +1662,45 @@ const ClearanceGenerate: React.FC = () => {
                           <i className="fas fa-calendar-alt text-xs"></i>
                           <span>Age *</span>
                         </label>
-                        <input
-                          type="number"
-                          name="age"
-                          value={formData.age}
-                          onChange={handleInputChange}
-                          onKeyDown={handleKeyDown}
-                          min="18"
-                          max="120"
-                          className={`${inputClasses} ${errors.age ? 'border-red-500 focus:border-red-500' : ''}`}
-                          placeholder="Enter age"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="age"
+                            value={formData.age}
+                            onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
+                            inputMode="numeric"
+                            className={`${inputClasses} pr-12 ${errors.age ? 'border-red-500 focus:border-red-500' : ''}`}
+                            placeholder="Enter age or choose option"
+                          />
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                            <button
+                              type="button"
+                              title="Open legal age option"
+                              onClick={() => setShowAgeDropdown(!showAgeDropdown)}
+                              className={`px-2 py-1 rounded border text-xs transition-colors ${isDark ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                              <i className="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            {showAgeDropdown && (
+                              <div className={`absolute right-0 mt-1 w-40 rounded-lg border shadow-lg z-50 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextMiddleName = String(formData.middle_name || '').trim().toLowerCase() === 'of legal age'
+                                      ? ''
+                                      : formData.middle_name;
+                                    setFormData({ ...formData, age: 'of legal age', middle_name: nextMiddleName });
+                                    setShowAgeDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-xs hover:rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
+                                >
+                                  of legal age
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                       </div>
 
@@ -1681,14 +1748,29 @@ const ClearanceGenerate: React.FC = () => {
                         </label>
                         <select
                           name="civil_status"
-                          value={formData.civil_status}
+                          value={formData.civil_status === 'Custom' || (!CIVIL_STATUS_OPTIONS.slice(0, -1).includes(formData.civil_status) && formData.civil_status) ? 'Custom' : formData.civil_status}
                           onChange={handleInputChange}
                           className={`${inputClasses} ${errors.civil_status ? 'border-red-500 focus:border-red-500' : ''}`}
                         >
+                          <option value="">Select civil status</option>
                           {CIVIL_STATUS_OPTIONS.map((status: string) => (
                             <option key={status} value={status}>{status}</option>
                           ))}
                         </select>
+                        
+                        {/* Custom Civil Status Input */}
+                        {(formData.civil_status === 'Custom' || (!CIVIL_STATUS_OPTIONS.slice(0, -1).includes(formData.civil_status) && formData.civil_status && formData.civil_status !== '')) && (
+                          <input
+                            type="text"
+                            value={formData.civil_status === 'Custom' ? '' : formData.civil_status}
+                            onChange={(e) => setFormData({ ...formData, civil_status: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            className={inputClasses}
+                            placeholder="Enter custom civil status"
+                            autoFocus
+                          />
+                        )}
+                        
                         {errors.civil_status && <p className="text-red-500 text-xs mt-1">{errors.civil_status}</p>}
                       </div>
                       
@@ -1970,24 +2052,146 @@ const ClearanceGenerate: React.FC = () => {
                             </svg>
                           </motion.button>
                         </div>
-                        <select
-                          name="purpose"
-                          value={formData.purpose}
-                          onChange={handleInputChange}
-                          className={`${inputClasses} ${errors.purpose ? 'border-red-500' : ''}`}
-                        >
-                          <option value="">Select a purpose</option>
-                          {PURPOSE_OPTIONS.map((opt: { name: string; fee: number }) => (
-                            <option key={opt.name} value={opt.name}>
-                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
-                            </option>
-                          ))}
-                          {customPurposes.map((opt: { name: string; fee: number }) => (
-                            <option key={opt.name} value={opt.name}>
-                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
-                            </option>
-                          ))}
-                        </select>
+                        {/* Custom Purpose Dropdown with Remove Icons */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowPurposeDropdown(!showPurposeDropdown)}
+                            className={`w-full px-3 py-2 text-left rounded-lg border transition-all duration-200 flex items-center justify-between ${
+                              errors.purpose
+                                ? isDark ? 'border-red-500 bg-red-900/20' : 'border-red-500 bg-red-50'
+                                : isDark ? 'border-slate-600 bg-slate-700 hover:bg-slate-650' : 'border-slate-300 bg-white hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                              {formData.purpose || 'Select a purpose'}
+                            </span>
+                            <svg className={`w-4 h-4 transition-transform ${showPurposeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                          </button>
+                          
+                          {showPurposeDropdown && (
+                            <div className={`absolute top-full left-0 right-0 mt-1 rounded-lg border z-50 shadow-lg ${
+                              isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-300'
+                            }`}>
+                              <div className="max-h-64 overflow-y-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData(prev => ({ ...prev, purpose: '', purpose_fee: 0 }));
+                                    setShowPurposeDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 hover:bg-opacity-70 ${
+                                    isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                  }`}
+                                >
+                                  <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Select a purpose</span>
+                                </button>
+                                
+                                {/* Active Purposes */}
+                                {PURPOSE_OPTIONS.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                  <div
+                                    key={opt.name}
+                                    className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
+                                      formData.purpose === opt.name
+                                        ? isDark ? 'bg-blue-900/40' : 'bg-blue-50'
+                                        : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, purpose: opt.name, purpose_fee: opt.fee }));
+                                        setShowPurposeDropdown(false);
+                                      }}
+                                      className="flex-1 text-left"
+                                    >
+                                      <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                                        {opt.name}
+                                      </span>
+                                    </button>
+                                    
+                                    {opt.name !== 'Other' && (
+                                      <motion.button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleRemovePurpose(opt.name);
+                                          if (formData.purpose === opt.name) {
+                                            setShowPurposeDropdown(false);
+                                          }
+                                        }}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className={`ml-2 p-1.5 rounded transition-all ${
+                                          isDark
+                                            ? 'hover:bg-red-900/40 text-red-400 hover:text-red-300'
+                                            : 'hover:bg-red-100 text-red-600 hover:text-red-700'
+                                        }`}
+                                        title="Remove this purpose"
+                                      >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <line x1="5" y1="12" x2="19" y2="12" />
+                                        </svg>
+                                      </motion.button>
+                                    )}
+                                  </div>
+                                ))}
+                                
+                                {/* Custom Purposes */}
+                                {customPurposes.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                  <div
+                                    key={opt.name}
+                                    className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
+                                      formData.purpose === opt.name
+                                        ? isDark ? 'bg-blue-900/40' : 'bg-blue-50'
+                                        : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, purpose: opt.name, purpose_fee: opt.fee }));
+                                        setShowPurposeDropdown(false);
+                                      }}
+                                      className="flex-1 text-left"
+                                    >
+                                      <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                                        {opt.name}
+                                      </span>
+                                    </button>
+                                    
+                                    <motion.button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleRemovePurpose(opt.name);
+                                        if (formData.purpose === opt.name) {
+                                          setShowPurposeDropdown(false);
+                                        }
+                                      }}
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      className={`ml-2 p-1.5 rounded transition-all ${
+                                        isDark
+                                          ? 'hover:bg-red-900/40 text-red-400 hover:text-red-300'
+                                          : 'hover:bg-red-100 text-red-600 hover:text-red-700'
+                                      }`}
+                                      title="Remove this purpose"
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                      </svg>
+                                    </motion.button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {errors.purpose && <p className="text-red-500 text-xs mt-1">{errors.purpose}</p>}
                       </div>
                       
@@ -2407,24 +2611,146 @@ const ClearanceGenerate: React.FC = () => {
                             </svg>
                           </motion.button>
                         </div>
-                        <select
-                          name="purpose"
-                          value={formData.purpose}
-                          onChange={handleInputChange}
-                          className={`${inputClasses} ${errors.purpose ? 'border-red-500' : ''}`}
-                        >
-                          <option value="">Select a purpose</option>
-                          {PURPOSE_OPTIONS.map((opt: { name: string; fee: number }) => (
-                            <option key={opt.name} value={opt.name}>
-                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
-                            </option>
-                          ))}
-                          {customPurposes.map((opt: { name: string; fee: number }) => (
-                            <option key={opt.name} value={opt.name}>
-                              {opt.name} {opt.fee > 0 ? `(PHP ${opt.fee.toLocaleString()})` : ''}
-                            </option>
-                          ))}
-                        </select>
+                        {/* Custom Purpose Dropdown with Remove Icons */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowPurposeDropdown(!showPurposeDropdown)}
+                            className={`w-full px-3 py-2 text-left rounded-lg border transition-all duration-200 flex items-center justify-between ${
+                              errors.purpose
+                                ? isDark ? 'border-red-500 bg-red-900/20' : 'border-red-500 bg-red-50'
+                                : isDark ? 'border-slate-600 bg-slate-700 hover:bg-slate-650' : 'border-slate-300 bg-white hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                              {formData.purpose || 'Select a purpose'}
+                            </span>
+                            <svg className={`w-4 h-4 transition-transform ${showPurposeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                          </button>
+                          
+                          {showPurposeDropdown && (
+                            <div className={`absolute top-full left-0 right-0 mt-1 rounded-lg border z-50 shadow-lg ${
+                              isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-300'
+                            }`}>
+                              <div className="max-h-64 overflow-y-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData(prev => ({ ...prev, purpose: '', purpose_fee: 0 }));
+                                    setShowPurposeDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 hover:bg-opacity-70 ${
+                                    isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                  }`}
+                                >
+                                  <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Select a purpose</span>
+                                </button>
+                                
+                                {/* Active Purposes */}
+                                {PURPOSE_OPTIONS.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                  <div
+                                    key={opt.name}
+                                    className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
+                                      formData.purpose === opt.name
+                                        ? isDark ? 'bg-blue-900/40' : 'bg-blue-50'
+                                        : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, purpose: opt.name, purpose_fee: opt.fee }));
+                                        setShowPurposeDropdown(false);
+                                      }}
+                                      className="flex-1 text-left"
+                                    >
+                                      <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                                        {opt.name}
+                                      </span>
+                                    </button>
+                                    
+                                    {opt.name !== 'Other' && (
+                                      <motion.button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleRemovePurpose(opt.name);
+                                          if (formData.purpose === opt.name) {
+                                            setShowPurposeDropdown(false);
+                                          }
+                                        }}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        className={`ml-2 p-1.5 rounded transition-all ${
+                                          isDark
+                                            ? 'hover:bg-red-900/40 text-red-400 hover:text-red-300'
+                                            : 'hover:bg-red-100 text-red-600 hover:text-red-700'
+                                        }`}
+                                        title="Remove this purpose"
+                                      >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <line x1="5" y1="12" x2="19" y2="12" />
+                                        </svg>
+                                      </motion.button>
+                                    )}
+                                  </div>
+                                ))}
+                                
+                                {/* Custom Purposes */}
+                                {customPurposes.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                  <div
+                                    key={opt.name}
+                                    className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
+                                      formData.purpose === opt.name
+                                        ? isDark ? 'bg-blue-900/40' : 'bg-blue-50'
+                                        : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, purpose: opt.name, purpose_fee: opt.fee }));
+                                        setShowPurposeDropdown(false);
+                                      }}
+                                      className="flex-1 text-left"
+                                    >
+                                      <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                                        {opt.name}
+                                      </span>
+                                    </button>
+                                    
+                                    <motion.button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleRemovePurpose(opt.name);
+                                        if (formData.purpose === opt.name) {
+                                          setShowPurposeDropdown(false);
+                                        }
+                                      }}
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      className={`ml-2 p-1.5 rounded transition-all ${
+                                        isDark
+                                          ? 'hover:bg-red-900/40 text-red-400 hover:text-red-300'
+                                          : 'hover:bg-red-100 text-red-600 hover:text-red-700'
+                                      }`}
+                                      title="Remove this purpose"
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                      </svg>
+                                    </motion.button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {errors.purpose && <p className="text-red-500 text-xs mt-1">{errors.purpose}</p>}
                       </div>
                       
@@ -2472,8 +2798,44 @@ const ClearanceGenerate: React.FC = () => {
                           <div className="space-y-1.5">
                             <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                               <i className="fas fa-calendar text-xs"></i>
-                              <span>Valid Until *</span>
+                              <span>{(formData.id_number?.trim() || 'Valid Until')} *</span>
+                              <select
+                                value={formatCValidityLabelType}
+                                onChange={(e) => {
+                                  const selected = e.target.value;
+                                  setFormatCValidityLabelType(selected);
+
+                                  if (selected === 'custom') {
+                                    setFormData((prev: FormData) => ({ ...prev, id_number: formatCCustomValidityLabel.trim() }));
+                                  } else {
+                                    setFormatCCustomValidityLabel('');
+                                    setFormData((prev: FormData) => ({ ...prev, id_number: selected }));
+                                  }
+                                }}
+                                className={`text-[11px] rounded border px-1.5 py-0.5 ${
+                                  isDark ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
+                                }`}
+                                aria-label="Select Format C validity label"
+                              >
+                                {FORMAT_C_VALIDITY_LABEL_OPTIONS.map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                                <option value="custom">Custom</option>
+                              </select>
                             </label>
+                            {formatCValidityLabelType === 'custom' && (
+                              <input
+                                type="text"
+                                value={formatCCustomValidityLabel}
+                                onChange={(e) => {
+                                  const customLabel = e.target.value;
+                                  setFormatCCustomValidityLabel(customLabel);
+                                  setFormData((prev: FormData) => ({ ...prev, id_number: customLabel }));
+                                }}
+                                className={inputClasses}
+                                placeholder="Type custom validity label"
+                              />
+                            )}
                             <input
                               type="date"
                               name="validity_expiry"
@@ -2485,8 +2847,43 @@ const ClearanceGenerate: React.FC = () => {
                           <div className="space-y-1.5">
                             <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                               <i className="fas fa-id-card text-xs"></i>
-                              <span>DOJ ID No *</span>
+                              <span>{(formData.id_presented?.trim() || 'DOJ ID No')} *</span>
+                              <select
+                                value={formatCIdType}
+                                onChange={(e) => {
+                                  const selected = e.target.value;
+                                  setFormatCIdType(selected);
+                                  if (selected === 'custom') {
+                                    setFormData((prev: FormData) => ({ ...prev, id_presented: formatCCustomIdType.trim() }));
+                                  } else {
+                                    setFormatCCustomIdType('');
+                                    setFormData((prev: FormData) => ({ ...prev, id_presented: selected }));
+                                  }
+                                }}
+                                className={`text-[11px] rounded border px-1.5 py-0.5 ${
+                                  isDark ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
+                                }`}
+                                aria-label="Select Format C ID label"
+                              >
+                                {FORMAT_C_ID_OPTIONS.map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                                <option value="custom">Custom</option>
+                              </select>
                             </label>
+                            {formatCIdType === 'custom' && (
+                              <input
+                                type="text"
+                                value={formatCCustomIdType}
+                                onChange={(e) => {
+                                  const customLabel = e.target.value;
+                                  setFormatCCustomIdType(customLabel);
+                                  setFormData((prev: FormData) => ({ ...prev, id_presented: customLabel }));
+                                }}
+                                className={inputClasses}
+                                placeholder="Type custom ID label"
+                              />
+                            )}
                             <input
                               type="text"
                               name="prc_id_number"
@@ -2498,7 +2895,7 @@ const ClearanceGenerate: React.FC = () => {
                               inputMode="numeric"
                               pattern="[0-9]*"
                               className={inputClasses}
-                              placeholder="Enter DOJ ID Number"
+                              placeholder={`Enter ${(formData.id_presented?.trim() || 'DOJ ID')} Number`}
                             />
                           </div>
                           <div className="space-y-1.5">
@@ -2628,6 +3025,112 @@ const ClearanceGenerate: React.FC = () => {
                         </>
                       ) : (
                         <>
+                          {formData.format_type === 'D' && (
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-id-card text-xs"></i>
+                                <span>{(formData.id_presented?.trim() || 'National ID')} *</span>
+                                <select
+                                  value={formatCIdType}
+                                  onChange={(e) => {
+                                    const selected = e.target.value;
+                                    setFormatCIdType(selected);
+                                    if (selected === 'custom') {
+                                      setFormData((prev: FormData) => ({ ...prev, id_presented: formatCCustomIdType.trim() }));
+                                    } else {
+                                      setFormatCCustomIdType('');
+                                      setFormData((prev: FormData) => ({ ...prev, id_presented: selected }));
+                                    }
+                                  }}
+                                  className={`text-[11px] rounded border px-1.5 py-0.5 ${
+                                    isDark ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
+                                  }`}
+                                  aria-label="Select Format D ID label"
+                                >
+                                  {FORMAT_C_ID_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                  ))}
+                                  <option value="custom">Custom</option>
+                                </select>
+                              </label>
+                              {formatCIdType === 'custom' && (
+                                <input
+                                  type="text"
+                                  value={formatCCustomIdType}
+                                  onChange={(e) => {
+                                    const customLabel = e.target.value;
+                                    setFormatCCustomIdType(customLabel);
+                                    setFormData((prev: FormData) => ({ ...prev, id_presented: customLabel }));
+                                  }}
+                                  className={inputClasses}
+                                  placeholder="Type custom ID label"
+                                />
+                              )}
+                              <input
+                                type="text"
+                                name="ctc_number"
+                                value={formData.ctc_number}
+                                onChange={e => {
+                                  const value = e.target.value.replace(/[^0-9-]/g, '');
+                                  setFormData((prev: FormData) => ({ ...prev, ctc_number: value }));
+                                }}
+                                inputMode="numeric"
+                                className={inputClasses}
+                                placeholder={`Enter ${(formData.id_presented?.trim() || 'National ID')} Number`}
+                              />
+                            </div>
+                          )}
+                          {formData.format_type === 'D' && (
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-calendar text-xs"></i>
+                                <span>{(formData.id_number?.trim() || 'Valid Until')} *</span>
+                                <select
+                                  value={formatCValidityLabelType}
+                                  onChange={(e) => {
+                                    const selected = e.target.value;
+                                    setFormatCValidityLabelType(selected);
+
+                                    if (selected === 'custom') {
+                                      setFormData((prev: FormData) => ({ ...prev, id_number: formatCCustomValidityLabel.trim() }));
+                                    } else {
+                                      setFormatCCustomValidityLabel('');
+                                      setFormData((prev: FormData) => ({ ...prev, id_number: selected }));
+                                    }
+                                  }}
+                                  className={`text-[11px] rounded border px-1.5 py-0.5 ${
+                                    isDark ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
+                                  }`}
+                                  aria-label="Select Format D validity label"
+                                >
+                                  {FORMAT_C_VALIDITY_LABEL_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                  ))}
+                                  <option value="custom">Custom</option>
+                                </select>
+                              </label>
+                              {formatCValidityLabelType === 'custom' && (
+                                <input
+                                  type="text"
+                                  value={formatCCustomValidityLabel}
+                                  onChange={(e) => {
+                                    const customLabel = e.target.value;
+                                    setFormatCCustomValidityLabel(customLabel);
+                                    setFormData((prev: FormData) => ({ ...prev, id_number: customLabel }));
+                                  }}
+                                  className={inputClasses}
+                                  placeholder="Type custom validity label"
+                                />
+                              )}
+                              <input
+                                type="date"
+                                name="validity_expiry"
+                                value={formData.validity_expiry}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                              />
+                            </div>
+                          )}
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Date of Issuance *</label>
                             <input
@@ -2639,7 +3142,7 @@ const ClearanceGenerate: React.FC = () => {
                               className={inputClasses}
                             />
                           </div>
-                          {formData.format_type !== 'E' && (
+                          {formData.format_type === 'F' && (
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Valid Until</label>
                             <input
@@ -2914,24 +3417,6 @@ const ClearanceGenerate: React.FC = () => {
                         : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
                     }`}
                     autoFocus
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className={`block text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Fee (PHP) *
-                  </label>
-                  <input
-                    type="number"
-                    value={newPurposeFee}
-                    onChange={(e) => setNewPurposeFee(Math.max(0, parseInt(e.target.value) || 0))}
-                    min="0"
-                    placeholder="Enter fee amount"
-                    className={`w-full px-3 py-2 rounded-lg border transition-all focus:outline-none focus:ring-2 ${
-                      isDark
-                        ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
-                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-blue-500 focus:border-blue-500'
-                    }`}
                   />
                 </div>
               </div>

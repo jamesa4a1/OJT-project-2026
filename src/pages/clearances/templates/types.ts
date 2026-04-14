@@ -112,10 +112,15 @@ export const formatFullDate = (dateStr: string): string => {
 
 // Build full name from form data
 export const buildFullName = (data: FormData): string => {
+  const middleName = data.middle_name?.trim();
+  
+  // Check if middle name is "of legal age" (case-insensitive)
+  const isOfLegalAge = middleName?.toLowerCase() === 'of legal age';
+  
   return [
     data.first_name?.toUpperCase(),
-    data.middle_name ? `${data.middle_name.charAt(0).toUpperCase()}.` : '',
     data.last_name?.toUpperCase(),
+    isOfLegalAge ? 'of legal age' : (middleName ? `y ${middleName.toUpperCase()}` : ''),
     data.suffix ? data.suffix.toUpperCase() : ''
   ].filter(Boolean).join(' ');
 };
@@ -141,7 +146,9 @@ export const CIVIL_STATUS_OPTIONS = [
   'Married',
   'Divorced',
   'Widowed',
-  'Separated'
+  'Separated',
+  'Blank',
+  'Custom'
 ];
 
 // Sex options

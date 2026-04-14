@@ -58,7 +58,7 @@ const FormatFHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
           <p style={{ color: colorValue, fontSize: '11pt', fontWeight: 'bold', lineHeight: '1.3', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
           <p style={{ color: colorValue, fontSize: '11pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>City of Tagbilaran</p>
           <p style={{ color: colorValue, fontSize: '8pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-          <p style={{ color: colorValue, fontSize: '8pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Tel. No. 411-3403/411-2306</p>
+          <p style={{ color: colorValue, fontSize: '8pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>Tel. No. 411-3403</p>
           <p style={{ color: colorValue, fontSize: '8pt', fontStyle: 'italic', lineHeight: '1.3', margin: '0' }}>
             Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style={{ color: '#0000FF', textDecoration: 'underline' }}>ocptagbilaran@doj.gov.ph</a>
           </p>
@@ -112,8 +112,11 @@ const FormatFBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
       {/* Main certification text */}
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '10pt', fontSize: FORMAT_F_CONFIG.bodyFontSize, lineHeight: '1.5' }}>
         THIS IS TO CERTIFY that the records of this office show that one{' '}
-        <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>,{' '}
-        <strong>{data.age || '[AGE]'}</strong> years old, <strong>{data.civil_status || 'Single'}</strong>,{' '}
+        <strong>{fullName || '[FULL NAME]'}</strong>,{' '}
+        {String(data.age || '').trim().toLowerCase() === 'of legal age'
+          ? <><strong>of legal age</strong>,{' '}</>
+          : <><strong>{data.age || '[AGE]'} years old,</strong>{' '}</>}
+        {data.civil_status === 'Blank' ? null : <><strong>{data.civil_status || 'Single'}</strong>,{' '}</>}
         <strong>{data.nationality || 'Filipino'}</strong>, residing at{' '}
         <strong>{data.address || '[ADDRESS]'}</strong> has been charged of the following:
       </p>
@@ -399,7 +402,7 @@ export const getFormatFHtml = (formData: FormData, fullName: string, generatedOR
         <p style="font-size: 13pt; font-weight: bold; color: ${colorValue}; line-height: 1.0;">OFFICE OF THE CITY PROSECUTOR</p>
         <p style="font-size: 13pt; font-style: italic; color: ${colorValue}; line-height: 1.0;">City of Tagbilaran</p>
         <p style="font-size: 10pt; font-style: italic; color: ${colorValue}; line-height: 1.0;">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-        <p style="font-size: 10pt; font-style: italic; color: ${colorValue}; line-height: 1.0;">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 10pt; font-style: italic; color: ${colorValue}; line-height: 1.0;">Tel. No. 411-3403</p>
         <p style="font-size: 10pt; font-style: italic;">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF; text-decoration: underline;">ocptagbilaran@doj.gov.ph</a></p>
       </div>
       <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" class="right-logo" />
@@ -423,9 +426,9 @@ export const getFormatFHtml = (formData: FormData, fullName: string, generatedOR
     <div style="color: ${colorValue};">
       <p style="text-indent: 0.5in; text-align: justify; margin-bottom: 10pt; font-size: 13pt; line-height: 1.5; margin-left: 10;">
         THIS IS TO CERTIFY that the records of this office show that one
-        <strong style="text-transform: uppercase;">${fullName}</strong>,
-        <strong>${formData?.age || '[AGE]'}</strong> years old,
-        <strong>${formData?.civil_status || 'Single'}</strong>,
+        <strong>${fullName}</strong>,
+        ${String(formData?.age || '').trim().toLowerCase() === 'of legal age' ? '<strong>of legal age</strong>,' : `<strong>${formData?.age || '[AGE]'} years old,</strong>`}
+        ${formData?.civil_status === 'Blank' ? '' : `<strong>${formData?.civil_status || 'Single'}</strong>,`}
         <strong>${formData?.nationality || 'Filipino'}</strong>,
         residing at <strong>${formData?.address || '[ADDRESS]'}</strong> has been charged of the following:
       </p>

@@ -1098,27 +1098,46 @@ const ClearanceHistory: React.FC = () => {
                     }}>TO WHOM IT MAY CONCERN:</p>
                     
                     {/* Unified Preview Component */}
-                    <ClearancePreview 
-                      data={{
-                        format_type: selectedClearance.format_type,
-                        first_name: selectedClearance.first_name,
-                        middle_name: selectedClearance.middle_name || '',
-                        last_name: selectedClearance.last_name,
-                        age: selectedClearance.age,
-                        civil_status: selectedClearance.civil_status,
-                        address: selectedClearance.address,
-                        purpose: selectedClearance.purpose,
-                        date_issued: selectedClearance.date_issued,
-                        validity_expiry: selectedClearance.validity_expiry,
-                        nationality: 'Filipino',
-                        purpose_fee: 0,
-                        issued_upon_request_by: selectedClearance.first_name + ' ' + selectedClearance.last_name,
-                        has_criminal_record: selectedClearance.has_criminal_record,
-                        criminal_cases: [],
-                        or_number: selectedClearance.or_number
-                      }}
-                      isDark={isDark}
-                    />
+                    <div className="overflow-auto">
+                      <div
+                        className="bg-white text-black rounded-lg shadow-lg mx-auto"
+                        style={{
+                          fontFamily: '"Century Gothic", Arial, sans-serif',
+                          fontSize: '14pt',
+                          lineHeight: '1.2',
+                          width: '6.0in',
+                          padding: '0.25in 0.2in 0.25in 0.2in',
+                          margin: '0 auto',
+                          boxSizing: 'border-box',
+                          color: '#000000',
+                          background: 'white',
+                          transform: 'scale(0.88)',
+                          transformOrigin: 'top center'
+                        }}
+                      >
+                        <ClearancePreview 
+                          data={{
+                            format_type: selectedClearance.format_type,
+                            first_name: selectedClearance.first_name,
+                            middle_name: selectedClearance.middle_name || '',
+                            last_name: selectedClearance.last_name,
+                            age: selectedClearance.age,
+                            civil_status: selectedClearance.civil_status,
+                            address: selectedClearance.address,
+                            purpose: selectedClearance.purpose,
+                            date_issued: selectedClearance.date_issued,
+                            validity_expiry: selectedClearance.validity_expiry,
+                            nationality: 'Filipino',
+                            purpose_fee: 0,
+                            issued_upon_request_by: selectedClearance.first_name + ' ' + selectedClearance.last_name,
+                            has_criminal_record: selectedClearance.has_criminal_record,
+                            criminal_cases: [],
+                            or_number: selectedClearance.or_number
+                          }}
+                          isDark={isDark}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Signature Section */}

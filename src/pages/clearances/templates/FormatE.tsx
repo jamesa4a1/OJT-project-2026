@@ -69,7 +69,7 @@ const FormatEHeader: React.FC<{ dojSealSrc?: string; bagongPilipinasSrc?: string
           <p style={{ color: colorValue, fontSize: '11pt', fontWeight: 'bold', lineHeight: '1.2', margin: '0' }}>OFFICE OF THE CITY PROSECUTOR</p>
           <p style={{ color: colorValue, fontSize: '9pt', lineHeight: '1.2', fontWeight: 'normal', margin: '0' }}>City of Tagbilaran</p>
           <p style={{ color: colorValue, fontSize: '7pt', fontStyle: 'italic', lineHeight: '1.2', fontWeight: 'normal', margin: '0' }}>Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-          <p style={{ color: colorValue, fontSize: '7pt', fontStyle: 'italic', lineHeight: '1.2', fontWeight: 'normal', margin: '0' }}>Tel. No. 411-3403/411-2306</p>
+          <p style={{ color: colorValue, fontSize: '7pt', fontStyle: 'italic', lineHeight: '1.2', fontWeight: 'normal', margin: '0' }}>Tel. No. 411-3403</p>
           <p style={{ color: colorValue, fontSize: '8pt', fontStyle: 'italic', lineHeight: '1.2', fontWeight: 'normal', margin: '0' }}>
             Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style={{ color: '#0000FF', textDecoration: 'underline' }}>ocptagbilaran@doj.gov.ph</a>
           </p>
@@ -122,10 +122,11 @@ const FormatEBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
       {/* First paragraph - certification of no prior conviction */}
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '12pt' }}>
         THIS IS TO CERTIFY that the records of this office show that one{' '}
-        <strong>{fullName || '[FULL NAME]'},{' '}
-        {data.age || '[AGE]'} years old, {data.civil_status || '[CIVIL STATUS]'},{' '}
-        {data.nationality || '[NATIONALITY]'}</strong>, residing at{' '}
-        <strong>{data.address || '[ADDRESS]'}{' '}</strong>
+        <strong>{fullName || '[FULL NAME]'}</strong>,{' '}
+        {String(data.age || '').trim().toLowerCase() === 'of legal age' ? <><strong>of legal age</strong>,{' '}</> : <><strong>{data.age || '[AGE]'} years old</strong>,{' '}</>}
+        {data.civil_status === 'Blank' ? null : <><strong>{data.civil_status || '[CIVIL STATUS]'}</strong>,{' '}</>}
+        <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at{' '}
+        <strong>{data.address || '[ADDRESS]'}</strong>
         has no prior conviction of any crime whatsoever.
       </p>
 
@@ -302,7 +303,7 @@ export const getFormatEHtml = (formData: FormData, fullName: string, generatedOR
         <p style="font-size: 13pt; font-weight: bold; color: ${colorValue};">OFFICE OF THE CITY PROSECUTOR</p>
         <p style="font-size: 13pt; color: ${colorValue};">City of Tagbilaran</p>
         <p style="font-size: 10pt; font-style: italic; color: ${colorValue};">Hall of Justice Building, Brgy. Cogon, Tagbilaran City</p>
-        <p style="font-size: 10pt; font-style: italic; color: ${colorValue};">Tel. No. 411-3403/411-2306</p>
+        <p style="font-size: 10pt; font-style: italic; color: ${colorValue};">Tel. No. 411-3403</p>
         <p style="font-size: 10pt; font-style: italic; color: ${colorValue};">Email: <a href="mailto:ocptagbilaran@doj.gov.ph" style="color: #0000FF; text-decoration: underline;">ocptagbilaran@doj.gov.ph</a></p>
       </div>
       <img src="/images/logos/bagong-pilipinas.png" alt="Bagong Pilipinas" class="right-logo" />
@@ -327,7 +328,7 @@ export const getFormatEHtml = (formData: FormData, fullName: string, generatedOR
       
       <!-- First paragraph -->
       <p style="text-indent: 0.5in; text-align: justify; line-height: 1.2; margin-bottom: 10pt; margin-top: 16pt;">
-        &nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&thinsp;THIS IS TO CERTIFY that the records of this office show that one <strong>${formatEName || '[FULL NAME]'}</strong>, ${formData.age || '[AGE]'} years old, ${formData.civil_status || '[CIVIL STATUS]'}, ${formData.nationality || '[NATIONALITY]'}, residing at ${formData.address || '[ADDRESS]'} has no prior conviction of any crime whatsoever.
+        &nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&thinsp;THIS IS TO CERTIFY that the records of this office show that one <strong>${formatEName || '[FULL NAME]'}</strong>, ${String(formData?.age || '').trim().toLowerCase() === 'of legal age' ? '<strong>of legal age</strong>, ' : `<strong>${formData?.age || '[AGE]'} years old</strong>, `}${formData.civil_status === 'Blank' ? '' : `<strong>${formData.civil_status || '[CIVIL STATUS]'}</strong>, `}<strong>${formData.nationality || '[NATIONALITY]'}</strong>, residing at ${formData.address || '[ADDRESS]'} has no prior conviction of any crime whatsoever.
       </p>
       
       <!-- Second paragraph -->
