@@ -1,0 +1,2 @@
+{"timestamp":"2026-04-14T00:55:48.382Z","severity":"INFO","eventType":"LOGOUT","userId":1}
+{"timestamp":"2026-04-14T00:55:59.802Z","severity":"INFO","eventType":"LOGIN_SUCCESS","userId":1,"email":"james@gmail.com","ip":"::1"}

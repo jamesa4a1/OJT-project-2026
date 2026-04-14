@@ -83,7 +83,7 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     total: 0,
     resolved: 0,
-    pending: 0,
+    filedInCourt: 0,
     provisionalDismissal: 0,
     archived: 0,
     thisMonth: 0,
@@ -152,12 +152,11 @@ const AdminDashboard = () => {
             normalizeDecision(c.status) === 'closed' ||
             normalizeDecision(c.status) === 'terminated'
         ).length;
-        const pending = mappedCases.filter(
-          (c) =>
-            normalizeDecision(c.status) === 'pending' ||
-            normalizeDecision(c.status) === 'open' ||
-            normalizeDecision(c.status) === 'ongoing'
-        ).length;
+        const filedInCourt = mappedCases.filter((c) => {
+          const normalizedStatus = normalizeDecision(c.status);
+          const hasDocketNumber = Boolean(String(c.docket_no || c.DOCKET_NO || '').trim());
+          return normalizedStatus === 'filed in court' || hasDocketNumber;
+        }).length;
         const provisionalDismissal = mappedCases.filter(
           (c) => normalizeDecision(c.status) === 'provisional dismissal'
         ).length;
@@ -173,7 +172,7 @@ const AdminDashboard = () => {
           ...prev,
           total: totalCases,
           resolved: resolved,
-          pending: pending,
+          filedInCourt,
           provisionalDismissal,
           archived,
           thisMonth: monthCases,
@@ -418,9 +417,6 @@ const AdminDashboard = () => {
           {[
             { label: 'Total Cases', value: stats.total, icon: 'fa-folder-open' },
             { label: 'Active Users', value: stats.totalUsers, icon: 'fa-users' },
-            { label: 'Pending Review', value: stats.pending, icon: 'fa-hourglass-half' },
-            { label: 'Provisional dismissal', value: stats.provisionalDismissal, icon: 'fa-scale-balanced' },
-            { label: 'Archived', value: stats.archived, icon: 'fa-box-archive' },
           ].map((item, idx) => (
             <div key={idx} className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
@@ -657,7 +653,7 @@ const AdminDashboard = () => {
             </div>
           </motion.div>
 
-          {/* Pending Cases Card */}
+          {/* Filed in Court Card */}
           <motion.div
             whileHover={{ scale: 1.03, y: -4 }}
             transition={{ type: "spring", stiffness: 200, damping: 15 }}
@@ -681,17 +677,17 @@ const AdminDashboard = () => {
                   <i className={`fas fa-hourglass-half text-xl ${isDark ? 'text-orange-400' : 'text-orange-500'}`}></i>
                 </div>
                 <ProgressRing 
-                  progress={stats.total > 0 ? (stats.pending / stats.total) * 100 : 0} 
+                  progress={stats.total > 0 ? (stats.filedInCourt / stats.total) * 100 : 0} 
                   color="orange" 
                   isDark={isDark}
                 />
               </div>
               <div className="flex-1 flex flex-col items-center justify-start text-center">
                 <p className={`text-6xl font-bold m-0 mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  {stats.pending}
+                  {stats.filedInCourt}
                 </p>
                 <p className={`text-sm font-medium m-0 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Pending
+                  Filed in Court / Docketed
                 </p>
               </div>
             </div>

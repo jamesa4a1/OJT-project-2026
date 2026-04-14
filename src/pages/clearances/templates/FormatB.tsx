@@ -111,7 +111,7 @@ const FormatBBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
   return (
     <div style={{ color: colorValue }}>
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '8pt', fontSize: FORMAT_B_CONFIG.bodyFontSize, lineHeight: 1.6 }}>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;THIS IS TO CERTIFY that per records of this office show that one <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>, <strong>{data.age || '[AGE]'} years old</strong>, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>, <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at <strong>{data.address || '[ADDRESS]'}</strong>, has been charged of the following:
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;THIS IS TO CERTIFY that the records of this office show that one <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>, <strong>{data.age || '[AGE]'} years old</strong>, <strong>{data.civil_status || '[CIVIL STATUS]'}</strong>, <strong>{data.nationality || '[NATIONALITY]'}</strong>, residing at <strong>{data.address || '[ADDRESS]'}</strong>, has been charged of the following:
       </p>
 
       <div style={{ marginLeft: '0.5in', marginBottom: '12pt', fontSize: '13pt'}}>
@@ -345,7 +345,7 @@ export const getFormatBHtml = (formData: FormData, fullName: string, generatedOR
     <!-- BODY -->
     <div style="color: ${colorValue};">
       <p style="text-indent: 0.5in; margin-left: 0.7in; justify; margin-bottom: 8pt; line-height: 1.6;">
-        THIS IS TO CERTIFY that per records of this office show that one 
+        THIS IS TO CERTIFY that the records of this office show that one 
         <strong style="text-transform: uppercase;">${fullName}</strong>, 
         <strong>${formData?.age}</strong> years old, 
         <strong>${formData?.civil_status}</strong>, 

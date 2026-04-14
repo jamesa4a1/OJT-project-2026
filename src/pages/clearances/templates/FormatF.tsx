@@ -111,7 +111,7 @@ const FormatFBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
     <div style={{ color: colorValue, fontFamily: FORMAT_F_CONFIG.fontFamily }}>
       {/* Main certification text */}
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '10pt', fontSize: FORMAT_F_CONFIG.bodyFontSize, lineHeight: '1.5' }}>
-        THIS IS TO CERTIFY that per records of this office show that one{' '}
+        THIS IS TO CERTIFY that the records of this office show that one{' '}
         <strong style={{ textTransform: 'uppercase' }}>{fullName || '[FULL NAME]'}</strong>,{' '}
         <strong>{data.age || '[AGE]'}</strong> years old, <strong>{data.civil_status || 'Single'}</strong>,{' '}
         <strong>{data.nationality || 'Filipino'}</strong>, residing at{' '}
@@ -422,7 +422,7 @@ export const getFormatFHtml = (formData: FormData, fullName: string, generatedOR
     <!-- BODY -->
     <div style="color: ${colorValue};">
       <p style="text-indent: 0.5in; text-align: justify; margin-bottom: 10pt; font-size: 13pt; line-height: 1.5; margin-left: 10;">
-        THIS IS TO CERTIFY that per records of this office show that one
+        THIS IS TO CERTIFY that the records of this office show that one
         <strong style="text-transform: uppercase;">${fullName}</strong>,
         <strong>${formData?.age || '[AGE]'}</strong> years old,
         <strong>${formData?.civil_status || 'Single'}</strong>,

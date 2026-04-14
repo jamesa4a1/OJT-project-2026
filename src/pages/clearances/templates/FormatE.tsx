@@ -121,7 +121,7 @@ const FormatEBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
     <div style={{ color: colorValue, fontSize: FORMAT_E_CONFIG.bodyFontSize, lineHeight: '1.6' }}>
       {/* First paragraph - certification of no prior conviction */}
       <p style={{ textIndent: '0.5in', textAlign: 'justify', marginBottom: '12pt' }}>
-        THIS IS TO CERTIFY that per records of this office show that one{' '}
+        THIS IS TO CERTIFY that the records of this office show that one{' '}
         <strong>{fullName || '[FULL NAME]'},{' '}
         {data.age || '[AGE]'} years old, {data.civil_status || '[CIVIL STATUS]'},{' '}
         {data.nationality || '[NATIONALITY]'}</strong>, residing at{' '}
@@ -327,7 +327,7 @@ export const getFormatEHtml = (formData: FormData, fullName: string, generatedOR
       
       <!-- First paragraph -->
       <p style="text-indent: 0.5in; text-align: justify; line-height: 1.2; margin-bottom: 10pt; margin-top: 16pt;">
-        &nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&thinsp;THIS IS TO CERTIFY that per records of this office show that one <strong>${formatEName || '[FULL NAME]'}</strong>, ${formData.age || '[AGE]'} years old, ${formData.civil_status || '[CIVIL STATUS]'}, ${formData.nationality || '[NATIONALITY]'}, residing at ${formData.address || '[ADDRESS]'} has no prior conviction of any crime whatsoever.
+        &nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&thinsp;&thinsp;&thinsp;THIS IS TO CERTIFY that the records of this office show that one <strong>${formatEName || '[FULL NAME]'}</strong>, ${formData.age || '[AGE]'} years old, ${formData.civil_status || '[CIVIL STATUS]'}, ${formData.nationality || '[NATIONALITY]'}, residing at ${formData.address || '[ADDRESS]'} has no prior conviction of any crime whatsoever.
       </p>
       
       <!-- Second paragraph -->
