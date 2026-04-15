@@ -224,33 +224,58 @@ const ClearanceGenerate: React.FC = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [hasCriminalRecord, setHasCriminalRecord] = useState(false);
   
-  // State for custom purposes
-  const [customPurposes, setCustomPurposes] = useState<{ name: string; fee: number }[]>([]);
+  // State for custom purposes (persistent via localStorage)
+  const [customPurposes, setCustomPurposes] = useState<{ name: string; fee: number }[]>(() => {
+    try {
+      const stored = localStorage.getItem('customPurposes');
+      if (!stored) return [];
+
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .map((item) => ({
+          name: String(item?.name || '').trim(),
+          fee: Number(item?.fee) || 0,
+        }))
+        .filter((item) => item.name);
+    } catch (error) {
+      console.error('Error loading custom purposes:', error);
+      return [];
+    }
+  });
   const [showAddPurposeModal, setShowAddPurposeModal] = useState(false);
   const [newPurposeName, setNewPurposeName] = useState('');
   const [newPurposeFee, setNewPurposeFee] = useState<number>(115);
   
-  // State for deleted purposes (persistent via localStorage)
-  const [deletedPurposes, setDeletedPurposes] = useState<Set<string>>(new Set());
-  const [showPurposeDropdown, setShowPurposeDropdown] = useState(false);
+  const normalizePurposeKey = (name: string) => name.trim().toLowerCase();
 
-  // Load deleted purposes from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('deletedPurposes');
-    if (stored) {
-      try {
-        const deleted = JSON.parse(stored);
-        setDeletedPurposes(new Set(deleted));
-      } catch (e) {
-        console.error('Error loading deleted purposes:', e);
-      }
+  // State for deleted purposes (persistent via localStorage)
+  const [deletedPurposes, setDeletedPurposes] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('deletedPurposes');
+      if (!stored) return new Set();
+
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) return new Set();
+
+      return new Set(parsed.map((name) => normalizePurposeKey(String(name || ''))).filter(Boolean));
+    } catch (e) {
+      console.error('Error loading deleted purposes:', e);
+      return new Set();
     }
-  }, []);
+  });
+  const [showPurposeDropdown, setShowPurposeDropdown] = useState(false);
 
   // Save deleted purposes to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('deletedPurposes', JSON.stringify(Array.from(deletedPurposes)));
   }, [deletedPurposes]);
+
+  // Save custom purposes to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('customPurposes', JSON.stringify(customPurposes));
+  }, [customPurposes]);
 
   useEffect(() => {
     if (formData.format_type !== 'C' && formData.format_type !== 'D') return;
@@ -560,9 +585,11 @@ const ClearanceGenerate: React.FC = () => {
   
   // Handler for removing a purpose from the dropdown
   const handleRemovePurpose = (purposeName: string) => {
+    const purposeKey = normalizePurposeKey(purposeName);
+    setCustomPurposes(prev => prev.filter((p) => normalizePurposeKey(p.name) !== purposeKey));
     setDeletedPurposes(prev => {
       const newDeleted = new Set(prev);
-      newDeleted.add(purposeName);
+      newDeleted.add(purposeKey);
       return newDeleted;
     });
     
@@ -584,18 +611,45 @@ const ClearanceGenerate: React.FC = () => {
     }
     
     const newPurpose = { name: newPurposeName.trim(), fee: newPurposeFee };
+    const newPurposeKey = normalizePurposeKey(newPurpose.name);
+    const builtInMatch = PURPOSE_OPTIONS.find(
+      (p) => normalizePurposeKey(p.name) === newPurposeKey
+    );
+    const customExists = customPurposes.some(
+      (p) => normalizePurposeKey(p.name) === newPurposeKey
+    );
     
-    // Check if purpose already exists
-    const exists = PURPOSE_OPTIONS.some(p => p.name === newPurpose.name) || 
-                   customPurposes.some(p => p.name === newPurpose.name);
-    
-    if (exists) {
+    // If this matches a deleted built-in purpose, restore it (do not add custom duplicate).
+    if (builtInMatch && deletedPurposes.has(newPurposeKey)) {
+      setDeletedPurposes(prev => {
+        const next = new Set(prev);
+        next.delete(newPurposeKey);
+        return next;
+      });
+
+      setFormData((prev: FormData) => ({
+        ...prev,
+        purpose: builtInMatch.name,
+        purpose_fee: builtInMatch.fee,
+      }));
+
+      setNewPurposeName('');
+      setNewPurposeFee(115);
+      setShowAddPurposeModal(false);
+      return;
+    }
+
+    // Active built-in/custom entries should still block duplicates.
+    if ((builtInMatch && !deletedPurposes.has(newPurposeKey)) || customExists) {
       alert('This purpose already exists');
       return;
     }
-    
+
     // Add to custom purposes
-    setCustomPurposes([...customPurposes, newPurpose]);
+    setCustomPurposes(prev => [
+      ...prev.filter((p) => normalizePurposeKey(p.name) !== newPurposeKey),
+      newPurpose,
+    ]);
     
     // Set as selected purpose
     setFormData((prev: FormData) => ({
@@ -633,6 +687,9 @@ const ClearanceGenerate: React.FC = () => {
       }
     }
   };
+
+  const activeBuiltInPurposes = PURPOSE_OPTIONS.filter(p => p.name !== 'Other' && !deletedPurposes.has(normalizePurposeKey(p.name)));
+  const otherPurpose = PURPOSE_OPTIONS.find(p => p.name === 'Other');
 
   // Helper functions for managing multiple criminal cases
   const addCriminalCase = () => {
@@ -2090,7 +2147,7 @@ const ClearanceGenerate: React.FC = () => {
                                 </button>
                                 
                                 {/* Active Purposes */}
-                                {PURPOSE_OPTIONS.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                {activeBuiltInPurposes.map((opt) => (
                                   <div
                                     key={opt.name}
                                     className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
@@ -2119,9 +2176,6 @@ const ClearanceGenerate: React.FC = () => {
                                           e.preventDefault();
                                           e.stopPropagation();
                                           handleRemovePurpose(opt.name);
-                                          if (formData.purpose === opt.name) {
-                                            setShowPurposeDropdown(false);
-                                          }
                                         }}
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.95 }}
@@ -2141,7 +2195,7 @@ const ClearanceGenerate: React.FC = () => {
                                 ))}
                                 
                                 {/* Custom Purposes */}
-                                {customPurposes.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                {customPurposes.filter(p => !deletedPurposes.has(normalizePurposeKey(p.name))).map((opt) => (
                                   <div
                                     key={opt.name}
                                     className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
@@ -2169,9 +2223,6 @@ const ClearanceGenerate: React.FC = () => {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         handleRemovePurpose(opt.name);
-                                        if (formData.purpose === opt.name) {
-                                          setShowPurposeDropdown(false);
-                                        }
                                       }}
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.95 }}
@@ -2188,6 +2239,31 @@ const ClearanceGenerate: React.FC = () => {
                                     </motion.button>
                                   </div>
                                 ))}
+
+                                {/* Other stays last */}
+                                {otherPurpose && !deletedPurposes.has(normalizePurposeKey(otherPurpose.name)) && (
+                                  <div
+                                    key={otherPurpose.name}
+                                    className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
+                                      formData.purpose === otherPurpose.name
+                                        ? isDark ? 'bg-blue-900/40' : 'bg-blue-50'
+                                        : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, purpose: otherPurpose.name, purpose_fee: otherPurpose.fee }));
+                                        setShowPurposeDropdown(false);
+                                      }}
+                                      className="flex-1 text-left"
+                                    >
+                                      <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                                        {otherPurpose.name}
+                                      </span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -2649,7 +2725,7 @@ const ClearanceGenerate: React.FC = () => {
                                 </button>
                                 
                                 {/* Active Purposes */}
-                                {PURPOSE_OPTIONS.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                {activeBuiltInPurposes.map((opt) => (
                                   <div
                                     key={opt.name}
                                     className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
@@ -2678,9 +2754,6 @@ const ClearanceGenerate: React.FC = () => {
                                           e.preventDefault();
                                           e.stopPropagation();
                                           handleRemovePurpose(opt.name);
-                                          if (formData.purpose === opt.name) {
-                                            setShowPurposeDropdown(false);
-                                          }
                                         }}
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.95 }}
@@ -2700,7 +2773,7 @@ const ClearanceGenerate: React.FC = () => {
                                 ))}
                                 
                                 {/* Custom Purposes */}
-                                {customPurposes.filter(p => !deletedPurposes.has(p.name)).map((opt) => (
+                                {customPurposes.filter(p => !deletedPurposes.has(normalizePurposeKey(p.name))).map((opt) => (
                                   <div
                                     key={opt.name}
                                     className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
@@ -2728,9 +2801,6 @@ const ClearanceGenerate: React.FC = () => {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         handleRemovePurpose(opt.name);
-                                        if (formData.purpose === opt.name) {
-                                          setShowPurposeDropdown(false);
-                                        }
                                       }}
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.95 }}
@@ -2747,6 +2817,31 @@ const ClearanceGenerate: React.FC = () => {
                                     </motion.button>
                                   </div>
                                 ))}
+
+                                {/* Other stays last */}
+                                {otherPurpose && !deletedPurposes.has(normalizePurposeKey(otherPurpose.name)) && (
+                                  <div
+                                    key={otherPurpose.name}
+                                    className={`flex items-center justify-between px-3 py-2 hover:bg-opacity-70 ${
+                                      formData.purpose === otherPurpose.name
+                                        ? isDark ? 'bg-blue-900/40' : 'bg-blue-50'
+                                        : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, purpose: otherPurpose.name, purpose_fee: otherPurpose.fee }));
+                                        setShowPurposeDropdown(false);
+                                      }}
+                                      className="flex-1 text-left"
+                                    >
+                                      <span className={isDark ? 'text-slate-200' : 'text-slate-900'}>
+                                        {otherPurpose.name}
+                                      </span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -2792,9 +2887,59 @@ const ClearanceGenerate: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-2.5">
-                      {/* For Format C: Different field order */}
+                      {/* For Format C: DOJ ID No above Valid Until */}
                       {formData.format_type === 'C' ? (
                         <>
+                          <div className="space-y-1.5">
+                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              <i className="fas fa-id-card text-xs"></i>
+                              <span>{(formData.id_presented?.trim() || 'DOJ ID No')} *</span>
+                              <select
+                                value={formatCIdType}
+                                onChange={(e) => {
+                                  const selected = e.target.value;
+                                  setFormatCIdType(selected);
+                                  if (selected === 'custom') {
+                                    setFormData((prev: FormData) => ({ ...prev, id_presented: formatCCustomIdType.trim() }));
+                                  } else {
+                                    setFormatCCustomIdType('');
+                                    setFormData((prev: FormData) => ({ ...prev, id_presented: selected }));
+                                  }
+                                }}
+                                className={`text-[11px] rounded border px-1.5 py-0.5 ${
+                                  isDark ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
+                                }`}
+                                aria-label="Select Format C ID label"
+                              >
+                                {FORMAT_C_ID_OPTIONS.map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                                <option value="custom">Custom</option>
+                              </select>
+                            </label>
+                            {formatCIdType === 'custom' && (
+                              <input
+                                type="text"
+                                value={formatCCustomIdType}
+                                onChange={(e) => {
+                                  const customLabel = e.target.value;
+                                  setFormatCCustomIdType(customLabel);
+                                  setFormData((prev: FormData) => ({ ...prev, id_presented: customLabel }));
+                                }}
+                                className={inputClasses}
+                                placeholder="Type custom ID label"
+                              />
+                            )}
+                            <input
+                              type="text"
+                              name="prc_id_number"
+                              value={formData.prc_id_number}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                              placeholder={`Enter ${(formData.id_presented?.trim() || 'DOJ ID')} Number`}
+                            />
+                          </div>
+
                           <div className="space-y-1.5">
                             <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                               <i className="fas fa-calendar text-xs"></i>
@@ -2844,79 +2989,7 @@ const ClearanceGenerate: React.FC = () => {
                               className={inputClasses}
                             />
                           </div>
-                          <div className="space-y-1.5">
-                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                              <i className="fas fa-id-card text-xs"></i>
-                              <span>{(formData.id_presented?.trim() || 'DOJ ID No')} *</span>
-                              <select
-                                value={formatCIdType}
-                                onChange={(e) => {
-                                  const selected = e.target.value;
-                                  setFormatCIdType(selected);
-                                  if (selected === 'custom') {
-                                    setFormData((prev: FormData) => ({ ...prev, id_presented: formatCCustomIdType.trim() }));
-                                  } else {
-                                    setFormatCCustomIdType('');
-                                    setFormData((prev: FormData) => ({ ...prev, id_presented: selected }));
-                                  }
-                                }}
-                                className={`text-[11px] rounded border px-1.5 py-0.5 ${
-                                  isDark ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
-                                }`}
-                                aria-label="Select Format C ID label"
-                              >
-                                {FORMAT_C_ID_OPTIONS.map((option) => (
-                                  <option key={option} value={option}>{option}</option>
-                                ))}
-                                <option value="custom">Custom</option>
-                              </select>
-                            </label>
-                            {formatCIdType === 'custom' && (
-                              <input
-                                type="text"
-                                value={formatCCustomIdType}
-                                onChange={(e) => {
-                                  const customLabel = e.target.value;
-                                  setFormatCCustomIdType(customLabel);
-                                  setFormData((prev: FormData) => ({ ...prev, id_presented: customLabel }));
-                                }}
-                                className={inputClasses}
-                                placeholder="Type custom ID label"
-                              />
-                            )}
-                            <input
-                              type="text"
-                              name="prc_id_number"
-                              value={formData.prc_id_number}
-                              onChange={e => {
-                                const value = e.target.value.replace(/[^0-9]/g, '');
-                                setFormData((prev: FormData) => ({ ...prev, prc_id_number: value }));
-                              }}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              className={inputClasses}
-                              placeholder={`Enter ${(formData.id_presented?.trim() || 'DOJ ID')} Number`}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                              <i className="fas fa-receipt text-xs"></i>
-                              <span>O.R No *</span>
-                            </label>
-                            <input
-                              type="text"
-                              onChange={e => {
-                                const value = e.target.value.replace(/[^0-9]/g, '');
-                                setFormData((prev: FormData) => ({ ...prev, or_number: value }));
-                                if (errors.or_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, or_number: '' }));
-                              }}
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              className={`${inputClasses} ${errors.or_number ? 'border-red-500 focus:border-red-500' : ''}`}
-                              placeholder="Enter O.R Number"
-                            />
-                            {errors.or_number && <p className="text-red-500 text-xs mt-1">{errors.or_number}</p>}
-                          </div>
+
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Date of Issuance *</label>
                             <input
@@ -2928,6 +3001,7 @@ const ClearanceGenerate: React.FC = () => {
                               className={inputClasses}
                             />
                           </div>
+
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Validity Period *</label>
                             <div className="relative group">
@@ -2944,8 +3018,8 @@ const ClearanceGenerate: React.FC = () => {
                                 type="button"
                                 aria-label="Toggle validity period dropdown"
                                 className={`absolute inset-y-0 right-0 px-3 flex items-center justify-center transition-all duration-200 ${
-                                  isDark 
-                                    ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50' 
+                                  isDark
+                                    ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'
                                     : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
                                 } rounded-r-lg`}
                                 onClick={() => document.getElementById('validity-dropdown-f')?.click()}
@@ -2969,7 +3043,6 @@ const ClearanceGenerate: React.FC = () => {
                                 <option value="6 Months">📅 6 Months</option>
                                 <option value="1 Year">📅 1 Year</option>
                               </select>
-                              {/* Enhanced Dropdown Menu */}
                               <div className="hidden group-hover:block absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-1 z-50 transition-all duration-200">
                                 <button
                                   type="button"
@@ -3003,7 +3076,7 @@ const ClearanceGenerate: React.FC = () => {
                                   <i className="fas fa-calendar text-blue-500"></i>
                                   <span>1 Year</span>
                                 </button>
-                                <div className={`my-1 border-t ${ isDark ? 'border-slate-700' : 'border-gray-200' }`}></div>
+                                <div className={`my-1 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}></div>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3070,11 +3143,7 @@ const ClearanceGenerate: React.FC = () => {
                                 type="text"
                                 name="ctc_number"
                                 value={formData.ctc_number}
-                                onChange={e => {
-                                  const value = e.target.value.replace(/[^0-9-]/g, '');
-                                  setFormData((prev: FormData) => ({ ...prev, ctc_number: value }));
-                                }}
-                                inputMode="numeric"
+                                onChange={handleInputChange}
                                 className={inputClasses}
                                 placeholder={`Enter ${(formData.id_presented?.trim() || 'National ID')} Number`}
                               />

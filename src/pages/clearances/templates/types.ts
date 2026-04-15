@@ -159,16 +159,15 @@ export const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', '
 
 // Purpose options with fees
 export const PURPOSE_OPTIONS = [
-  { name: 'Employment', fee: 115 },
   { name: 'Local Employment', fee: 50 },
-  { name: 'Visa Application', fee: 115 },
-  { name: 'Immigration', fee: 115 },
-  { name: 'Professional Licensing', fee: 115 },
-  { name: 'Business License', fee: 115 },
-  { name: 'Travel', fee: 115 },
-  { name: 'Legal Proceedings', fee: 115 },
-  { name: 'Adoption', fee: 115 },
-  { name: 'Marriage', fee: 115 },
+  { name: 'Plea Bargaining Agreement', fee: 0 },
+  { name: 'Probation', fee: 0 },
+  { name: 'Travel Abroad/Foreign Travel', fee: 115 },
+  { name: 'Firearm License', fee: 1000 },
+  { name: 'Permit to Carry Firearm', fee: 500 },
+  { name: 'Retirement', fee: 0 },
+  { name: 'Resignation', fee: 0 },
+  { name: 'Business Permit', fee: 300 },
   { name: 'Other', fee: 115 }
 ];
 
