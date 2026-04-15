@@ -144,7 +144,7 @@ const FormatCBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
         </p>
         <p>
           Purpose: <strong style={{ textDecoration: 'underline' }}>
-            {data.purpose === 'Other' ? data.custom_purpose?.toUpperCase() : data.purpose?.toUpperCase() || '[PURPOSE]'}
+            {data.purpose === 'Other' ? data.custom_purpose : data.purpose || '[PURPOSE]'}
           </strong>
         </p>
       </div>
@@ -392,7 +392,7 @@ export const getFormatCHtml = (formData: FormData, fullName: string, generatedOR
           Issued upon the request of: <strong style="text-decoration: underline;">${requesterName}</strong>
         </p>
         <p style="margin-top: 0; font-size: 13pt; line-height: 1.0; color: ${colorValue};">
-          Purpose: <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose?.toUpperCase() : formData?.purpose?.toUpperCase() || '[PURPOSE]'}</strong>
+          Purpose: <strong style="text-decoration: underline;">${formData?.purpose === 'Other' ? formData?.custom_purpose : formData?.purpose || '[PURPOSE]'}</strong>
         </p>
       </div>
 
