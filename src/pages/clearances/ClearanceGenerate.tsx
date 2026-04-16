@@ -21,15 +21,28 @@ import {
 import type { CriminalCase, FormData } from './templates';
 
 const FORMAT_C_ID_OPTIONS = [
-  'DOJ ID No',
+  'DOJ ID No.',
   'Drivers License',
   'UMID CRN No.',
   'PRC ID',
   'National ID',
   'Comelec ID',
-  'CTC No',
-  'Philpost ID No',
+  'CTC No.',
+  'Philpost ID No.',
 ] as const;
+
+const normalizeFormatCIdLabel = (value: string): string => {
+  switch (value.trim()) {
+    case 'DOJ ID No':
+      return 'DOJ ID No.';
+    case 'CTC No':
+      return 'CTC No.';
+    case 'Philpost ID No':
+      return 'Philpost ID No.';
+    default:
+      return value.trim();
+  }
+};
 
 const FORMAT_C_VALIDITY_LABEL_OPTIONS = [
   'Valid Until',
@@ -56,7 +69,7 @@ const ClearanceGenerate: React.FC = () => {
   const [showColorDropdown, setShowColorDropdown] = useState(false); // Color dropdown visibility
   const [showMiddleNameDropdown, setShowMiddleNameDropdown] = useState(false); // Middle name dropdown visibility
   const [showAgeDropdown, setShowAgeDropdown] = useState(false); // Age dropdown visibility
-  const [formatCIdType, setFormatCIdType] = useState<string>('DOJ ID No');
+  const [formatCIdType, setFormatCIdType] = useState<string>('DOJ ID No.');
   const [formatCCustomIdType, setFormatCCustomIdType] = useState<string>('');
   const [formatCValidityLabelType, setFormatCValidityLabelType] = useState<string>('Valid Until');
   const [formatCCustomValidityLabel, setFormatCCustomValidityLabel] = useState<string>('');
@@ -281,7 +294,7 @@ const ClearanceGenerate: React.FC = () => {
     if (formData.format_type !== 'C' && formData.format_type !== 'D') return;
 
     const currentIdLabel = (formData.id_presented || '').trim();
-    const normalizedIdLabel = currentIdLabel === 'UMID CM No' ? 'UMID CRN No.' : currentIdLabel;
+    const normalizedIdLabel = normalizeFormatCIdLabel(currentIdLabel === 'UMID CM No' ? 'UMID CRN No.' : currentIdLabel);
 
     if (normalizedIdLabel !== currentIdLabel) {
       setFormData((prev: FormData) => ({ ...prev, id_presented: normalizedIdLabel }));
@@ -289,13 +302,13 @@ const ClearanceGenerate: React.FC = () => {
     }
 
     if (!currentIdLabel) {
-      setFormatCIdType('DOJ ID No');
+      setFormatCIdType('DOJ ID No.');
       setFormatCCustomIdType('');
       return;
     }
 
     if (FORMAT_C_ID_OPTIONS.includes(currentIdLabel as (typeof FORMAT_C_ID_OPTIONS)[number])) {
-      setFormatCIdType(currentIdLabel);
+      setFormatCIdType(normalizeFormatCIdLabel(currentIdLabel));
       setFormatCCustomIdType('');
       return;
     }
@@ -2053,7 +2066,7 @@ const ClearanceGenerate: React.FC = () => {
                   )}
 
                   {/* Step 2: Clearance Details - Moved after Criminal Cases for Format B */}
-                  {formData.format_type !== 'B' && formData.format_type !== 'E' && (
+                  {formData.format_type !== 'B' && formData.format_type !== 'D' && formData.format_type !== 'E' && (
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center space-x-2 mb-2">
                       <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
@@ -2893,7 +2906,7 @@ const ClearanceGenerate: React.FC = () => {
                           <div className="space-y-1.5">
                             <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                               <i className="fas fa-id-card text-xs"></i>
-                              <span>{(formData.id_presented?.trim() || 'DOJ ID No')} *</span>
+                              <span>{(formData.id_presented?.trim() || 'DOJ ID No.')} *</span>
                               <select
                                 value={formatCIdType}
                                 onChange={(e) => {
@@ -3000,6 +3013,29 @@ const ClearanceGenerate: React.FC = () => {
                               onKeyDown={handleKeyDown}
                               className={inputClasses}
                             />
+                          </div>
+
+                          {/* O.R No Field for FormatC */}
+                          <div className="space-y-1.5">
+                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              <i className="fas fa-receipt text-xs"></i>
+                              <span>O.R No *</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="or_number"
+                              value={formData.or_number}
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                setFormData((prev: FormData) => ({ ...prev, or_number: value }));
+                                if (errors.or_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, or_number: '' }));
+                              }}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              className={`${inputClasses} ${errors.or_number ? 'border-red-500 focus:border-red-500' : ''}`}
+                              placeholder="Enter O.R Number"
+                            />
+                            {errors.or_number && <p className="text-red-500 text-xs mt-1">{errors.or_number}</p>}
                           </div>
 
                           <div className="space-y-1.5">

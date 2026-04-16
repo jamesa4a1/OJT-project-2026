@@ -51,6 +51,7 @@ export const getClearanceDefaults = (validityPeriod: '6 Months' | '1 Year' = '6 
     issued_upon_request_by: '',
     date_issued: today,
     prc_id_number: '',
+    or_number: '',
     validity_period: validityPeriod,
     validity_expiry: calculateExpiryDate(today, validityPeriod),
     // Criminal record fields
@@ -140,6 +141,7 @@ export const clearanceSchema = z.object({
     }, 'Date issued cannot be in the future'),
 
   prc_id_number: optionalTrimmedString(50),
+  or_number: optionalTrimmedString(50),
   
   validity_period: z.enum(VALIDITY_PERIODS).default('6 Months' as const),
   
