@@ -80,6 +80,53 @@ const AdminDashboard = () => {
     return headers;
   };
   const normalizeDecision = (value) => (value || '').toLowerCase().trim();
+  const sanitizeListItem = (item) => {
+    let text = String(item || '').trim();
+
+    while (text.startsWith('[') || text.startsWith('(') || text.startsWith('{') || text.startsWith('"') || text.startsWith("'")) {
+      text = text.slice(1).trim();
+    }
+
+    while (text.endsWith(']') || text.endsWith(')') || text.endsWith('}') || text.endsWith('"') || text.endsWith("'")) {
+      text = text.slice(0, -1).trim();
+    }
+
+    return text;
+  };
+
+  const parseDisplayList = (value) => {
+    if (value === null || value === undefined) return [];
+    const raw = String(value).trim();
+    if (!raw || raw === '[]') return [];
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => sanitizeListItem(item)).filter(Boolean);
+      }
+    } catch {
+      // Fallback below.
+    }
+
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      return raw
+        .slice(1, -1)
+        .split(',')
+        .map((item) => sanitizeListItem(item))
+        .filter(Boolean);
+    }
+
+    const text = sanitizeListItem(raw);
+    return text ? [text] : [];
+  };
+
+  const formatDisplayText = (value, fallback = 'N/A') => {
+    const values = parseDisplayList(value);
+    if (values.length === 0) return fallback;
+    if (values.length === 1) return values[0];
+    const uniqueValues = [...new Set(values)];
+    return uniqueValues.length === 1 ? uniqueValues[0] : uniqueValues.join(', ');
+  };
   const [stats, setStats] = useState({
     total: 0,
     resolved: 0,
@@ -134,6 +181,9 @@ const AdminDashboard = () => {
           date_resolved: c.DATE_RESOLVED,
           status: c.REMARKS_DECISION || 'Pending',
           title: c.DOCKET_NO,
+          displayComplainant: formatDisplayText(c.COMPLAINANT),
+          displayRespondent: formatDisplayText(c.RESPONDENT),
+          displayStatus: formatDisplayText(c.REMARKS_DECISION || 'Pending', 'Pending'),
         }));
 
         const importedTotalRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
@@ -866,12 +916,12 @@ const AdminDashboard = () => {
                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                 : 'bg-amber-100 text-amber-700 border border-amber-200'
                           }`}>
-                            {caseItem.status || 'Pending'}
+                            {caseItem.displayStatus || caseItem.status || 'Pending'}
                           </span>
                         </div>
                         <p className={`text-sm m-0 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           <i className="fas fa-user-tie text-xs opacity-60"></i>
-                          <span className="truncate">{caseItem.RESPONDENT || caseItem.respondent || 'N/A'}</span>
+                          <span className="truncate">{caseItem.displayRespondent || caseItem.RESPONDENT || caseItem.respondent || 'N/A'}</span>
                         </p>
                         <p className={`text-xs m-0 mt-1.5 flex items-center gap-3 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
                           <span className="flex items-center gap-1">

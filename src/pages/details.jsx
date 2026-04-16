@@ -32,17 +32,39 @@ const Details = () => {
   // Check if user is staff (read-only mode)
   const isStaff = user?.role === 'Staff';
 
+  const sanitizeListItem = (item) => {
+    if (item === null || item === undefined) return '';
+    return String(item)
+      .replace(/^\s*[\[\(\{]+/, '')
+      .replace(/[\]\)\}]+\s*$/, '')
+      .replace(/^\s*["']+/, '')
+      .replace(/["']+\s*$/, '')
+      .trim();
+  };
+
   const parseArrayValue = (value) => {
-    if (!value) return [];
+    if (value === null || value === undefined) return [];
+    const raw = String(value).trim();
+    if (!raw || raw === '[]') return [];
+
     try {
-      const parsed = JSON.parse(value);
+      const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+        return parsed.map((item) => sanitizeListItem(item)).filter(Boolean);
       }
     } catch {
-      // Fall back to a plain string below.
+      // Fall back to manual cleanup below.
     }
-    const text = String(value).trim();
+
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      return raw
+        .slice(1, -1)
+        .split(',')
+        .map((item) => sanitizeListItem(item))
+        .filter(Boolean);
+    }
+
+    const text = sanitizeListItem(raw);
     return text ? [text] : [];
   };
 
@@ -50,6 +72,21 @@ const Details = () => {
     const values = parseArrayValue(value);
     if (values.length === 0) return 'N/A';
     return values.join(', ');
+  };
+
+  const formatMultilineValue = (value) => parseArrayValue(value);
+
+  const formatDecisionValues = (value) => {
+    const values = parseArrayValue(value);
+    if (values.length === 0) return ['Pending'];
+    return values;
+  };
+
+  const formatDateOnly = (value) => {
+    if (value === null || value === undefined) return '';
+    const raw = String(value).trim();
+    if (!raw) return '';
+    return raw.includes('T') ? raw.split('T')[0] : raw;
   };
 
   const renderRespondentCourtSection = () => {
@@ -363,7 +400,7 @@ const Details = () => {
                     <div
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
-                      {caseDetails.DATE_FILED || 'N/A'}
+                      {formatDateOnly(caseDetails.DATE_FILED) || 'N/A'}
                     </div>
                   </div>
                   <div>
@@ -401,7 +438,9 @@ const Details = () => {
                     <div
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
-                      {caseDetails.COMPLAINANT || 'N/A'}
+                      {formatMultilineValue(caseDetails.COMPLAINANT).length > 0
+                        ? formatMultilineValue(caseDetails.COMPLAINANT).join(', ')
+                        : ''}
                     </div>
                   </div>
                   <div>
@@ -413,7 +452,15 @@ const Details = () => {
                     <div
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
-                      {caseDetails.RESPONDENT || 'N/A'}
+                      {formatMultilineValue(caseDetails.RESPONDENT).length > 0 ? (
+                        <div className="space-y-1">
+                          {formatMultilineValue(caseDetails.RESPONDENT).map((name, index) => (
+                            <div key={`staff-respondent-${index}`}>{name}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        'N/A'
+                      )}
                     </div>
                   </div>
                 </div>
@@ -487,7 +534,11 @@ const Details = () => {
                     <div
                       className={`px-4 py-3 rounded-xl ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-600' : 'border-slate-200'} font-medium`}
                     >
-                      {caseDetails.REMARKS_DECISION || 'Pending'}
+                      <div className="space-y-1">
+                        {formatDecisionValues(caseDetails.REMARKS_DECISION).map((decision, index) => (
+                          <div key={`staff-decision-${index}`}>{decision}</div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   {caseDetails.STATUS && (
@@ -687,7 +738,7 @@ const Details = () => {
                     Date Filed
                   </p>
                   <div className={`px-3 py-2 rounded-lg text-sm font-semibold break-words ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800 border border-slate-200'}`}>
-                    {caseDetails.DATE_FILED || 'N/A'}
+                    {formatDateOnly(caseDetails.DATE_FILED) || 'N/A'}
                   </div>
                 </div>
                 <div>
@@ -729,15 +780,29 @@ const Details = () => {
                         <p
                           className={`${isDark ? 'text-slate-200' : 'text-slate-800'} font-medium break-words`}
                         >
-                          {['CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT'].includes(field.key)
-                            ? formatDisplayValue(caseDetails[field.key])
-                            : caseDetails[field.key] || (
-                            <span
-                              className={`${isDark ? 'text-slate-500' : 'text-slate-400'} italic`}
-                            >
-                              Not provided
-                            </span>
-                          )}
+                          {field.key === 'RESPONDENT' ? (
+                            formatMultilineValue(caseDetails[field.key]).length > 0 ? (
+                              <div className="space-y-1">
+                                {formatMultilineValue(caseDetails[field.key]).map((name, index) => (
+                                  <div key={`respondent-${index}`}>{name}</div>
+                                ))}
+                              </div>
+                            ) : null
+                          ) : field.key === 'COMPLAINANT' ? (
+                            formatMultilineValue(caseDetails[field.key]).length > 0
+                              ? formatMultilineValue(caseDetails[field.key]).join(', ')
+                              : null
+                          ) : field.key === 'REMARKS_DECISION' ? (
+                            <div className="space-y-1">
+                              {formatDecisionValues(caseDetails[field.key]).map((decision, index) => (
+                                <div key={`decision-${index}`}>{decision}</div>
+                              ))}
+                            </div>
+                          ) : field.key === 'DATE_FILED' ? (
+                            formatDateOnly(caseDetails[field.key]) || null
+                          ) : ['CRIM_CASE_NO', 'BRANCH', 'DATEFILED_IN_COURT'].includes(field.key) ? (
+                            formatDisplayValue(caseDetails[field.key])
+                          ) : caseDetails[field.key] || null}
                         </p>
                       </div>
                     </div>

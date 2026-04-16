@@ -262,18 +262,20 @@ export const FormatCPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
         <FormatCFooter data={data} generatedOR={generatedOR} textColor={textColor} />
         
         {/* O.R No and Date */}
-        <div style={{ marginLeft: '0.3in', marginBottom: '12pt', marginTop: '24pt', color: colorValue, fontSize: '13pt' }}>
-          <p style={{ marginBottom: '4pt' }}>
-            O.R No : <strong style={{ textDecoration: 'underline' }}>
-              {data.or_number || generatedOR || '[OR NUMBER]'}
-            </strong>
-          </p>
-          <p>
-            Date : <strong style={{ textDecoration: 'underline' }}>
-              {data.date_issued ? new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '[DATE]'}
-            </strong>
-          </p>
-        </div>
+        {!data.no_entry_or_no && (
+          <div style={{ marginLeft: '0.3in', marginBottom: '12pt', marginTop: '24pt', color: colorValue, fontSize: '13pt' }}>
+            <p style={{ marginBottom: '4pt' }}>
+              O.R No : <strong style={{ textDecoration: 'underline' }}>
+                {data.or_number || generatedOR || '[OR NUMBER]'}
+              </strong>
+            </p>
+            <p>
+              Date : <strong style={{ textDecoration: 'underline' }}>
+                {data.date_issued ? new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '[DATE]'}
+              </strong>
+            </p>
+          </div>
+        )}
 
         {/* Note */}
         <p style={{ fontSize: '10pt', fontStyle: 'italic', marginTop: '16pt', color: colorValue }}>
@@ -447,8 +449,10 @@ export const getFormatCHtml = (formData: FormData, fullName: string, generatedOR
     </div>
     <!-- FOOTER -->
     <div style="margin-top: 2pt; font-size: 13pt; color: ${colorValue};">
-      <p style="margin: 0 0 2pt 0; color: ${colorValue};">O.R No: <strong><u>${formData.or_number || generatedOR || '[OR NUMBER]'}</u></strong></p>
-      <p style="margin: 0 0 6pt 0; color: ${colorValue};">Date: <strong><u>${issuedFullDate}</u></strong></p>
+      ${!formData.no_entry_or_no ? `
+        <p style="margin: 0 0 2pt 0; color: ${colorValue};">O.R No: <strong><u>${formData.or_number || generatedOR || '[OR NUMBER]'}</u></strong></p>
+        <p style="margin: 0 0 6pt 0; color: ${colorValue};">Date: <strong><u>${issuedFullDate}</u></strong></p>
+      ` : ''}
       <p style="font-style: italic; font-size: 10pt; margin-top: 6pt; color: ${colorValue};">
         ${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}
       </p>
