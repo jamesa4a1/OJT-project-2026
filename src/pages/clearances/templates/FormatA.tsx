@@ -213,12 +213,16 @@ const FormatAFooter: React.FC<{ data: FormData; generatedOR?: string | null; tex
 
       {/* Footer */}
       <div style={{ marginTop: '20pt', color: colorValue, fontSize: '13pt', fontFamily: FORMAT_A_CONFIG.fontFamily }}>
-        <p style={{ marginBottom: '2pt', color: colorValue }}>
-          O.R No: <strong style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold' }}>{data.prc_id_number || generatedOR || '________'}</strong>
-        </p>
-        <p style={{ marginBottom: '8pt', color: colorValue }}>
-          Date: <strong style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold'}}>{new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
-        </p>
+        {!data.no_entry_or_no && (
+          <>
+            <p style={{ marginBottom: '2pt', color: colorValue }}>
+              O.R No: <strong style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold' }}>{data.prc_id_number || generatedOR || '________'}</strong>
+            </p>
+            <p style={{ marginBottom: '8pt', color: colorValue }}>
+              Date: <strong style={{ textDecoration: 'underline', color: colorValue, fontWeight: 'bold'}}>{new Date(data.date_issued).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+            </p>
+          </>
+        )}
         <p style={{ fontStyle: 'italic', fontSize: '10pt', color: colorValue, marginTop: '8pt' }}>
           {getValidityMessage()}
         </p>
@@ -396,8 +400,10 @@ export const getFormatAHtml = (formData: FormData, fullName: string, generatedOR
     
     <!-- FOOTER -->
     <div style="margin-top: 10pt; font-size: 13pt; color: ${colorValue};">
-      <p style="margin: 0 0 2pt 0; color: ${colorValue};">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
-      <p style="margin: 0 0 6pt 0; color: ${colorValue};">Date: <strong><u>${fullDate}</u></strong></p>
+      ${!formData.no_entry_or_no ? `
+        <p style="margin: 0 0 2pt 0; color: ${colorValue};">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
+        <p style="margin: 0 0 6pt 0; color: ${colorValue};">Date: <strong><u>${fullDate}</u></strong></p>
+      ` : ''}
       <br/>
       <p style="font-style: italic; font-size: 10pt; margin-top: 6pt; color: ${colorValue};">${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}</p>
     </div>

@@ -195,12 +195,16 @@ const FormatEFooter: React.FC<{ data: FormData; generatedOR?: string | null; tex
 
       {/* Footer - O.R No, Date, Note */}
       <div style={{ marginTop: '48pt', color: colorValue, fontSize: '11pt', fontFamily: FORMAT_E_CONFIG.fontFamily }}>
-        <p style={{ marginBottom: '2pt', color: colorValue }}>
-          O.R No: <strong style={{ textDecoration: 'underline', color: colorValue }}>{data.prc_id_number || generatedOR || '________'}</strong>
-        </p>
-        <p style={{ marginBottom: '16pt', color: colorValue }}>
-          Date: <strong style={{ textDecoration: 'underline', color: colorValue }}>{fullDate}</strong>
-        </p>
+        {!data.no_entry_or_no && (
+          <>
+            <p style={{ marginBottom: '2pt', color: colorValue }}>
+              O.R No: <strong style={{ textDecoration: 'underline', color: colorValue }}>{data.prc_id_number || generatedOR || '________'}</strong>
+            </p>
+            <p style={{ marginBottom: '16pt', color: colorValue }}>
+              Date: <strong style={{ textDecoration: 'underline', color: colorValue }}>{fullDate}</strong>
+            </p>
+          </>
+        )}
         <p style={{ fontStyle: 'italic', fontSize: '10pt', color: colorValue }}>
           {getValidityMessage()}
         </p>
@@ -358,8 +362,10 @@ export const getFormatEHtml = (formData: FormData, fullName: string, generatedOR
     
     <!-- FOOTER -->
     <div style="margin-top: 48pt; font-size: 14pt; color: ${colorValue};">
-      <p style="margin: 0 0 2pt 0; line-height: 1.0; color: ${colorValue};">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
-      <p style="margin: 0 0 16pt 0; line-height: 1.0; color: ${colorValue};">Date: <strong><u>${fullDate}</u></strong></p>
+      ${!formData.no_entry_or_no ? `
+        <p style="margin: 0 0 2pt 0; line-height: 1.0; color: ${colorValue};">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
+        <p style="margin: 0 0 16pt 0; line-height: 1.0; color: ${colorValue};">Date: <strong><u>${fullDate}</u></strong></p>
+      ` : ''}
       <p style="font-style: italic; font-size: 11pt; margin-top: 36pt; color: ${colorValue};">${validityNote}</p>
     </div>
   </div>

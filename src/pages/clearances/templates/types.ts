@@ -56,6 +56,7 @@ export interface FormData {
   ctc_number?: string;
   ctc_issued_at?: string;
   ctc_issued_on?: string;
+  no_entry_or_no?: boolean;
 }
 
 export interface ClearanceTemplateProps {

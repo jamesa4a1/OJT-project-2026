@@ -235,12 +235,16 @@ const FormatFFooter: React.FC<{ data: FormData; generatedOR?: string | null; tex
 
       {/* Footer - OR Number and Date */}
       <div style={{ marginTop: '48pt', color: colorValue, fontSize: FORMAT_F_CONFIG.bodyFontSize, fontFamily: FORMAT_F_CONFIG.fontFamily }}>
-        <p style={{ marginBottom: '3pt', color: colorValue }}>
-          O.R No: <strong style={{ textDecoration: 'underline', color: colorValue }}>{data.prc_id_number || generatedOR || '________'}</strong>
-        </p>
-        <p style={{ marginBottom: '16pt', color: colorValue }}>
-          Date: <strong style={{ textDecoration: 'underline', color: colorValue }}>{fullDate}</strong>
-        </p>
+        {!data.no_entry_or_no && (
+          <>
+            <p style={{ marginBottom: '3pt', color: colorValue }}>
+              O.R No: <strong style={{ textDecoration: 'underline', color: colorValue }}>{data.prc_id_number || generatedOR || '________'}</strong>
+            </p>
+            <p style={{ marginBottom: '16pt', color: colorValue }}>
+              Date: <strong style={{ textDecoration: 'underline', color: colorValue }}>{fullDate}</strong>
+            </p>
+          </>
+        )}
         <p style={{ fontStyle: 'italic', fontSize: '10pt', color: colorValue }}>
           {getValidityMessage()}
         </p>
@@ -461,8 +465,10 @@ export const getFormatFHtml = (formData: FormData, fullName: string, generatedOR
 
     <!-- FOOTER -->
     <div style="margin-top: -10pt; font-size: 13pt; color: ${colorValue};">
-      <p style="margin: 0 0 3pt 0; line-height: 1.0; color: ${colorValue};">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
-      <p style="margin: 0 0 3pt 0; line-height: 1.0; color: ${colorValue};">Date: <strong><u>${fullDate}</u></strong></p>
+      ${!formData.no_entry_or_no ? `
+        <p style="margin: 0 0 3pt 0; line-height: 1.0; color: ${colorValue};">O.R No: <strong><u>${formData.prc_id_number || generatedOR || '________'}</u></strong></p>
+        <p style="margin: 0 0 3pt 0; line-height: 1.0; color: ${colorValue};">Date: <strong><u>${fullDate}</u></strong></p>
+      ` : ''}
       <div style="height: 20pt;"></div>
       <p style="font-style: italic; font-size: 11pt; color: ${colorValue};">${
         formData.validity_period === '1 Year' 
