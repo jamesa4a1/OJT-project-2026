@@ -109,7 +109,7 @@ const FormatCBody: React.FC<{ data: FormData; textColor?: 'navy' | 'black' }> = 
   const fullName = buildFullName(data);
   const issuedDateInfo = data.date_issued ? formatDate(data.date_issued) : null;
   const validityInfo = data.validity_expiry ? formatDate(data.validity_expiry) : null;
-  const idLabel = data.id_presented?.trim() || 'DOJ ID No';
+  const idLabel = data.id_presented?.trim() || 'DOJ ID No.';
   const rawValidityLabel = data.id_number?.trim();
   const validityLabel = rawValidityLabel === 'No entry' ? '' : (rawValidityLabel || 'Valid Until');
 
@@ -265,7 +265,7 @@ export const FormatCPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
         <div style={{ marginLeft: '0.3in', marginBottom: '12pt', marginTop: '24pt', color: colorValue, fontSize: '13pt' }}>
           <p style={{ marginBottom: '4pt' }}>
             O.R No : <strong style={{ textDecoration: 'underline' }}>
-              {data.or_number || '[OR NUMBER]'}
+              {data.or_number || generatedOR || '[OR NUMBER]'}
             </strong>
           </p>
           <p>
@@ -291,7 +291,7 @@ export const FormatCPreview: React.FC<ClearanceTemplateProps & { generatedOR?: s
 // ============================================
 export const getFormatCHtml = (formData: FormData, fullName: string, generatedOR?: string | null, textColor: 'navy' | 'black' = 'navy'): string => {
   const colorValue = getTextColorValue(textColor);
-  const idLabel = formData.id_presented?.trim() || 'DOJ ID No';
+  const idLabel = formData.id_presented?.trim() || 'DOJ ID No.';
   const rawValidityLabel = formData.id_number?.trim();
   const validityLabel = rawValidityLabel === 'No entry' ? '' : (rawValidityLabel || 'Valid Until');
   
@@ -447,7 +447,7 @@ export const getFormatCHtml = (formData: FormData, fullName: string, generatedOR
     </div>
     <!-- FOOTER -->
     <div style="margin-top: 2pt; font-size: 13pt; color: ${colorValue};">
-      <p style="margin: 0 0 2pt 0; color: ${colorValue};">O.R No: <strong><u>${formData.or_number || formData.prc_id_number || generatedOR || '[OR NUMBER]'}</u></strong></p>
+      <p style="margin: 0 0 2pt 0; color: ${colorValue};">O.R No: <strong><u>${formData.or_number || generatedOR || '[OR NUMBER]'}</u></strong></p>
       <p style="margin: 0 0 6pt 0; color: ${colorValue};">Date: <strong><u>${issuedFullDate}</u></strong></p>
       <p style="font-style: italic; font-size: 10pt; margin-top: 6pt; color: ${colorValue};">
         ${formData.validity_period === '1 Year' ? 'Note: Valid until 1 year from the date issued.' : 'Note: Valid until 6 months from the date issued.'}
