@@ -2900,6 +2900,55 @@ const ClearanceGenerate: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-2.5">
+                      {/* O.R No appears first for non-C/D formats */}
+                      {formData.format_type !== 'C' && formData.format_type !== 'D' && (
+                      <div className="space-y-1.5">
+                        <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                          <i className="fas fa-receipt text-xs"></i>
+                          <span>O.R No *</span>
+                        </label>
+                        <div className="flex gap-1 items-end">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              name="prc_id_number"
+                              value={formData.prc_id_number}
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                setFormData((prev: FormData) => ({ ...prev, prc_id_number: value, no_entry_or_no: false }));
+                                if (errors.prc_id_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, prc_id_number: '' }));
+                              }}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              disabled={formData.no_entry_or_no}
+                              className={`${inputClasses} ${errors.prc_id_number ? 'border-red-500 focus:border-red-500' : ''} ${formData.no_entry_or_no ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              placeholder="Enter O.R Number"
+                            />
+                            {errors.prc_id_number && <p className="text-red-500 text-xs mt-1">{errors.prc_id_number}</p>}
+                          </div>
+                          <select
+                            value={formData.no_entry_or_no ? 'no_entry' : 'with_entry'}
+                            onChange={(e) => {
+                              const isNoEntry = e.target.value === 'no_entry';
+                              setFormData((prev: FormData) => ({ 
+                                ...prev, 
+                                no_entry_or_no: isNoEntry,
+                                prc_id_number: isNoEntry ? '' : prev.prc_id_number
+                              }));
+                            }}
+                            className={`px-3 py-2 rounded-lg border text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                              isDark 
+                                ? 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500' 
+                                : 'bg-white border-slate-300 text-slate-700 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-400'
+                            }`}
+                          >
+                            <option value="with_entry">With Entry</option>
+                            <option value="no_entry">No Entry</option>
+                          </select>
+                        </div>
+                      </div>
+                      )}
+
                       {/* For Format C: DOJ ID No above Valid Until */}
                       {formData.format_type === 'C' ? (
                         <>
@@ -3004,19 +3053,6 @@ const ClearanceGenerate: React.FC = () => {
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className={labelClasses}>Date of Issuance *</label>
-                            <input
-                              type="date"
-                              name="date_issued"
-                              value={formData.date_issued}
-                              onChange={handleInputChange}
-                              onKeyDown={handleKeyDown}
-                              className={inputClasses}
-                            />
-                          </div>
-
-                          {/* O.R No Field for FormatC */}
-                          <div className="space-y-1.5">
                             <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                               <i className="fas fa-receipt text-xs"></i>
                               <span>O.R No *</span>
@@ -3060,6 +3096,18 @@ const ClearanceGenerate: React.FC = () => {
                                 <option value="no_entry">No Entry</option>
                               </select>
                             </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className={labelClasses}>Date of Issuance *</label>
+                            <input
+                              type="date"
+                              name="date_issued"
+                              value={formData.date_issued}
+                              onChange={handleInputChange}
+                              onKeyDown={handleKeyDown}
+                              className={inputClasses}
+                            />
                           </div>
 
                           <div className="space-y-1.5">
@@ -3260,6 +3308,54 @@ const ClearanceGenerate: React.FC = () => {
                               />
                             </div>
                           )}
+
+                          {formData.format_type === 'D' && (
+                            <div className="space-y-1.5">
+                              <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                <i className="fas fa-receipt text-xs"></i>
+                                <span>O.R No *</span>
+                              </label>
+                              <div className="flex gap-1 items-end">
+                                <div className="flex-1">
+                                  <input
+                                    type="text"
+                                    name="prc_id_number"
+                                    value={formData.prc_id_number}
+                                    onChange={e => {
+                                      const value = e.target.value.replace(/[^0-9]/g, '');
+                                      setFormData((prev: FormData) => ({ ...prev, prc_id_number: value, no_entry_or_no: false }));
+                                      if (errors.prc_id_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, prc_id_number: '' }));
+                                    }}
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    disabled={formData.no_entry_or_no}
+                                    className={`${inputClasses} ${errors.prc_id_number ? 'border-red-500 focus:border-red-500' : ''} ${formData.no_entry_or_no ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    placeholder="Enter O.R Number"
+                                  />
+                                  {errors.prc_id_number && <p className="text-red-500 text-xs mt-1">{errors.prc_id_number}</p>}
+                                </div>
+                                <select
+                                  value={formData.no_entry_or_no ? 'no_entry' : 'with_entry'}
+                                  onChange={(e) => {
+                                    const isNoEntry = e.target.value === 'no_entry';
+                                    setFormData((prev: FormData) => ({
+                                      ...prev,
+                                      no_entry_or_no: isNoEntry,
+                                      prc_id_number: isNoEntry ? '' : prev.prc_id_number
+                                    }));
+                                  }}
+                                  className={`px-3 py-2 rounded-lg border text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                                    isDark
+                                      ? 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                                      : 'bg-white border-slate-300 text-slate-700 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-400'
+                                  }`}
+                                >
+                                  <option value="with_entry">With Entry</option>
+                                  <option value="no_entry">No Entry</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Date of Issuance *</label>
                             <input
@@ -3271,63 +3367,7 @@ const ClearanceGenerate: React.FC = () => {
                               className={inputClasses}
                             />
                           </div>
-                          {formData.format_type === 'F' && (
-                          <div className="space-y-1.5">
-                            <label className={labelClasses}>Valid Until</label>
-                            <input
-                              type="date"
-                              name="validity_expiry"
-                              value={formData.validity_expiry}
-                              disabled
-                              className={inputClasses}
-                            />
-                          </div>
-                          )}
-                          <div className="space-y-1.5">
-                            <label className={`flex items-center space-x-2 text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                              <i className="fas fa-receipt text-xs"></i>
-                              <span>O.R No *</span>
-                            </label>
-                            <div className="flex gap-1 items-end">
-                              <div className="flex-1">
-                                <input
-                                  type="text"
-                                  name="prc_id_number"
-                                  value={formData.prc_id_number}
-                                  onChange={e => {
-                                    const value = e.target.value.replace(/[^0-9]/g, '');
-                                    setFormData((prev: FormData) => ({ ...prev, prc_id_number: value, no_entry_or_no: false }));
-                                    if (errors.prc_id_number) setErrors((prev: Partial<Record<keyof FormData, string>>) => ({ ...prev, prc_id_number: '' }));
-                                  }}
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  disabled={formData.no_entry_or_no}
-                                  className={`${inputClasses} ${errors.prc_id_number ? 'border-red-500 focus:border-red-500' : ''} ${formData.no_entry_or_no ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  placeholder="Enter O.R Number"
-                                />
-                                {errors.prc_id_number && <p className="text-red-500 text-xs mt-1">{errors.prc_id_number}</p>}
-                              </div>
-                              <select
-                                value={formData.no_entry_or_no ? 'no_entry' : 'with_entry'}
-                                onChange={(e) => {
-                                  const isNoEntry = e.target.value === 'no_entry';
-                                  setFormData((prev: FormData) => ({ 
-                                    ...prev, 
-                                    no_entry_or_no: isNoEntry,
-                                    prc_id_number: isNoEntry ? '' : prev.prc_id_number
-                                  }));
-                                }}
-                                className={`px-3 py-2 rounded-lg border text-xs font-medium whitespace-nowrap transition-all duration-200 ${
-                                  isDark 
-                                    ? 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500' 
-                                    : 'bg-white border-slate-300 text-slate-700 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-400'
-                                }`}
-                              >
-                                <option value="with_entry">With Entry</option>
-                                <option value="no_entry">No Entry</option>
-                              </select>
-                            </div>
-                          </div>
+
                           <div className="space-y-1.5">
                             <label className={labelClasses}>Validity Period *</label>
                             <div className="relative group">
@@ -3344,8 +3384,8 @@ const ClearanceGenerate: React.FC = () => {
                                 type="button"
                                 aria-label="Toggle validity period dropdown"
                                 className={`absolute inset-y-0 right-0 px-3 flex items-center justify-center transition-all duration-200 ${
-                                  isDark 
-                                    ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50' 
+                                  isDark
+                                    ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'
                                     : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
                                 } rounded-r-lg`}
                                 onClick={() => document.getElementById('validity-dropdown-other')?.click()}
@@ -3363,13 +3403,12 @@ const ClearanceGenerate: React.FC = () => {
                                     (e.target as HTMLSelectElement).value = '';
                                   }
                                 }}
-                                className={`absolute inset-y-0 right-0 opacity-0 w-full cursor-pointer appearance-none pointer-events-none`}
+                                className="absolute inset-y-0 right-0 opacity-0 w-full cursor-pointer appearance-none pointer-events-none"
                               >
                                 <option value="">Select a period</option>
                                 <option value="6 Months">📅 6 Months</option>
                                 <option value="1 Year">📅 1 Year</option>
                               </select>
-                              {/* Enhanced Dropdown Menu */}
                               <div className="hidden group-hover:block absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-1 z-50 transition-all duration-200">
                                 <button
                                   type="button"
@@ -3403,7 +3442,7 @@ const ClearanceGenerate: React.FC = () => {
                                   <i className="fas fa-calendar text-blue-500"></i>
                                   <span>1 Year</span>
                                 </button>
-                                <div className={`my-1 border-t ${ isDark ? 'border-slate-700' : 'border-gray-200' }`}></div>
+                                <div className={`my-1 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}></div>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3422,6 +3461,7 @@ const ClearanceGenerate: React.FC = () => {
                               </div>
                             </div>
                           </div>
+
                         </>
                       )}
                     </div>
