@@ -410,58 +410,136 @@ const indexCardUpload = multer({
 let db;
 let dbInitializationDone = false;
 let initialExcelSyncDone = false;
+let reconnecting = false;
+
+const getDbConfig = () => ({
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || process.env.DB_ROOT_PASSWORD || '',
+  database: process.env.DB_NAME || 'ocp_docketing',
+});
+
+const getDbPasswordCandidates = () => {
+  const candidates = [process.env.DB_PASSWORD, process.env.DB_ROOT_PASSWORD, ''];
+  return candidates
+    .map((value) => (value === undefined || value === null ? '' : String(value)))
+    .filter((value, index, array) => array.indexOf(value) === index);
+};
 
 function handleDisconnect() {
-  db = mysql.createConnection({
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "ocp_docketing",
-  });
-
-  if (!process.env.DB_PASSWORD && process.env.NODE_ENV === 'production') {
-    console.error('⚠️  WARNING: DB_PASSWORD is not set. This is a security risk in production!');
-    console.error('Please set DB_PASSWORD environment variable in your .env file');
+  // Clean up existing connection before creating a new one to avoid
+  // overlapping connections that can cause ECONNRESET during queries.
+  try {
+    if (db) {
+      db.removeAllListeners && db.removeAllListeners('error');
+      // Prefer graceful end, fallback to destroy for stubborn sockets
+      if (typeof db.end === 'function') {
+        try { db.end(); } catch (e) {}
+      }
+      if (typeof db.destroy === 'function') {
+        try { db.destroy(); } catch (e) {}
+      }
+    }
+  } catch (cleanupErr) {
+    console.error('Error during previous DB cleanup:', cleanupErr);
   }
 
-  db.connect((err) => {
-    if (err) {
-      console.error("❌ Database connection failed: " + err.message);
-      console.error("⚠️  Please make sure MySQL/XAMPP is running, the database exists, and DB_PORT is correct (usually 3306 or 3307).");
-      console.error("🔄 Will retry connection in 5 seconds...");
+  const dbConfig = getDbConfig();
+  const passwordCandidates = getDbPasswordCandidates();
+
+  const attachDbErrorHandler = (connection) => {
+    connection.on('error', (err) => {
+      console.error('❌ Database error:', err);
+      const transientErrors = ['PROTOCOL_CONNECTION_LOST', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR', 'ECONNRESET', 'ECONNREFUSED'];
+      if (transientErrors.includes(err.code)) {
+        if (!reconnecting) {
+          reconnecting = true;
+          console.log('🔄 Transient DB error detected, reconnecting in 5s...', err.code);
+          setTimeout(handleDisconnect, 5000);
+        } else {
+          console.log('🔁 Already attempting reconnection, ignoring additional error:', err.code);
+        }
+        return;
+      }
+
+      // Non-transient errors should be surfaced for debugging
+      console.error('Unhandled database error, throwing to crash (intentional):', err);
+      throw err;
+    });
+  };
+
+  const connectWithPasswordCandidate = (candidateIndex) => {
+    const password = passwordCandidates[candidateIndex];
+
+    if (password === undefined) {
+      reconnecting = false;
+      console.error('❌ Database connection failed: exhausted password candidates.');
+      console.error('⚠️  Please verify DB_HOST, DB_PORT, DB_USER, and DB_PASSWORD/DB_ROOT_PASSWORD in .env.');
+      console.error('🔄 Will retry connection in 5 seconds...');
       setTimeout(handleDisconnect, 5000);
       return;
     }
-    console.log(`✅ Connected to MySQL database on ${process.env.DB_HOST || "localhost"}:${Number(process.env.DB_PORT || 3306)}.`);
 
-    if (!dbInitializationDone) {
-      dbInitializationDone = true;
-      runInitialDbSetup();
+    db = mysql.createConnection({
+      ...dbConfig,
+      password,
+    });
+
+    if (!password && process.env.NODE_ENV === 'production') {
+      console.error('⚠️  WARNING: DB_PASSWORD is not set. This is a security risk in production!');
+      console.error('Please set DB_PASSWORD environment variable in your .env file');
     }
 
-    if (!initialExcelSyncDone) {
-      initialExcelSyncDone = true;
-      exportCasesToExcel()
-        .then(() => {
-          console.log("✅ Initial Excel file generated after DB connection.");
-        })
-        .catch((excelErr) => {
-          initialExcelSyncDone = false;
-          console.error("Error generating initial Excel file:", excelErr?.message || excelErr);
-        });
-    }
-  });
+    attachDbErrorHandler(db);
 
-  db.on('error', (err) => {
-    console.error('❌ Database error:', err);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR') {
-      console.log('🔄 Reconnecting to database...');
-      handleDisconnect();
-    } else {
-      throw err;
-    }
-  });
+    db.connect((err) => {
+      if (err && err.code === 'ER_ACCESS_DENIED_ERROR' && candidateIndex < passwordCandidates.length - 1) {
+        console.warn(`⚠️  MySQL rejected the current password for ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}. Trying the next fallback...`);
+        try {
+          db.removeAllListeners && db.removeAllListeners('error');
+          if (typeof db.destroy === 'function') {
+            db.destroy();
+          }
+        } catch (cleanupErr) {
+          console.error('Error cleaning up failed DB connection attempt:', cleanupErr);
+        }
+
+        connectWithPasswordCandidate(candidateIndex + 1);
+        return;
+      }
+
+      reconnecting = false;
+      if (err) {
+        console.error('❌ Database connection failed: ' + err.message);
+        console.error('⚠️  Please make sure MySQL/XAMPP is running, the database exists, and DB_PORT is correct (usually 3306 or 3307).');
+        console.error('🔄 Will retry connection in 5 seconds...');
+        setTimeout(handleDisconnect, 5000);
+        return;
+      }
+
+      console.log(`✅ Connected to MySQL database on ${dbConfig.host}:${dbConfig.port}.`);
+
+      if (!dbInitializationDone) {
+        dbInitializationDone = true;
+        runInitialDbSetup();
+      }
+
+      if (!initialExcelSyncDone) {
+        initialExcelSyncDone = true;
+        exportCasesToExcel()
+          .then(() => {
+            console.log('✅ Initial Excel file generated after DB connection.');
+          })
+          .catch((excelErr) => {
+            initialExcelSyncDone = false;
+            console.error('Error generating initial Excel file:', excelErr?.message || excelErr);
+          });
+      }
+    });
+  };
+
+      connectWithPasswordCandidate(0);
 
   // Add new columns to cases table if they don't exist
   const addNewColumns = () => {
@@ -642,9 +720,38 @@ function handleDisconnect() {
     });
   };
 
+  // Ensure newer clearance formats are supported in older databases.
+  const migrateClearanceFormatTypes = () => {
+    db.query("SHOW COLUMNS FROM clearances LIKE 'format_type'", (err, results) => {
+      if (err || !results || results.length === 0) {
+        return;
+      }
+
+      const currentType = String(results[0].Type || '').toLowerCase();
+      const hasE = currentType.includes("'e'");
+      const hasF = currentType.includes("'f'");
+
+      if (hasE && hasF) {
+        return;
+      }
+
+      db.query(
+        "ALTER TABLE clearances MODIFY COLUMN format_type ENUM('A', 'B', 'C', 'D', 'E', 'F') NOT NULL",
+        (alterErr) => {
+          if (alterErr) {
+            console.error('Error migrating clearances.format_type enum:', alterErr);
+          } else {
+            console.log('✅ Migrated clearances.format_type enum to support A-F formats.');
+          }
+        }
+      );
+    });
+  };
+
   const runInitialDbSetup = () => {
     // Run column migration
     addNewColumns();
+    migrateClearanceFormatTypes();
 
     // Create users table if it doesn't exist
     const createUsersTable = `
@@ -1528,55 +1635,55 @@ app.post("/add-case", indexCardUpload.single('indexCardImage'), async (req, res)
         : null;
 
       db.query(sql, [
-      validatedData.DOCKET_NO, 
-      validatedData.DATE_FILED, 
-      validatedData.COMPLAINANT, 
-      validatedData.RESPONDENT, 
-      validatedData.ADDRESS_OF_RESPONDENT, 
-      validatedData.OFFENSE, 
-      validatedData.DATE_OF_COMMISSION, 
-      validatedData.DATE_RESOLVED || null, 
-      validatedData.RESOLVING_PROSECUTOR || null, 
-      validatedData.CRIM_CASE_NO || 'N/A', 
-      validatedData.BRANCH, 
-      validatedData.DATEFILED_IN_COURT || null, 
-      validatedData.FINAL_OFFENSE || null,
-      normalizedDecision, 
-      validatedData.PENALTY || null, 
-      validatedData.DECISION_DATE || null,
-      normalizedStatus,
-      INDEX_CARDS
-    ], (err, result) => {
-      if (err) {
-        console.error("Error inserting data:", err);
-        return res.status(500).json(ApiResponse.error("Failed to add case", 500));
-      }
-      
-      // Sync Excel file after adding new case
-      exportCasesToExcel()
-        .then(() => {
-          console.log("Excel file synced after adding new case");
-        })
-        .catch(excelErr => {
-          console.error("Error syncing Excel file:", excelErr);
-        });
-      
-      // Emit real-time event
-      emitRealtimeEvent('case_added', { id: result.insertId, docketNo: validatedData.DOCKET_NO });
-
-      db.query("SELECT COUNT(*) AS totalCases FROM cases", (countErr, countResults) => {
-        if (countErr) {
-          console.error("Error counting cases after add:", countErr);
+        validatedData.DOCKET_NO,
+        validatedData.DATE_FILED,
+        validatedData.COMPLAINANT,
+        validatedData.RESPONDENT,
+        validatedData.ADDRESS_OF_RESPONDENT,
+        validatedData.OFFENSE,
+        validatedData.DATE_OF_COMMISSION,
+        validatedData.DATE_RESOLVED || null,
+        validatedData.RESOLVING_PROSECUTOR || null,
+        validatedData.CRIM_CASE_NO || 'N/A',
+        validatedData.BRANCH,
+        validatedData.DATEFILED_IN_COURT || null,
+        validatedData.FINAL_OFFENSE || null,
+        normalizedDecision,
+        validatedData.PENALTY || null,
+        validatedData.DECISION_DATE || null,
+        normalizedStatus,
+        INDEX_CARDS
+      ], (err, result) => {
+        if (err) {
+          console.error("Error inserting data:", err);
+          return res.status(500).json(ApiResponse.error("Failed to add case", 500));
         }
 
-        const totalCases = Number(countResults?.[0]?.totalCases || 0);
+        // Sync Excel file after adding new case
+        exportCasesToExcel()
+          .then(() => {
+            console.log("Excel file synced after adding new case");
+          })
+          .catch(excelErr => {
+            console.error("Error syncing Excel file:", excelErr);
+          });
 
-        res.status(200).json(ApiResponse.success("Case added successfully", {
-          id: result.insertId,
-          indexCardPath: INDEX_CARDS,
-          totalCases: Number.isFinite(totalCases) && totalCases > 0 ? totalCases : null,
-        }));
-      });
+        // Emit real-time event
+        emitRealtimeEvent('case_added', { id: result.insertId, docketNo: validatedData.DOCKET_NO });
+
+        db.query("SELECT COUNT(*) AS totalCases FROM cases", (countErr, countResults) => {
+          if (countErr) {
+            console.error("Error counting cases after add:", countErr);
+          }
+
+          const totalCases = Number(countResults?.[0]?.totalCases || 0);
+
+          res.status(200).json(ApiResponse.success("Case added successfully", {
+            id: result.insertId,
+            indexCardPath: INDEX_CARDS,
+            totalCases: Number.isFinite(totalCases) && totalCases > 0 ? totalCases : null,
+          }));
+        });
       });
     });
   } catch (error) {
@@ -3907,24 +4014,45 @@ app.get('/api/my-ip', (req, res) => {
 // END FORMAT MANAGEMENT API ENDPOINTS
 // =====================================================
 
-server.on('error', (err) => {
-  if (err && err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use.`);
-    console.error('Another backend instance is likely already running.');
-    console.error(`Use this command to check: netstat -ano | findstr :${PORT}`);
-    return process.exit(1);
-  }
-  throw err;
-});
+let currentPort = PORT;
+const MAX_PORT_ATTEMPTS = 10;
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log("📡 Socket.io real-time updates enabled");
+const startServer = (attempt = 1) => {
+  server.once('error', (err) => {
+    if (err && err.code === 'EADDRINUSE') {
+      if (attempt >= MAX_PORT_ATTEMPTS) {
+        console.error(`❌ Port ${currentPort} is already in use.`);
+        console.error('No free port found after multiple attempts. Another backend instance may already be running.');
+        console.error(`Use this command to check: netstat -ano | findstr :${currentPort}`);
+        process.exit(1);
+        return;
+      }
 
-  if (!isDbConnectionReady()) {
-    console.log("ℹ️ Skipping initial Excel generation until DB connection is ready.");
-  }
-});
+      const nextPort = currentPort + 1;
+      console.warn(`⚠️ Port ${currentPort} is already in use. Trying ${nextPort}...`);
+      currentPort = nextPort;
+      startServer(attempt + 1);
+      return;
+    }
+
+    throw err;
+  });
+
+  server.listen(currentPort, () => {
+    console.log(`Server running on port ${currentPort}`);
+    console.log("📡 Socket.io real-time updates enabled");
+
+    if (currentPort !== PORT) {
+      console.log(`ℹ️ Requested port ${PORT} was busy, using ${currentPort} instead.`);
+    }
+
+    if (!isDbConnectionReady()) {
+      console.log("ℹ️ Skipping initial Excel generation until DB connection is ready.");
+    }
+  });
+};
+
+startServer();
 
 // ==================== EXCEL EXPORT ENDPOINTS ====================
 
@@ -5425,6 +5553,23 @@ app.post("/api/clearances", async (req, res) => {
       issued_by_name,
       notes
     } = req.body;
+
+    const safeFirstName = String(first_name || '').trim();
+    if (!safeFirstName) {
+      return res.status(400).json({ error: 'Missing required field: first_name is required' });
+    }
+
+    const allowedFormats = new Set(['A', 'B', 'C', 'D', 'E', 'F']);
+    const safeFormatType = allowedFormats.has(String(format_type || '').toUpperCase())
+      ? String(format_type).toUpperCase()
+      : 'A';
+
+    const safeToday = new Date().toISOString().split('T')[0];
+    const parsedAge = Number.parseInt(String(age ?? '').trim(), 10);
+    const safeAge = Number.isNaN(parsedAge) ? 18 : parsedAge;
+    const safeDateIssued = date_issued || safeToday;
+    const safeValidityPeriod = validity_period || '6 Months';
+    const safeValidityExpiry = validity_expiry || safeDateIssued;
     
     // Generate OR number
     const or_number = await generateORNumber();
@@ -5441,12 +5586,12 @@ app.post("/api/clearances", async (req, res) => {
     `;
     
     db.query(query, [
-      or_number, format_type, first_name, middle_name || null, last_name, suffix || null, alias || null,
-      age, civil_status, nationality || 'Filipino', address, has_criminal_record || false,
+      or_number, safeFormatType, safeFirstName, middle_name || null, last_name || '', suffix || null, alias || null,
+      safeAge, civil_status || 'Single', nationality || 'Filipino', address || '', has_criminal_record || false,
       case_numbers || null, crime_description || null, legal_statute || null, date_of_commission || null,
-      date_information_filed || null, case_status || null, court_branch || null, purpose, purpose_fee || 0,
-      issued_upon_request_by || null, date_issued, prc_id_number || null, validity_period || '6 Months',
-      validity_expiry, issued_by_user_id, issued_by_name, notes || null
+      date_information_filed || null, case_status || null, court_branch || null, purpose || 'General Purpose', purpose_fee || 0,
+      issued_upon_request_by || null, safeDateIssued, prc_id_number || null, safeValidityPeriod,
+      safeValidityExpiry, issued_by_user_id, issued_by_name, notes || null
     ], (err, result) => {
       if (err) {
         console.error("Error creating clearance:", err);
