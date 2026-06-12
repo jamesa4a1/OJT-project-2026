@@ -22,8 +22,22 @@ const Findcase = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [imageError, setImageError] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const navigate = useNavigate();
+
+  const fetchAllCases = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE}/cases`);
+      if (Array.isArray(response.data)) {
+        setAllCases(response.data);
+        setCaseData(response.data); // Display all cases initially
+      }
+    } catch (err) {
+      console.error('Error fetching all cases:', err);
+      setError('Failed to load cases from database.');
+    }
+    setIsLoading(false);
+  };
 
   // Function to download image
   const handleDownloadImage = (imageUrl, fileName) => {
@@ -52,28 +66,10 @@ const Findcase = () => {
 
   // Fetch all cases on component mount
   useEffect(() => {
-    fetchAllCases();
+    void Promise.resolve().then(() => {
+      fetchAllCases();
+    });
   }, []);
-
-  // Reset image error when case selection changes
-  useEffect(() => {
-    setImageError(false);
-  }, [selectedCase]);
-
-  const fetchAllCases = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`${API_BASE}/cases`);
-      if (Array.isArray(response.data)) {
-        setAllCases(response.data);
-        setCaseData(response.data); // Display all cases initially
-      }
-    } catch (err) {
-      console.error('Error fetching all cases:', err);
-      setError('Failed to load cases from database.');
-    }
-    setIsLoading(false);
-  };
 
   // Real-time updates: auto-refresh when cases change on any PC
   useSocket(CASE_EVENTS, fetchAllCases);
@@ -130,7 +126,7 @@ const Findcase = () => {
         setCaseData([]);
         setError('No matching case found.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred while fetching cases.');
       setCaseData([]);
     }
@@ -331,7 +327,10 @@ const Findcase = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.02 }}
                   className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
-                  onClick={() => setSelectedCase(c)}
+                  onClick={() => {
+                    setImageError(false);
+                    setSelectedCase(c);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -379,7 +378,10 @@ const Findcase = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.1 }}
                   className="p-6 hover:bg-blue-50/50 transition-colors cursor-pointer"
-                  onClick={() => setSelectedCase(c)}
+                  onClick={() => {
+                    setImageError(false);
+                    setSelectedCase(c);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -480,7 +482,7 @@ const Findcase = () => {
                                   className="max-w-full max-h-[400px] object-contain shadow-lg rounded"
                                   crossOrigin="anonymous"
                                   onLoad={() => console.log('✓ Image loaded successfully')}
-                                  onError={(e) => {
+                                  onError={() => {
                                     console.error('✗ Image failed to load:', imageUrl);
                                     setImageError(true);
                                   }}
@@ -514,33 +516,26 @@ const Findcase = () => {
                             </div>
                             <div className="flex gap-3 mt-4">
                               <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
                                   console.log('Button clicked - imageUrl:', imageUrl);
                                   handleDownloadImage(
                                     imageUrl,
                                     `index-card-${selectedCase.DOCKET_NO || 'case'}.png`
                                   );
                                 }}
-                                disabled={isDownloading || imageError}
+                                disabled={imageError}
                                 type="button"
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl 
                                          bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold
                                          hover:shadow-lg hover:shadow-emerald-500/30 transition-all duration-300 
                                          disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none"
                               >
-                                {isDownloading ? (
-                                  <>
-                                    <i className="fas fa-spinner fa-spin"></i>
-                                    Downloading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <i className="fas fa-download"></i>
-                                    Download Image
-                                  </>
-                                )}
+                                <>
+                                  <i className="fas fa-download"></i>
+                                  Download Image
+                                </>
                               </button>
                               <a
                                 href={imageUrl}

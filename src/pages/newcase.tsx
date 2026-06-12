@@ -258,31 +258,40 @@ const Newcase: React.FC = () => {
       setDatesFiledInCourt(['']);
       setFinalOffenses(['']);
       removeImage();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding case:', error);
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: {
+            message?: string;
+          };
+        };
+        message?: string;
+      };
       
       // Determine detailed error message based on error type
       let errorMessage = 'Failed to add case. Please try again.';
       
-      if (error.response?.status === 409) {
+      if (axiosError.response?.status === 409) {
         // Conflict - likely duplicate case
-        errorMessage = error.response?.data?.message || 'This case already exists. Please try a different docket number.';
-      } else if (error.response?.status === 400) {
+        errorMessage = axiosError.response?.data?.message || 'This case already exists. Please try a different docket number.';
+      } else if (axiosError.response?.status === 400) {
         // Bad request - validation error from server
-        errorMessage = error.response?.data?.message || 'Invalid case information. Please check your inputs and try again.';
-      } else if (error.response?.status === 401) {
+        errorMessage = axiosError.response?.data?.message || 'Invalid case information. Please check your inputs and try again.';
+      } else if (axiosError.response?.status === 401) {
         // Unauthorized
         errorMessage = 'Your session has expired. Please login again.';
-      } else if (error.response?.status === 403) {
+      } else if (axiosError.response?.status === 403) {
         // Forbidden
         errorMessage = 'You do not have permission to add cases.';
-      } else if (error.response?.status === 500) {
+      } else if (axiosError.response?.status === 500) {
         // Server error
         errorMessage = 'Server error. Please try again or contact support.';
-      } else if (error.response?.data?.message) {
+      } else if (axiosError.response?.data?.message) {
         // Use backend message if available
-        errorMessage = error.response.data.message;
-      } else if (error.message === 'Network Error') {
+        errorMessage = axiosError.response.data.message;
+      } else if (axiosError.message === 'Network Error') {
         // Network error
         errorMessage = 'Network error. Please check your connection and try again.';
       }
