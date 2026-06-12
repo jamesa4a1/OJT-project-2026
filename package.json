@@ -45,7 +45,8 @@
     "zod": "^4.3.5"
   },
   "scripts": {
-    "start": "set PORT=3002 && set DISABLE_ESLINT_PLUGIN=true && craco start",
+    "start": "node server.js",
+    "dev": "set PORT=3002 && set DISABLE_ESLINT_PLUGIN=true && craco start",
     "server": "node index.js",
     "build": "craco build",
     "test": "craco test",

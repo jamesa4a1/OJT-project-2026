@@ -28,6 +28,29 @@ const securityLogger = require("./utils/securityLogger");
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
 
+const localOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:(80|3000|3001|3002|5000))?$/;
+
+const getAllowedOrigins = () => {
+  const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.CORS_ORIGIN,
+    process.env.ALLOWED_ORIGINS,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(configuredOrigins));
+};
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (localOriginPattern.test(origin)) return true;
+  return getAllowedOrigins().includes(origin);
+};
+
 // Create HTTP server and attach Socket.io
 const server = http.createServer(app);
 // Large Excel imports can take several minutes; keep the HTTP request alive.
@@ -36,10 +59,7 @@ server.headersTimeout = 31 * 60 * 1000;
 const io = new Server(server, {
   cors: {
     origin: function(origin, callback) {
-      // Allow same origins as Express CORS
-      if (!origin) return callback(null, true);
-      const allowedPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:(80|3000|3001|3002))?$/;
-      if (allowedPattern.test(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
       callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST']
@@ -285,15 +305,9 @@ const exportCasesToExcel = () => {
 };
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, Nginx proxy, etc.)
-    if (!origin) return callback(null, true);
-    
-    // Allow localhost and any local network IP on ports 80, 3000-3002
-    const allowedPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:(80|3000|3001|3002))?$/;
-    if (allowedPattern.test(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -5571,6 +5585,58 @@ app.post("/api/clearances", async (req, res) => {
     const safeValidityPeriod = validity_period || '6 Months';
     const safeValidityExpiry = validity_expiry || safeDateIssued;
     
+    // Normalize and validate civil status and case status (match DB ENUMs)
+    const normalizeCivilStatus = (raw) => {
+      if (raw === null || raw === undefined) return 'Single';
+      const s = String(raw).trim();
+      if (!s) return 'Single';
+      const map = {
+        'single': 'Single',
+        'married': 'Married',
+        'widow': 'Widow',
+        'widower': 'Widower',
+        'separated': 'Separated',
+        'divorced': 'Divorced'
+      };
+      const lower = s.toLowerCase();
+      return map[lower] || (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase());
+    };
+
+    const allowedCaseStatuses = new Set([
+      'Pending in Court',
+      'Pending with Prosecutor',
+      'Dismissed',
+      'Convicted',
+      'Acquitted',
+      'Referred to Other Agency',
+      'Other'
+    ]);
+
+    const normalizeCaseStatus = (raw) => {
+      if (raw === null || raw === undefined) return null;
+      let s = String(raw).trim();
+      if (!s) return null;
+      const variants = {
+        'pending': 'Pending in Court',
+        'pending in court': 'Pending in Court',
+        'pending with prosecutor': 'Pending with Prosecutor',
+        'pending with the prosecutor': 'Pending with Prosecutor',
+        'dismissed': 'Dismissed',
+        'convicted': 'Convicted',
+        'acquitted': 'Acquitted',
+        'referred to other agency': 'Referred to Other Agency',
+        'other': 'Other'
+      };
+      const lower = s.toLowerCase();
+      if (variants[lower]) return variants[lower];
+      s = s.replace(/^\[\s*['"]?/, '').replace(/['"]?\s*\]$/, '').trim();
+      if (allowedCaseStatuses.has(s)) return s;
+      return null;
+    };
+
+    const safeCivil = normalizeCivilStatus(civil_status);
+    const safeCaseStatus = normalizeCaseStatus(case_status);
+
     // Generate OR number
     const or_number = await generateORNumber();
     
@@ -5587,9 +5653,9 @@ app.post("/api/clearances", async (req, res) => {
     
     db.query(query, [
       or_number, safeFormatType, safeFirstName, middle_name || null, last_name || '', suffix || null, alias || null,
-      safeAge, civil_status || 'Single', nationality || 'Filipino', address || '', has_criminal_record || false,
+      safeAge, safeCivil, nationality || 'Filipino', address || '', has_criminal_record || false,
       case_numbers || null, crime_description || null, legal_statute || null, date_of_commission || null,
-      date_information_filed || null, case_status || null, court_branch || null, purpose || 'General Purpose', purpose_fee || 0,
+      date_information_filed || null, safeCaseStatus, court_branch || null, purpose || 'General Purpose', purpose_fee || 0,
       issued_upon_request_by || null, safeDateIssued, prc_id_number || null, safeValidityPeriod,
       safeValidityExpiry, issued_by_user_id, issued_by_name, notes || null
     ], (err, result) => {
@@ -5678,6 +5744,57 @@ app.put("/api/clearances/:id", (req, res) => {
       }
       
       const oldValues = oldResults[0];
+      // Normalize and validate civil status and case status for update
+      const normalizeCivilStatus = (raw) => {
+        if (raw === null || raw === undefined) return 'Single';
+        const s = String(raw).trim();
+        if (!s) return 'Single';
+        const map = {
+          'single': 'Single',
+          'married': 'Married',
+          'widow': 'Widow',
+          'widower': 'Widower',
+          'separated': 'Separated',
+          'divorced': 'Divorced'
+        };
+        const lower = s.toLowerCase();
+        return map[lower] || (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase());
+      };
+
+      const allowedCaseStatuses = new Set([
+        'Pending in Court',
+        'Pending with Prosecutor',
+        'Dismissed',
+        'Convicted',
+        'Acquitted',
+        'Referred to Other Agency',
+        'Other'
+      ]);
+
+      const normalizeCaseStatus = (raw) => {
+        if (raw === null || raw === undefined) return null;
+        let s = String(raw).trim();
+        if (!s) return null;
+        const variants = {
+          'pending': 'Pending in Court',
+          'pending in court': 'Pending in Court',
+          'pending with prosecutor': 'Pending with Prosecutor',
+          'pending with the prosecutor': 'Pending with Prosecutor',
+          'dismissed': 'Dismissed',
+          'convicted': 'Convicted',
+          'acquitted': 'Acquitted',
+          'referred to other agency': 'Referred to Other Agency',
+          'other': 'Other'
+        };
+        const lower = s.toLowerCase();
+        if (variants[lower]) return variants[lower];
+        s = s.replace(/^\[\s*['"]?/, '').replace(/['"]?\s*\]$/, '').trim();
+        if (allowedCaseStatuses.has(s)) return s;
+        return null;
+      };
+
+      const safeCivil = normalizeCivilStatus(civil_status);
+      const safeCaseStatus = normalizeCaseStatus(case_status);
       
       const query = `
         UPDATE clearances SET
@@ -5692,9 +5809,9 @@ app.put("/api/clearances/:id", (req, res) => {
       
       db.query(query, [
         format_type, first_name, middle_name || null, last_name, suffix || null, alias || null,
-        age, civil_status, nationality || 'Filipino', address, has_criminal_record || false,
+        age, safeCivil, nationality || 'Filipino', address, has_criminal_record || false,
         case_numbers || null, crime_description || null, legal_statute || null, date_of_commission || null,
-        date_information_filed || null, case_status || null, court_branch || null, purpose, purpose_fee || 0,
+        date_information_filed || null, safeCaseStatus, court_branch || null, purpose, purpose_fee || 0,
         issued_upon_request_by || null, date_issued, prc_id_number || null, validity_period || '6 Months',
         validity_expiry, notes || null, id
       ], (err, result) => {
