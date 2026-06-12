@@ -33,7 +33,9 @@ const Newcase: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showFullImage, setShowFullImage] = useState<boolean>(false);
   const [complainants, setComplainants] = useState<string[]>(['']);
-  const [respondents, setRespondents] = useState<{name: string; address: string}[]>([{name: '', address: ''}]);
+  const [respondents, setRespondents] = useState<{ name: string; address: string }[]>([
+    { name: '', address: '' },
+  ]);
   const [recommendations, setRecommendations] = useState<string[]>(['Pending']);
   const [crimCaseNos, setCrimCaseNos] = useState<string[]>(['']);
   const [branches, setBranches] = useState<string[]>(['']);
@@ -59,9 +61,7 @@ const Newcase: React.FC = () => {
     STATUS: '',
   });
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ): void => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
 
     setFormData({ ...formData, [name.toUpperCase()]: value } as CaseFormData);
@@ -79,7 +79,7 @@ const Newcase: React.FC = () => {
   };
 
   const addRespondent = (): void => {
-    setRespondents([...respondents, {name: '', address: ''}]);
+    setRespondents([...respondents, { name: '', address: '' }]);
     setRecommendations([...recommendations, 'Pending']);
     setCrimCaseNos([...crimCaseNos, '']);
     setBranches([...branches, '']);
@@ -97,12 +97,12 @@ const Newcase: React.FC = () => {
   };
   const updateRespondent = (index: number, value: string): void => {
     const updated = [...respondents];
-    updated[index] = {...updated[index], name: value};
+    updated[index] = { ...updated[index], name: value };
     setRespondents(updated);
   };
   const updateRespondentAddress = (index: number, value: string): void => {
     const updated = [...respondents];
-    updated[index] = {...updated[index], address: value};
+    updated[index] = { ...updated[index], address: value };
     setRespondents(updated);
   };
 
@@ -147,10 +147,16 @@ const Newcase: React.FC = () => {
         (i) => recommendations[i] || 'Pending'
       );
 
-      const perRespondentCrimCaseNos = activeRespondentIndexes.map((i) => (crimCaseNos[i] || '').trim());
+      const perRespondentCrimCaseNos = activeRespondentIndexes.map((i) =>
+        (crimCaseNos[i] || '').trim()
+      );
       const perRespondentBranches = activeRespondentIndexes.map((i) => (branches[i] || '').trim());
-      const perRespondentDatesFiledInCourt = activeRespondentIndexes.map((i) => (datesFiledInCourt[i] || '').trim());
-      const perRespondentFinalOffenses = activeRespondentIndexes.map((i) => (finalOffenses[i] || '').trim());
+      const perRespondentDatesFiledInCourt = activeRespondentIndexes.map((i) =>
+        (datesFiledInCourt[i] || '').trim()
+      );
+      const perRespondentFinalOffenses = activeRespondentIndexes.map((i) =>
+        (finalOffenses[i] || '').trim()
+      );
 
       const hasFiledInCourt = perRespondentRecommendations.some(
         (rec) => (rec || '').toLowerCase() === 'filed in court'
@@ -163,9 +169,15 @@ const Newcase: React.FC = () => {
       const serverData = {
         DOCKET_NO: formData.DOCKET_NO,
         DATE_FILED: formData.DATE_FILED,
-        COMPLAINANT: JSON.stringify(complainants.filter(c => c.trim() !== '').map(c => c.trim())),
-        RESPONDENT: JSON.stringify(respondents.filter(r => r.name.trim() !== '').map(r => r.name.trim())),
-        ADDRESS_OF_RESPONDENT: JSON.stringify(respondents.filter(r => r.name.trim() !== '').map(r => r.address.trim())),
+        COMPLAINANT: JSON.stringify(
+          complainants.filter((c) => c.trim() !== '').map((c) => c.trim())
+        ),
+        RESPONDENT: JSON.stringify(
+          respondents.filter((r) => r.name.trim() !== '').map((r) => r.name.trim())
+        ),
+        ADDRESS_OF_RESPONDENT: JSON.stringify(
+          respondents.filter((r) => r.name.trim() !== '').map((r) => r.address.trim())
+        ),
         OFFENSE: formData.OFFENSE,
         RESOLVING_PROSECUTOR: formData.RESOLVING_PROSECUTOR,
         // Optional fields
@@ -178,7 +190,11 @@ const Newcase: React.FC = () => {
         REMARKS_DECISION: JSON.stringify(perRespondentRecommendations),
         PENALTY: formData.PENALTY || null,
         DECISION_DATE: formData.DECISION_DATE || null,
-        STATUS: hasFiledInCourt ? 'Filed in Court' : hasArchived ? 'Archived' : (formData.STATUS || null),
+        STATUS: hasFiledInCourt
+          ? 'Filed in Court'
+          : hasArchived
+            ? 'Archived'
+            : formData.STATUS || null,
       };
 
       const formDataToSend = new FormData();
@@ -197,7 +213,7 @@ const Newcase: React.FC = () => {
       });
 
       console.log(response.data);
-      
+
       // Show success toast
       showToast({
         type: 'success',
@@ -207,13 +223,11 @@ const Newcase: React.FC = () => {
 
       // Keep Manage Cases and dashboards in sync with manual case adds.
       const responseTotalRaw = Number(response?.data?.data?.totalCases || 0);
-      const responseTotal = Number.isFinite(responseTotalRaw) && responseTotalRaw > 0
-        ? responseTotalRaw
-        : 0;
+      const responseTotal =
+        Number.isFinite(responseTotalRaw) && responseTotalRaw > 0 ? responseTotalRaw : 0;
       const importedTotalRaw = Number(localStorage.getItem('excelLastImportTotalRows') || 0);
-      const importedTotal = Number.isFinite(importedTotalRaw) && importedTotalRaw > 0
-        ? importedTotalRaw
-        : 0;
+      const importedTotal =
+        Number.isFinite(importedTotalRaw) && importedTotalRaw > 0 ? importedTotalRaw : 0;
 
       let nextDisplayedTotal = 0;
       if (importedTotal > 0 && importedTotal >= responseTotal) {
@@ -251,7 +265,7 @@ const Newcase: React.FC = () => {
         STATUS: '',
       });
       setComplainants(['']);
-      setRespondents([{name: '', address: ''}]);
+      setRespondents([{ name: '', address: '' }]);
       setRecommendations(['Pending']);
       setCrimCaseNos(['']);
       setBranches(['']);
@@ -269,16 +283,20 @@ const Newcase: React.FC = () => {
         };
         message?: string;
       };
-      
+
       // Determine detailed error message based on error type
       let errorMessage = 'Failed to add case. Please try again.';
-      
+
       if (axiosError.response?.status === 409) {
         // Conflict - likely duplicate case
-        errorMessage = axiosError.response?.data?.message || 'This case already exists. Please try a different docket number.';
+        errorMessage =
+          axiosError.response?.data?.message ||
+          'This case already exists. Please try a different docket number.';
       } else if (axiosError.response?.status === 400) {
         // Bad request - validation error from server
-        errorMessage = axiosError.response?.data?.message || 'Invalid case information. Please check your inputs and try again.';
+        errorMessage =
+          axiosError.response?.data?.message ||
+          'Invalid case information. Please check your inputs and try again.';
       } else if (axiosError.response?.status === 401) {
         // Unauthorized
         errorMessage = 'Your session has expired. Please login again.';
@@ -295,7 +313,7 @@ const Newcase: React.FC = () => {
         // Network error
         errorMessage = 'Network error. Please check your connection and try again.';
       }
-      
+
       // Show error toast
       showToast({
         type: 'error',
@@ -328,14 +346,16 @@ const Newcase: React.FC = () => {
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, type: "spring" }}
+            transition={{ duration: 0.5, type: 'spring' }}
             className="inline-flex items-center justify-center w-10 h-10 rounded-lg mb-2
                        bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/20"
           >
             <i className="fas fa-folder-plus text-lg text-white"></i>
           </motion.div>
-          <h1 className="text-2xl md:text-3xl font-black bg-clip-text text-transparent 
-                         bg-gradient-to-r from-slate-800 via-blue-900 to-slate-800 mb-1">
+          <h1
+            className="text-2xl md:text-3xl font-black bg-clip-text text-transparent 
+                         bg-gradient-to-r from-slate-800 via-blue-900 to-slate-800 mb-1"
+          >
             Add New Case
           </h1>
           <p className="text-xs font-medium text-slate-500 max-w-2xl mx-auto">
@@ -367,450 +387,466 @@ const Newcase: React.FC = () => {
         >
           {/* Compact Top Accent */}
           <div className="h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600"></div>
-          
+
           <div className="relative p-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Section: Basic Information - Optimized */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md
-                                  bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md
+                                  bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600"
+                  >
                     <i className="fas fa-file-alt text-white text-sm"></i>
                   </div>
                   <h3 className="text-lg font-bold text-slate-800 m-0">Basic Information</h3>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                <div className="col-span-2">
-                  <label className={labelClass}>
-                    <i className="fas fa-hashtag text-blue-500"></i>
-                    Docket/IS Case Number *
-                  </label>
-                  <input
-                    type="text"
-                    name="DOCKET_NO"
-                    value={formData.DOCKET_NO}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Enter docket number"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>
-                    <i className="fas fa-calendar text-blue-500"></i>
-                    Date Filed
-                  </label>
-                  <input
-                    type="date"
-                    name="DATE_FILED"
-                    value={formData.DATE_FILED}
-                    onChange={handleChange}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>
-                    <i className="fas fa-calendar-day text-orange-500"></i>
-                    Date of Commission
-                  </label>
-                  <input
-                    type="date"
-                    name="DATE_OF_COMMISSION"
-                    value={formData.DATE_OF_COMMISSION}
-                    onChange={handleChange}
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-            </div>
-            {/* Section: Parties Involved - Optimized */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600">
-                  <i className="fas fa-users text-white text-sm"></i>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 m-0">Parties Involved</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass}>
-                    <i className="fas fa-user text-emerald-500"></i>
-                    Complainant
-                  </label>
-                  {complainants.map((c, index) => (
-                    <div key={index} className={`flex gap-2 ${index > 0 ? 'mt-2' : ''}`}>
-                      <input
-                        type="text"
-                        value={c}
-                        onChange={(e) => updateComplainant(index, e.target.value)}
-                        className={inputClass}
-                        placeholder={index === 0 ? 'Enter complainant name' : `Complainant ${index + 1}`}
-                        required={index === 0}
-                      />
-                      {complainants.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeComplainant(index)}
-                          className="w-9 h-9 flex-shrink-0 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 border-none cursor-pointer flex items-center justify-center transition-colors"
-                          title="Remove complainant"
-                        >
-                          <i className="fas fa-minus text-xs"></i>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addComplainant}
-                    className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg transition-colors border-none cursor-pointer shadow-md"
-                  >
-                    <i className="fas fa-plus text-xs"></i>
-                    Add Complainant
-                  </button>
-                </div>
-                <div className="md:col-span-2">
-                  <div className="flex gap-2 mb-1">
-                    <div className="flex-1">
-                      <label className={labelClass}>
-                        <i className="fas fa-user-tag text-red-500"></i>
-                        Respondent *
-                      </label>
-                    </div>
-                    <div className="flex-1">
-                      <label className={labelClass}>
-                        <i className="fas fa-map-marker-alt text-red-500"></i>
-                        Address of Respondent
-                      </label>
-                    </div>
-                    <div className="w-9 flex-shrink-0"></div>
-                  </div>
-                  {respondents.map((r, index) => (
-                    <div key={index} className={`flex gap-2 ${index > 0 ? 'mt-2' : ''}`}>
-                      <input
-                        type="text"
-                        value={r.name}
-                        onChange={(e) => updateRespondent(index, e.target.value)}
-                        className={`${inputClass} flex-1`}
-                        placeholder={index === 0 ? 'Enter respondent name' : `Respondent ${index + 1}`}
-                        required={index === 0}
-                      />
-                      <input
-                        type="text"
-                        value={r.address}
-                        onChange={(e) => updateRespondentAddress(index, e.target.value)}
-                        className={`${inputClass} flex-1`}
-                        placeholder="Enter respondent's address"
-                      />
-                      {respondents.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => removeRespondent(index)}
-                          className="w-9 h-9 flex-shrink-0 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 border-none cursor-pointer flex items-center justify-center transition-colors"
-                          title="Remove respondent"
-                        >
-                          <i className="fas fa-minus text-xs"></i>
-                        </button>
-                      ) : (
-                        <div className="w-9 flex-shrink-0"></div>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addRespondent}
-                    className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg transition-colors border-none cursor-pointer shadow-md"
-                  >
-                    <i className="fas fa-plus text-xs"></i>
-                    Add Respondent
-                  </button>
-                </div>
-              </div>
-            </div>
-            {/* Section: Case Details - Optimized */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600">
-                  <i className="fas fa-gavel text-white text-sm"></i>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 m-0">Case Details</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="col-span-full md:col-span-1 lg:col-span-2">
-                  <label className={labelClass}>
-                    <i className="fas fa-exclamation-triangle text-amber-500"></i>
-                    Offense
-                  </label>
-                  <input
-                    type="text"
-                    name="OFFENSE"
-                    value={formData.OFFENSE}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Describe the offense"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>
-                    <i className="fas fa-calendar-check text-emerald-500"></i>
-                    Date Resolved
-                  </label>
-                  <input
-                    type="date"
-                    name="DATE_RESOLVED"
-                    value={formData.DATE_RESOLVED}
-                    onChange={handleChange}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>
-                    <i className="fas fa-user-tie text-blue-500"></i>
-                    Resolving Prosecutor *
-                  </label>
-                  <input
-                    type="text"
-                    name="RESOLVING_PROSECUTOR"
-                    value={formData.RESOLVING_PROSECUTOR}
-                    onChange={handleChange}
-                    className={inputClass}
-                    placeholder="Prosecutor name"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-            {/* Section: Resolution & Image Upload - Optimized */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600">
-                  <i className="fas fa-clipboard-check text-white text-sm"></i>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 m-0">Resolution & Image Upload</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
-                    <i className="fas fa-clipboard-check text-emerald-500"></i>Recommendation
-                  </label>
-                  <div className="space-y-2">
-                    {respondents.map((r, index) => (
-                      <div key={`rec-${index}`} className="rounded-xl border border-slate-200 p-2.5 bg-white/80">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-                          <p className="m-0 text-xs font-semibold text-slate-700 truncate" title={r.name || `Respondent ${index + 1}`}>
-                            {index + 1}. {r.name || `Respondent ${index + 1}`}
-                          </p>
-                          <div className="md:col-span-2">
-                            <select
-                              value={recommendations[index] || 'Pending'}
-                              onChange={(e) => updateRecommendation(index, e.target.value)}
-                              className={`${inputClass} cursor-pointer font-semibold`}
-                            >
-                              <option value="Pending">Pending</option>
-                              <option value="Dismissed">Dismissed</option>
-                              <option value="Provisional dismissal">Provisional dismissal</option>
-                              <option value="Convicted">Convicted</option>
-                              <option value="For Resolution">For Resolution</option>
-                              <option value="Archived">Archived</option>
-                              <option value="Filed in Court">Filed in Court</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <i className="fas fa-landmark text-blue-500"></i>
-                            <span className="text-xs font-semibold text-blue-700">Court Information</span>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <div>
-                              <label className={labelClass}>Criminal Case No.</label>
-                              <input
-                                type="text"
-                                value={crimCaseNos[index] || ''}
-                                onChange={(e) => {
-                                  const updated = [...crimCaseNos];
-                                  updated[index] = e.target.value;
-                                  setCrimCaseNos(updated);
-                                }}
-                                className={inputClass}
-                                placeholder="Case number"
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Branch</label>
-                              <input
-                                type="text"
-                                value={branches[index] || ''}
-                                onChange={(e) => {
-                                  const updated = [...branches];
-                                  updated[index] = e.target.value;
-                                  setBranches(updated);
-                                }}
-                                className={inputClass}
-                                placeholder="Court branch"
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Date Filed in Court</label>
-                              <input
-                                type="date"
-                                value={datesFiledInCourt[index] || ''}
-                                onChange={(e) => {
-                                  const updated = [...datesFiledInCourt];
-                                  updated[index] = e.target.value;
-                                  setDatesFiledInCourt(updated);
-                                }}
-                                className={inputClass}
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Final Offense</label>
-                              <input
-                                type="text"
-                                value={finalOffenses[index] || ''}
-                                onChange={(e) => {
-                                  const updated = [...finalOffenses];
-                                  updated[index] = e.target.value;
-                                  setFinalOffenses(updated);
-                                }}
-                                className={inputClass}
-                                placeholder="Final offense"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className={labelClass}>Penalty</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="col-span-2">
+                    <label className={labelClass}>
+                      <i className="fas fa-hashtag text-blue-500"></i>
+                      Docket/IS Case Number *
+                    </label>
                     <input
                       type="text"
-                      name="PENALTY"
-                      value={formData.PENALTY}
+                      name="DOCKET_NO"
+                      value={formData.DOCKET_NO}
                       onChange={handleChange}
                       className={inputClass}
-                      placeholder="Penalty imposed"
+                      placeholder="Enter docket number"
+                      required
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Decision Date</label>
+                    <label className={labelClass}>
+                      <i className="fas fa-calendar text-blue-500"></i>
+                      Date Filed
+                    </label>
                     <input
                       type="date"
-                      name="DECISION_DATE"
-                      value={formData.DECISION_DATE}
+                      name="DATE_FILED"
+                      value={formData.DATE_FILED}
+                      onChange={handleChange}
+                      className={inputClass}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      <i className="fas fa-calendar-day text-orange-500"></i>
+                      Date of Commission
+                    </label>
+                    <input
+                      type="date"
+                      name="DATE_OF_COMMISSION"
+                      value={formData.DATE_OF_COMMISSION}
                       onChange={handleChange}
                       className={inputClass}
                     />
                   </div>
                 </div>
+              </div>
+              {/* Section: Parties Involved - Optimized */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600">
+                    <i className="fas fa-users text-white text-sm"></i>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 m-0">Parties Involved</h3>
+                </div>
 
-                <div className="col-span-full">
-                  <label className={labelClass}>
-                    <i className="fas fa-image text-blue-500"></i>
-                    Index Card Image
-                  </label>
-                  <div className="space-y-2">
-                    {!imagePreview ? (
-                      <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer group">
-                        <div className="flex items-center justify-center gap-2">
-                          <i className="fas fa-cloud-upload-alt text-lg text-slate-400 group-hover:text-blue-500 transition-colors"></i>
-                          <p className="text-xs text-slate-500 group-hover:text-blue-600 font-medium">
-                            Click to upload image
-                          </p>
-                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelClass}>
+                      <i className="fas fa-user text-emerald-500"></i>
+                      Complainant
+                    </label>
+                    {complainants.map((c, index) => (
+                      <div key={index} className={`flex gap-2 ${index > 0 ? 'mt-2' : ''}`}>
                         <input
-                          type="file"
-                          className="hidden"
-                          accept="image/png,image/jpeg,image/jpg"
-                          onChange={handleImageChange}
+                          type="text"
+                          value={c}
+                          onChange={(e) => updateComplainant(index, e.target.value)}
+                          className={inputClass}
+                          placeholder={
+                            index === 0 ? 'Enter complainant name' : `Complainant ${index + 1}`
+                          }
+                          required={index === 0}
                         />
-                      </label>
-                    ) : (
-                      <div className="relative">
-                        <img
-                          src={imagePreview}
-                          alt="Index Card Preview"
-                          onClick={() => setShowFullImage(true)}
-                          className="w-full h-20 object-cover rounded-lg border-2 border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
-                        />
-                        <button
-                          type="button"
-                          onClick={removeImage}
-                          className="absolute top-1 right-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded shadow-md transition-colors cursor-pointer"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
+                        {complainants.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeComplainant(index)}
+                            className="w-9 h-9 flex-shrink-0 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 border-none cursor-pointer flex items-center justify-center transition-colors"
+                            title="Remove complainant"
+                          >
+                            <i className="fas fa-minus text-xs"></i>
+                          </button>
+                        )}
                       </div>
-                    )}
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addComplainant}
+                      className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg transition-colors border-none cursor-pointer shadow-md"
+                    >
+                      <i className="fas fa-plus text-xs"></i>
+                      Add Complainant
+                    </button>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="flex gap-2 mb-1">
+                      <div className="flex-1">
+                        <label className={labelClass}>
+                          <i className="fas fa-user-tag text-red-500"></i>
+                          Respondent *
+                        </label>
+                      </div>
+                      <div className="flex-1">
+                        <label className={labelClass}>
+                          <i className="fas fa-map-marker-alt text-red-500"></i>
+                          Address of Respondent
+                        </label>
+                      </div>
+                      <div className="w-9 flex-shrink-0"></div>
+                    </div>
+                    {respondents.map((r, index) => (
+                      <div key={index} className={`flex gap-2 ${index > 0 ? 'mt-2' : ''}`}>
+                        <input
+                          type="text"
+                          value={r.name}
+                          onChange={(e) => updateRespondent(index, e.target.value)}
+                          className={`${inputClass} flex-1`}
+                          placeholder={
+                            index === 0 ? 'Enter respondent name' : `Respondent ${index + 1}`
+                          }
+                          required={index === 0}
+                        />
+                        <input
+                          type="text"
+                          value={r.address}
+                          onChange={(e) => updateRespondentAddress(index, e.target.value)}
+                          className={`${inputClass} flex-1`}
+                          placeholder="Enter respondent's address"
+                        />
+                        {respondents.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => removeRespondent(index)}
+                            className="w-9 h-9 flex-shrink-0 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 border-none cursor-pointer flex items-center justify-center transition-colors"
+                            title="Remove respondent"
+                          >
+                            <i className="fas fa-minus text-xs"></i>
+                          </button>
+                        ) : (
+                          <div className="w-9 flex-shrink-0"></div>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addRespondent}
+                      className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg transition-colors border-none cursor-pointer shadow-md"
+                    >
+                      <i className="fas fa-plus text-xs"></i>
+                      Add Respondent
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-            {/* Compact Submit Button */}
-            <div className="pt-4 border-t border-slate-200">
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                className={`w-full py-3 rounded-lg font-semibold text-base shadow-lg transition-all duration-200 border-none cursor-pointer flex items-center justify-center gap-2 ${
-                  isLoading
-                    ? 'bg-slate-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50'
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Submitting...</span>
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-plus-circle"></i>
-                    <span>Submit New Case</span>
-                  </>
-                )}
-              </motion.button>
-            </div>
-          </form>
-        </div>
-      </motion.div>
+              {/* Section: Case Details - Optimized */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600">
+                    <i className="fas fa-gavel text-white text-sm"></i>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 m-0">Case Details</h3>
+                </div>
 
-      {/* Fullscreen Image Modal */}
-      {showFullImage && imagePreview && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => setShowFullImage(false)}
-          className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
-          style={{ margin: 0 }}
-        >
-          <button
-            onClick={() => setShowFullImage(false)}
-            className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
-          >
-            <i className="fas fa-times text-2xl"></i>
-          </button>
-          <motion.img
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            src={imagePreview}
-            alt="Full Size Preview"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="col-span-full md:col-span-1 lg:col-span-2">
+                    <label className={labelClass}>
+                      <i className="fas fa-exclamation-triangle text-amber-500"></i>
+                      Offense
+                    </label>
+                    <input
+                      type="text"
+                      name="OFFENSE"
+                      value={formData.OFFENSE}
+                      onChange={handleChange}
+                      className={inputClass}
+                      placeholder="Describe the offense"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      <i className="fas fa-calendar-check text-emerald-500"></i>
+                      Date Resolved
+                    </label>
+                    <input
+                      type="date"
+                      name="DATE_RESOLVED"
+                      value={formData.DATE_RESOLVED}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      <i className="fas fa-user-tie text-blue-500"></i>
+                      Resolving Prosecutor *
+                    </label>
+                    <input
+                      type="text"
+                      name="RESOLVING_PROSECUTOR"
+                      value={formData.RESOLVING_PROSECUTOR}
+                      onChange={handleChange}
+                      className={inputClass}
+                      placeholder="Prosecutor name"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Section: Resolution & Image Upload - Optimized */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600">
+                    <i className="fas fa-clipboard-check text-white text-sm"></i>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 m-0">
+                    Resolution & Image Upload
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
+                      <i className="fas fa-clipboard-check text-emerald-500"></i>Recommendation
+                    </label>
+                    <div className="space-y-2">
+                      {respondents.map((r, index) => (
+                        <div
+                          key={`rec-${index}`}
+                          className="rounded-xl border border-slate-200 p-2.5 bg-white/80"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                            <p
+                              className="m-0 text-xs font-semibold text-slate-700 truncate"
+                              title={r.name || `Respondent ${index + 1}`}
+                            >
+                              {index + 1}. {r.name || `Respondent ${index + 1}`}
+                            </p>
+                            <div className="md:col-span-2">
+                              <select
+                                value={recommendations[index] || 'Pending'}
+                                onChange={(e) => updateRecommendation(index, e.target.value)}
+                                className={`${inputClass} cursor-pointer font-semibold`}
+                              >
+                                <option value="Pending">Pending</option>
+                                <option value="Dismissed">Dismissed</option>
+                                <option value="Provisional dismissal">Provisional dismissal</option>
+                                <option value="Convicted">Convicted</option>
+                                <option value="For Resolution">For Resolution</option>
+                                <option value="Archived">Archived</option>
+                                <option value="Filed in Court">Filed in Court</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 p-3 rounded-xl border-2 border-blue-200 bg-blue-50/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <i className="fas fa-landmark text-blue-500"></i>
+                              <span className="text-xs font-semibold text-blue-700">
+                                Court Information
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div>
+                                <label className={labelClass}>Criminal Case No.</label>
+                                <input
+                                  type="text"
+                                  value={crimCaseNos[index] || ''}
+                                  onChange={(e) => {
+                                    const updated = [...crimCaseNos];
+                                    updated[index] = e.target.value;
+                                    setCrimCaseNos(updated);
+                                  }}
+                                  className={inputClass}
+                                  placeholder="Case number"
+                                />
+                              </div>
+                              <div>
+                                <label className={labelClass}>Branch</label>
+                                <input
+                                  type="text"
+                                  value={branches[index] || ''}
+                                  onChange={(e) => {
+                                    const updated = [...branches];
+                                    updated[index] = e.target.value;
+                                    setBranches(updated);
+                                  }}
+                                  className={inputClass}
+                                  placeholder="Court branch"
+                                />
+                              </div>
+                              <div>
+                                <label className={labelClass}>Date Filed in Court</label>
+                                <input
+                                  type="date"
+                                  value={datesFiledInCourt[index] || ''}
+                                  onChange={(e) => {
+                                    const updated = [...datesFiledInCourt];
+                                    updated[index] = e.target.value;
+                                    setDatesFiledInCourt(updated);
+                                  }}
+                                  className={inputClass}
+                                />
+                              </div>
+                              <div>
+                                <label className={labelClass}>Final Offense</label>
+                                <input
+                                  type="text"
+                                  value={finalOffenses[index] || ''}
+                                  onChange={(e) => {
+                                    const updated = [...finalOffenses];
+                                    updated[index] = e.target.value;
+                                    setFinalOffenses(updated);
+                                  }}
+                                  className={inputClass}
+                                  placeholder="Final offense"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className={labelClass}>Penalty</label>
+                      <input
+                        type="text"
+                        name="PENALTY"
+                        value={formData.PENALTY}
+                        onChange={handleChange}
+                        className={inputClass}
+                        placeholder="Penalty imposed"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Decision Date</label>
+                      <input
+                        type="date"
+                        name="DECISION_DATE"
+                        value={formData.DECISION_DATE}
+                        onChange={handleChange}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-full">
+                    <label className={labelClass}>
+                      <i className="fas fa-image text-blue-500"></i>
+                      Index Card Image
+                    </label>
+                    <div className="space-y-2">
+                      {!imagePreview ? (
+                        <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer group">
+                          <div className="flex items-center justify-center gap-2">
+                            <i className="fas fa-cloud-upload-alt text-lg text-slate-400 group-hover:text-blue-500 transition-colors"></i>
+                            <p className="text-xs text-slate-500 group-hover:text-blue-600 font-medium">
+                              Click to upload image
+                            </p>
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/png,image/jpeg,image/jpg"
+                            onChange={handleImageChange}
+                          />
+                        </label>
+                      ) : (
+                        <div className="relative">
+                          <img
+                            src={imagePreview}
+                            alt="Index Card Preview"
+                            onClick={() => setShowFullImage(true)}
+                            className="w-full h-20 object-cover rounded-lg border-2 border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute top-1 right-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded shadow-md transition-colors cursor-pointer"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Compact Submit Button */}
+              <div className="pt-4 border-t border-slate-200">
+                <motion.button
+                  type="submit"
+                  disabled={isLoading}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className={`w-full py-3 rounded-lg font-semibold text-base shadow-lg transition-all duration-200 border-none cursor-pointer flex items-center justify-center gap-2 ${
+                    isLoading
+                      ? 'bg-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50'
+                  }`}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-plus-circle"></i>
+                      <span>Submit New Case</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </form>
+          </div>
         </motion.div>
-      )}
+
+        {/* Fullscreen Image Modal */}
+        {showFullImage && imagePreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowFullImage(false)}
+            className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4"
+            style={{ margin: 0 }}
+          >
+            <button
+              onClick={() => setShowFullImage(false)}
+              className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer border-2 border-white/30 z-10"
+            >
+              <i className="fas fa-times text-2xl"></i>
+            </button>
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              src={imagePreview}
+              alt="Full Size Preview"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );
